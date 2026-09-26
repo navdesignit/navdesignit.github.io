@@ -29,6 +29,7 @@ def outline_text(tag, content, root):
     anchor = attr(tag, 'text-anchor', 'start')
     fill = attr(tag, 'fill', '#1b1b1b')
     tf = attr(tag, 'transform')
+    ls = float(attr(tag, 'letter-spacing', 0))
     text = html.unescape(content)
     glyphs, width = [], 0.0
     for ch in text:
@@ -38,10 +39,11 @@ def outline_text(tag, content, root):
             if g:
                 s = size / upm
                 glyphs.append((gs, g, width, s))
-                width += hmtx[g][0] * s
+                width += hmtx[g][0] * s + ls
                 break
         else:
             print('  missing glyph', repr(ch), file=sys.stderr)
+    if glyphs: width -= ls
     dx = {'start': 0, 'middle': -width / 2, 'end': -width}[anchor]
     parts = []
     for gs, g, off, s in glyphs:

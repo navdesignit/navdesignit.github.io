@@ -30,3 +30,17 @@ Everything for the Lyra brief in one place. The screens are for a 4.2-inch e-ink
 ## Rebuilding
 
 From `source/`: run `./fetch-fonts.sh`, then `node render.mjs out` (needs Playwright), then `python3 outline.py <in.svg> <out.svg>` (needs `fonttools`).
+
+## Signature direction (chosen for investors)
+
+`signature/` holds the chosen look: a 3-colour e-ink panel (black, paper, one red), giant numerals, small technical labels and registration marks. Red always means "do this now".
+
+| Path | Contents |
+| --- | --- |
+| `signature/Lyra-Signature-en.svg`, `-ko.svg` | All 16 screens on one board, English and Korean (plus `-outlined` and `.png`) |
+| `signature/en/`, `signature/ko/` | Each screen as `svg`, `svg-outlined` and `png` (800 × 600) |
+| `signature/mockups/` | The screens placed into the product renders (front, angled, lid open, room), English and Korean |
+
+Tiles sit by position as seen from the front with the lid open (back left, back right, front left, front right). The form in each is set by the carer; the example is bottle, blister, sachets, sticks and drops.
+
+Panel note: 3-colour e-ink panels need a full refresh of about 15 seconds and cannot do quick partial updates, so tiles cannot flip instantly. The same layout works on a black-and-white panel, with red printing as black.
