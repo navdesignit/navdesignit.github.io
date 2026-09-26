@@ -172,7 +172,7 @@ td .pill + .pill { margin-left: 4px; }
 }
 </style>
 </head>
-<body>
+<body><div style="background:#1b1b1b;color:#e8e7e1;font:600 14px/1.5 sans-serif;padding:10px 16px">Earlier draft. It describes an item-level model that Lyra no longer claims, and a row of compartments. The current design (2 &times; 2 compartments, opening + time + weight change only) is in <a style="color:#e8e7e1" href="design/Lyra-Brief.pdf">design/Lyra-Brief.pdf</a>.</div>
 <!-- Pictograms shared by every e-ink mockup (the firmware draws the same shapes). -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -224,36 +224,34 @@ td .pill + .pill { margin-left: 4px; }
       <h1>Lyra</h1>
       <p class="lede">Put your medicines on it. Lyra shows what to take, knows what you took, and tells your family only when something is wrong.</p>
       <div class="facts">
-        <span class="fact">6 weighing bays</span>
+        <span class="fact">4 weighing compartments</span>
         <span class="fact">4.2″ e-ink, 400×300</span>
         <span class="fact">one knob</span>
         <span class="fact">no app</span>
         <span class="fact">any packaging</span>
       </div>
-      <p class="correction">This replaces my earlier meditation draft: I misread “medication” as “meditation”. Everything below is for the medication station.</p>
+      <p class="correction">Try it: the <a href="lab.html">Lyra Screen Lab</a> lets you act on the four compartments and watch the screen and the firmware's reasoning change. Korean home edition: <a href="korea.html">Lyra for a Korean home</a>.</p>
     </div>
-    <svg class="device" viewBox="0 0 440 300" role="img" aria-label="Sketch of Lyra: a tray with six round cups, bay 2 glowing, and an e-ink screen with a knob at the back">
-      <rect class="body" x="20" y="120" width="400" height="150" rx="22"/>
+    <svg class="device" viewBox="0 0 440 300" role="img" aria-label="Sketch of Lyra: an e-ink screen and knob behind four compartments; compartments 1 and 4 glow">
+      <rect class="body" x="20" y="120" width="400" height="160" rx="22"/>
       <rect class="body" x="120" y="22" width="200" height="118" rx="12"/>
       <rect x="132" y="32" width="176" height="98" rx="3" fill="var(--paper)" stroke="var(--ink)" stroke-width="1"/>
       <text x="144" y="56" style="font:700 15px var(--body);fill:#1b1b1b">Evening</text>
-      <text x="144" y="80" style="font:400 13px var(--body);fill:#1b1b1b">Take 2 pills</text>
-      <circle cx="152" cy="104" r="8" fill="#1b1b1b"/><text x="148" y="108" style="font:700 10px var(--body);fill:var(--paper)">2</text>
-      <circle cx="192" cy="104" r="8" fill="#1b1b1b"/><text x="188" y="108" style="font:700 10px var(--body);fill:var(--paper)">5</text>
+      <text x="144" y="80" style="font:400 13px var(--body);fill:#1b1b1b">Take 2 items</text>
+      <circle cx="152" cy="104" r="8" fill="#1b1b1b"/><text x="148" y="108" style="font:700 10px var(--body);fill:var(--paper)">1</text>
+      <circle cx="192" cy="104" r="8" fill="#1b1b1b"/><text x="188" y="108" style="font:700 10px var(--body);fill:var(--paper)">4</text>
       <circle class="body" cx="344" cy="78" r="17"/>
-      <circle class="cup" cx="80" cy="175" r="30"/>
-      <circle class="glow" cx="210" cy="175" r="36"/>
-      <circle class="cup" cx="210" cy="175" r="30"/>
-      <circle class="cup" cx="340" cy="175" r="30"/>
-      <circle class="cup" cx="80" cy="235" r="26"/>
-      <circle class="glow" cx="210" cy="235" r="32"/>
-      <circle class="cup" cx="210" cy="235" r="26"/>
-      <circle class="cup" cx="340" cy="235" r="26"/>
-      <text class="num" x="40" y="162">1</text><text class="num" x="170" y="162">2</text><text class="num" x="300" y="162">3</text>
-      <text class="num" x="44" y="226">4</text><text class="num" x="172" y="226">5</text><text class="num" x="304" y="226">6</text>
+      <rect class="glow" x="32" y="146" width="96" height="124" rx="12"/>
+      <rect class="cup" x="36" y="150" width="88" height="116" rx="10"/>
+      <rect class="cup" x="134" y="150" width="88" height="116" rx="10"/>
+      <rect class="cup" x="232" y="150" width="88" height="116" rx="10"/>
+      <rect class="glow" x="326" y="146" width="92" height="124" rx="12"/>
+      <rect class="cup" x="330" y="150" width="84" height="116" rx="10"/>
+      <text class="num" x="44" y="170">1</text><text class="num" x="142" y="170">2</text><text class="num" x="240" y="170">3</text><text class="num" x="338" y="170">4</text>
+      <text class="lbl" x="80" y="228" text-anchor="middle">sachets</text><text class="lbl" x="178" y="228" text-anchor="middle">blisters</text>
+      <text class="lbl" x="276" y="222" text-anchor="middle">sticks, tubes,</text><text class="lbl" x="276" y="236" text-anchor="middle">drops</text><text class="lbl" x="372" y="228" text-anchor="middle">bottles</text>
       <path class="lead" d="M362 78 H410"/><text class="lbl" x="372" y="70">knob</text>
-      <path class="lead" d="M250 175 H300" stroke-dasharray="3 3"/>
-      <text class="lbl" x="118" y="292">glowing cups = take from these</text>
+      <text class="lbl" x="104" y="296">glowing compartment = take from here</text>
     </svg>
   </div>
 
@@ -265,7 +263,7 @@ td .pill + .pill { margin-left: 4px; }
     <p>Lyra is for anyone taking three or more medicines a day, and it is built first for older adults living alone. The WHO's 2003 report on long-term therapies estimates that about half of patients in developed countries don't take their medicines as prescribed. Lyra removes four everyday reasons for that.</p>
     <div class="problems">
       <div class="problem"><q>Did I already take it?</q><p class="muted">Doubt leads to double doses or skipped doses. Lyra's home screen always answers it, and it blocks a second dose out loud.</p></div>
-      <div class="problem"><q>What do I take now?</q><p class="muted">The cups for this time glow. The screen says how many pills. There is nothing to read from a list.</p></div>
+      <div class="problem"><q>What do I take now?</q><p class="muted">The compartments to take from glow, and lifting an item makes the screen name it and say how many. There is nothing to read from a list.</p></div>
       <div class="problem"><q>When does this run out?</q><p class="muted">Lyra counts every pill that leaves the box and tells the family seven days before it runs out.</p></div>
       <div class="problem"><q>Is Mum okay today?</q><p class="muted">Family get one message when something is wrong, not a daily chore of calling to ask.</p></div>
     </div>
@@ -281,8 +279,8 @@ td .pill + .pill { margin-left: 4px; }
       <table>
         <thead><tr><th>Part</th><th>Spec</th><th>Why it's there</th></tr></thead>
         <tbody>
-          <tr><td>6 weighing bays</td><td>500 g single-point load cell per bay, HX711 24-bit ADC, self-centring cup</td><td>Knows which medicine was opened and how many pills left the box. Works with any container.</td></tr>
-          <tr><td>Bay lights</td><td>8 warm LEDs under each translucent cup</td><td>Shows which box to take from, without reading. Glows steady while that box is in your hand.</td></tr>
+          <tr><td>4 weighing compartments</td><td>One load cell each, sized for its contents (300 g blisters to 1 kg bottles), HX711 24-bit ADC: 1 sachets (roll or loose), 2 blister cards, 3 sticks, tubes and eye drops, 4 bottles</td><td>Each compartment holds several items. The weight that leaves says which item it was, and the weight that comes back says how much was used. Works with the packs people already have.</td></tr>
+          <tr><td>Compartment lights</td><td>Warm LEDs under each translucent compartment floor</td><td>Shows where to take from without reading, and glows steady while an item from that compartment is in your hand.</td></tr>
           <tr><td>E-ink screen</td><td>4.2″, 400×300, SSD1683, fast partial refresh</td><td>Readable in sunlight, holds today's ticks with zero power, never glows at night.</td></tr>
           <tr><td>One knob</td><td>Rotary encoder with push</td><td>Turn to see the week, medicines and messages. Press means “Yes”. Hold it to hear the screen read aloud.</td></tr>
           <tr><td>Speaker</td><td>I2S amp, recorded voice prompts per language</td><td>Chime, spoken reminders and safety warnings in the person's language.</td></tr>
@@ -303,10 +301,10 @@ td .pill + .pill { margin-left: 4px; }
     </header>
     <ol class="timeline">
       <li><time>07:12</time><div><b>First movement seen.</b> The radar notes the first time someone passes today. If no one has been seen by the family's chosen time (say 10:00), they get a message.</div></li>
-      <li><time>08:00</time><div><b>Morning cups glow; the screen says “Morning · take 2 pills”.</b> No sound yet. Most people take their pills within 15 minutes and never hear Lyra.</div></li>
-      <li><time>08:12</time><div><b>They lift box 2, take one pill and put it back.</b> The weight drops by one pill (620 mg), so Lyra records “Metformin, 1 pill, 08:12” and ticks Morning. No button is needed.</div></li>
+      <li><time>08:00</time><div><b>The morning compartments glow; the screen says “Morning · take 2 items”.</b> No sound yet. Most people take their pills within 15 minutes and never hear Lyra.</div></li>
+      <li><time>08:12</time><div><b>They lift the Metformin bottle from compartment 4.</b> The screen changes to “In your hand: Metformin · take 1”. The bottle comes back 620 mg lighter, so Lyra records “Metformin, 1 pill, 08:12” and ticks Morning. No button is needed.</div></li>
       <li><time>19:15</time><div><b>They're home and the evening dose is 15 minutes late.</b> Lyra chimes. At +30 minutes it says “Time for your evening pills” in their language. If nobody is home, it waits quietly and reminds them when they walk back in.</div></li>
-      <li><time>21:00</time><div><b>Unsure, they open box 2 again.</b> Lyra says “Already taken at 19:12. Please put it back.” If the extra pill goes back in the box within 10 minutes, nothing else happens. If not, the family is told.</div></li>
+      <li><time>21:00</time><div><b>Unsure, they lift the Metformin bottle again.</b> Lyra says “Already taken at 19:12. Please put it back.” If the extra pill goes back in the box within 10 minutes, nothing else happens. If not, the family is told.</div></li>
       <li><time>22:05</time><div><b>Night pill: Levothyroxine, 100 mg.</b> One pill is too light to count reliably by weight, so the screen asks “Did you take it?” and one press answers it.</div></li>
       <li><time>01:00</time><div><b>The night dose's window closes.</b> Any dose not taken by its window's end (01:00 for the night dose) is marked missed. The family gets one message with context: “home and reminded 3 times” or “away all evening”.</div></li>
     </ol>
@@ -350,20 +348,20 @@ td .pill + .pill { margin-left: 4px; }
 
       <figure class="screen">
         <div class="bezel">
-          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Due screen: Evening, take 2 pills, bay 2 Metformin times 1, bay 5 Vitamin D times 1">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Due screen: Evening, take 2 pills, compartment 4 Metformin times 1, compartment 4 Vitamin D times 1">
             <text x="16" y="30" style="font-size:20px;font-weight:700">Thu 26 Sep</text>
             <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">19:08</text>
             <rect class="ink" x="16" y="42" width="368" height="2"/>
             <use href="#p-evening" x="18" y="58" width="64" height="64"/>
             <text x="96" y="100" style="font-size:44px;font-weight:700">Evening</text>
             <text x="98" y="140" style="font-size:28px;font-weight:700">Take 2 pills</text>
-            <circle class="ink" cx="34" cy="190" r="16"/><text x="34" y="197" text-anchor="middle" style="font-size:20px;font-weight:700;fill:var(--paper)">2</text>
+            <circle class="ink" cx="34" cy="190" r="16"/><text x="34" y="197" text-anchor="middle" style="font-size:20px;font-weight:700;fill:var(--paper)">4</text>
             <text x="62" y="198" style="font-size:22px">Metformin 500 ×1</text>
-            <circle class="ink" cx="34" cy="238" r="16"/><text x="34" y="245" text-anchor="middle" style="font-size:20px;font-weight:700;fill:var(--paper)">5</text>
+            <circle class="ink" cx="34" cy="238" r="16"/><text x="34" y="245" text-anchor="middle" style="font-size:20px;font-weight:700;fill:var(--paper)">4</text>
             <text x="62" y="246" style="font-size:22px">Vitamin D ×1</text>
           </svg>
         </div>
-        <figcaption><b>Due now.</b> The numbers match the numbers moulded next to each cup, and those cups glow.</figcaption>
+        <figcaption><b>Due now.</b> Each line carries its compartment number, moulded next to the compartment, which also glows.</figcaption>
       </figure>
 
       <figure class="screen">
@@ -444,12 +442,13 @@ td .pill + .pill { margin-left: 4px; }
     </header>
     <div class="rules">
       <div class="rule"><h3>Only settled weights count</h3><p>A reading is used only after the weight has held steady for one second: 10 samples at 10 Hz that agree within 6σ. The detector compares the settled weight before and after, so hands, knocks and a box being carried around never count as a dose. In the test, 20 knocks on the tray produced 0 dose events.</p></div>
+      <div class="rule"><h3>One scale, several items</h3><p>Each compartment holds several items on one load cell. A step down the size of a container means that item was lifted, and the screen names it at once. A step back up says how much was used. A small step is units taken straight out. Look-alikes wait for evidence, and light or unknown units never name an item silently; Lyra asks “which one?” instead. The code is <code>CompartmentTracker</code>.</p></div>
       <div class="rule"><h3>Counting pills is a probability</h3><p>For each possible count (0, 1, 2, …) Lyra computes the chance that the change came from that many pills. It combines load-cell noise, put-down error and 4% pill-to-pill spread. The count is recorded silently only at ≥90% confidence. Otherwise it asks once.</p></div>
       <div class="rule"><h3>Dose windows</h3><p>A dose may be taken from 60 minutes early. It is on time within ±60 minutes. It can still be taken until <code>min(180 min, half the gap to the next dose)</code>, the usual “skip it if it's almost time for the next one” rule. A pharmacist can override that window for each medicine.</p></div>
       <div class="rule"><h3>Extra pills</h3><p>If pills come out with no dose open, Lyra says why: already taken (with the time) or not yet (with the opening time). There is a 10-minute put-back window, and the family is told only if the pill isn't returned.</p></div>
-      <div class="rule"><h3>Reminder ladder</h3><p>At the due time the cups glow, silently. At +15 minutes it chimes, and at +30 minutes it speaks, up to three more times 10 minutes apart. It escalates only while someone is near Lyra. When they come back after being out, it reminds them at once.</p></div>
+      <div class="rule"><h3>Reminder ladder</h3><p>At the due time the compartments glow, silently. At +15 minutes it chimes, and at +30 minutes it speaks, up to three more times 10 minutes apart. It escalates only while someone is near Lyra. When they come back after being out, it reminds them at once.</p></div>
       <div class="rule"><h3>Personal timing</h3><p>After 7 days, if someone reliably takes a dose at the same time (spread ≤ 60 minutes), the reminder moves to their time, between 30 minutes earlier and 45 minutes later. Lyra stays quiet when they are on track.</p></div>
-      <div class="rule"><h3>Pill weight</h3><p>Setup puts 10 pills on the empty bay: one reading gives the pill weight to about ±3 mg. If setup skips that step, Lyra learns the weight from the first doses. Learning is accurate only for pills of 250 mg or more: for light pills the lightest readings fall under the detection threshold, which biases the estimate upward. So the setup page requires the 10-pill step for anything lighter.</p></div>
+      <div class="rule"><h3>Pill weight</h3><p>Setup weighs 10 pills on an emptied compartment: one reading gives the pill weight to about ±3 mg. If setup skips that step, Lyra learns the weight from the first doses. Learning is accurate only for pills of 250 mg or more: for light pills the lightest readings fall under the detection threshold, which biases the estimate upward. So the setup page requires the 10-pill step for anything lighter.</p></div>
       <div class="rule"><h3>Honest records</h3><p>Every dose stores how it was confirmed: <em>weighed</em>, <em>learning</em> (weight not yet known) or <em>user-confirmed</em> (knob press). Reports keep these apart, so nobody mistakes a button press for a weighed count.</p></div>
     </div>
   </section>
@@ -464,9 +463,9 @@ td .pill + .pill { margin-left: 4px; }
         <thead><tr><th>Data</th><th>When</th><th class="num">Size</th><th>Stays on Lyra</th><th>Goes to family / cloud</th></tr></thead>
         <tbody>
           <tr><td>Dose record: medicine, slot, planned, taken, time, confidence, how confirmed, reminders reached, miss reason</td><td>Every planned dose</td><td class="num">24 B</td><td>400 days</td><td>Only alerts and the weekly summary</td></tr>
-          <tr><td>Medicine: name, bay, schedule, pill weight, pills left</td><td>Updated after each dose or refill</td><td class="num">48 B</td><td>Current value</td><td>Low-stock alert with run-out date</td></tr>
+          <tr><td>Medicine: name, compartment, container weight, schedule, pill weight, pills left</td><td>Updated after each dose or refill</td><td class="num">48 B</td><td>Current value</td><td>Low-stock alert with run-out date</td></tr>
           <tr><td>Hourly sample: presence minutes, mean temperature and humidity</td><td>Hourly</td><td class="num">16 B</td><td>400 days</td><td>“No one seen by 10:00” alert; hot or humid hours in the weekly summary</td></tr>
-          <tr><td>Raw weights, bay events, knob presses</td><td>Live</td><td class="num">–</td><td>Not stored: used at once, then folded into the dose record</td><td>No</td></tr>
+          <tr><td>Raw weights, weight steps, knob presses</td><td>Live</td><td class="num">–</td><td>Not stored: used at once, then folded into the dose record</td><td>No</td></tr>
         </tbody>
       </table>
     </div>
@@ -575,8 +574,8 @@ td .pill + .pill { margin-left: 4px; }
     </header>
     <div class="arch">
       <div class="layer"><div class="name">People</div><div class="boxes"><div class="box"><b>Person</b>Lifts boxes, presses the knob</div><div class="box"><b>Family</b>WhatsApp, SMS, e-mail</div><div class="box"><b>Pharmacist</b>Setup web page, refills</div></div></div>
-      <div class="layer"><div class="name">Device layer · src/</div><div class="boxes"><div class="box"><b>sensorTask · 10 Hz</b>6 scales, radar, bay lights</div><div class="box"><b>loop · 1 min</b>Engine tick, screens, speaker</div><div class="box"><b>storage</b>LittleFS state and hourly log, CRC</div><div class="box"><b>cloud</b>MQTT/TLS, offline outbox</div></div></div>
-      <div class="layer"><div class="name">Core · lib/lyra_core</div><div class="boxes"><div class="box core"><b>BayDetector</b>Settled weights → events with a count and posterior</div><div class="box core"><b>DoseEngine</b>Plan, reminder ladder, matching, safety rules, stock</div><div class="box core"><b>Insights</b>Adherence, rhythm, drift, weekday habit, storage</div></div></div>
+      <div class="layer"><div class="name">Device layer · src/</div><div class="boxes"><div class="box"><b>sensorTask · 10 Hz</b>4 scales, radar, compartment lights</div><div class="box"><b>loop · 1 min</b>Engine tick, screens, speaker</div><div class="box"><b>storage</b>LittleFS state and hourly log, CRC</div><div class="box"><b>cloud</b>MQTT/TLS, offline outbox</div></div></div>
+      <div class="layer"><div class="name">Core · lib/lyra_core</div><div class="boxes"><div class="box core"><b>BayDetector</b>Settled weights → steps with a count and posterior</div><div class="box core"><b>CompartmentTracker</b>Which item a step belongs to; what came back</div><div class="box core"><b>DoseEngine</b>Plan, reminder ladder, matching, safety rules, stock</div><div class="box core"><b>Insights</b>Adherence, rhythm, drift, weekday habit, storage</div></div></div>
       <div class="layer"><div class="name">Proof · test/host</div><div class="boxes"><div class="box"><b>sim.cpp</b>Detector tests, Monte-Carlo pill table, five-week household run; <code>make -C test/host run</code></div></div></div>
     </div>
     <div class="table-wrap">
@@ -602,7 +601,7 @@ td .pill + .pill { margin-left: 4px; }
       <table>
         <thead><tr><th>Test</th><th>Pass line</th></tr></thead>
         <tbody>
-          <tr><td>Put-down repeatability, 5 container types × 200 put-downs per bay</td><td>≤ 20 mg (1σ)</td></tr>
+          <tr><td>Put-down repeatability, 5 container types × 200 put-downs per compartment</td><td>≤ 20 mg (1σ)</td></tr>
           <tr><td>Load-cell creep and temperature drift over 24 h, 15–40 °C</td><td>Tracked by the drift follower; no false events</td></tr>
           <tr><td>Radar presence, kitchen and living room, 0.5–4 m, sitting still</td><td>≥ 95% of occupied minutes</td></tr>
           <tr><td>Home pilot: 10 people aged 65+, 4 weeks, weighed doses against a diary</td><td>Setup under 15 min; “Did you take it?” on ≤ 10% of doses for pills ≥ 150 mg</td></tr>

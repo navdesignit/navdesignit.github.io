@@ -119,6 +119,7 @@ void AccessEngine::beginDay(int32_t day) {
     if (days_.size() > 400) days_.erase(days_.begin());
   }
   for (int k = 0; k < kSlots; ++k) last_level_[k] = 0, voices_[k] = 0;
+  leave_sent_ = 0;
 }
 
 AccessEngine::Output AccessEngine::onAccess(const Access& a, int32_t now) {
@@ -129,15 +130,29 @@ AccessEngine::Output AccessEngine::onAccess(const Access& a, int32_t now) {
   out.took = a.took;
 
   // Weight came in soon after an access: the bottle or tube went back.
-  if (a.net_g < -threshold_g && now - last_access_[c] <= cfg_.return_merge_min) {
+  // (While a container is known to be out, its weight coming back is always a return.)
+  if (a.net_g < -threshold_g && (now - last_access_[c] <= cfg_.return_merge_min || out_at_[c] >= 0)) {
     // Did it come back lighter? That, not the lift, says whether something was taken.
     const bool took = last_net_[c] + a.net_g > threshold_g;
     if (last_slot_[c] >= 0)
       if (Day* d = dayRec(last_day_[c])) d->c[last_slot_[c]][c].took = took;
     out.took = took;
     out.notice = NoticeKind::Returned;
+    out_at_[c] = -1;
     log_.push_back({now, static_cast<uint8_t>(c), false, a.net_g, -1, out.notice});
     return out;
+  }
+  // Weight came in with nothing out, or the caregiver is refilling: not an opening.
+  if (a.net_g < -threshold_g || now <= refill_until_) {
+    out.notice = NoticeKind::Refill;
+    out_at_[c] = -1;
+    log_.push_back({now, static_cast<uint8_t>(c), false, a.net_g, -1, out.notice});
+    return out;
+  }
+  // More left than any unit she takes away: a container is in her hand.
+  if (a.net_g > cfg_.consumable_max_g[c]) {
+    out_at_[c] = now;
+    out_warned_[c] = false;
   }
   last_access_[c] = now;
   last_net_[c] = a.net_g;
@@ -242,6 +257,37 @@ AccessEngine::Output AccessEngine::tick(int32_t now, bool present) {
         out.slot = static_cast<int8_t>(k);
         out.notify_family = true;
       }
+    }
+  }
+
+  // A container out too long.
+  for (int c = 0; c < kCompartments && out.notice == NoticeKind::None; ++c) {
+    if (out_at_[c] >= 0 && !out_warned_[c] && now - out_at_[c] >= cfg_.item_out_min) {
+      out_warned_[c] = true;
+      out.notice = NoticeKind::ItemOut;
+      out.comp = static_cast<int8_t>(c);
+      out.sound = Sound::Voice;
+    }
+  }
+
+  // Leaving just before a dose time (or while it is due): "take it with you".
+  if (was_present_ && !present && out.notice == NoticeKind::None) {
+    const Day* d = dayRec(today_);
+    for (int k = 0; k < kSlots && d; ++k) {
+      const int32_t du = due(today_, k);
+      if ((leave_sent_ >> k) & 1 || now < du - cfg_.leaving_window_min || now > du + cfg_.default_late_min) continue;
+      uint8_t left = 0;
+      for (int c = 0; c < kCompartments; ++c)
+        if ((cfg_.need[k] & (1u << c)) && !(cfg_.quiet_comps & (1u << c)) &&
+            (d->c[k][c].mark == Mark::Upcoming || d->c[k][c].mark == Mark::Due))
+          left |= 1u << c;
+      if (!left) continue;
+      leave_sent_ |= 1u << k;
+      out.notice = NoticeKind::Leaving;
+      out.slot = static_cast<int8_t>(k);
+      out.remaining = left;
+      out.sound = Sound::Voice;
+      break;
     }
   }
 

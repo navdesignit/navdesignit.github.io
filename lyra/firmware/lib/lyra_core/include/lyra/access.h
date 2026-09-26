@@ -86,6 +86,11 @@ class AccessEngine {
     uint16_t voice_after_min = 30;
     uint16_t default_late_min = 180;
     uint16_t return_merge_min = 10;  // weight coming back this soon after an access is the item returning
+    // Largest unit normally taken away for good (a 12 g ginseng stick). More
+    // than this leaving and not coming back is a container left out.
+    float consumable_max_g[kCompartments] = {3.0f, 1.0f, 13.0f, 2.0f};
+    uint16_t item_out_min = 10;
+    uint16_t leaving_window_min = 60;  // "take it with you" if she leaves this soon before a dose time
   };
 
   struct Cell {
@@ -104,6 +109,9 @@ class AccessEngine {
     NotScheduled,   // nothing due from this compartment now: "next: evening 18:30"
     Returned,       // weight came back (a bottle put back after use)
     Missed,         // a dose time closed with this compartment unopened
+    Refill,         // weight came in with no item out: a refill, not an opening
+    ItemOut,        // a container left the compartment and has not come back
+    Leaving,        // she is leaving just before a dose time: "take it with you"
   };
 
   struct Output {
@@ -137,6 +145,8 @@ class AccessEngine {
 
   void beginDay(int32_t day);
   Output onAccess(const Access& a, int32_t now_min);
+  // Caregiver refilling (long press on the knob): openings until then are refills.
+  void setRefillMode(int32_t until_min) { refill_until_ = until_min; }
   Output tick(int32_t now_min, bool present);
 
   // Day grid for the screen: dose time × compartment.
@@ -166,6 +176,10 @@ class AccessEngine {
   float last_net_[kCompartments] = {};
   int32_t last_day_[kCompartments] = {};   // dose the last access counted for, to settle "took" on return
   int8_t last_slot_[kCompartments] = {-1, -1, -1, -1};
+  int32_t out_at_[kCompartments] = {-1, -1, -1, -1};  // container out since (−1: none)
+  bool out_warned_[kCompartments] = {};
+  uint8_t leave_sent_ = 0;                            // dose times already given a "take it with you" today
+  int32_t refill_until_ = -1;
 };
 
 }  // namespace lyra

@@ -136,7 +136,7 @@ figcaption { font-size: 15px; color: var(--muted); }
 }
 </style>
 </head>
-<body>
+<body><div style="background:#1b1b1b;color:#e8e7e1;font:600 14px/1.5 sans-serif;padding:10px 16px">Earlier draft. It describes an item-level model that Lyra no longer claims, and a row of compartments. The current design (2 &times; 2 compartments, opening + time + weight change only) is in <a style="color:#e8e7e1" href="design/Lyra-Brief.pdf">design/Lyra-Brief.pdf</a>.</div>
 <!-- Pictograms and state marks shared by the e-ink mockups. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -175,51 +175,54 @@ figcaption { font-size: 15px; color: var(--muted); }
       </div>
     </div>
     <figure>
-      <svg class="tray" viewBox="0 0 460 300" role="img" aria-label="Top view of the Korean tray layout: a double-width tray for the pouch strip across cells 1 and 2, then aspirin blister, red ginseng stick box, omega-3 bottle, and calcium bottle">
-        <rect class="body" x="10" y="10" width="440" height="280" rx="24"/>
-        <rect class="wide" x="30" y="30" width="270" height="110" rx="14"/>
-        <g class="item"><rect x="48" y="62" width="44" height="46" rx="3"/><rect x="96" y="62" width="44" height="46" rx="3"/><rect x="144" y="62" width="44" height="46" rx="3"/><rect x="192" y="62" width="44" height="46" rx="3"/><path d="M240 62 h40 v46 h-40" /></g>
-        <text class="num" x="40" y="50">1</text>
-        <text class="lbl" x="165" y="128" text-anchor="middle">약봉투 strip · cells 1+2 as one bay</text>
-        <circle class="cup" cx="370" cy="85" r="52"/>
-        <text class="num" x="326" y="44">3</text>
-        <text class="lbl" x="370" y="82" text-anchor="middle">아스피린</text>
-        <text class="sub" x="370" y="99" text-anchor="middle">blister 130 mg</text>
-        <circle class="cup" cx="95" cy="215" r="58"/>
-        <text class="num" x="44" y="170">4</text>
-        <text class="lbl" x="95" y="212" text-anchor="middle">홍삼스틱</text>
-        <text class="sub" x="95" y="229" text-anchor="middle">stick 12 g</text>
-        <circle class="cup" cx="235" cy="215" r="52"/>
-        <text class="num" x="190" y="170">5</text>
-        <text class="lbl" x="235" y="212" text-anchor="middle">오메가3</text>
-        <text class="sub" x="235" y="229" text-anchor="middle">bottle 1.3 g</text>
-        <circle class="cup" cx="370" cy="215" r="52"/>
-        <text class="num" x="326" y="170">6</text>
-        <text class="lbl" x="370" y="212" text-anchor="middle">칼슘·비타민D</text>
-        <text class="sub" x="370" y="229" text-anchor="middle">bottle 1.5 g</text>
+      <svg class="tray" viewBox="0 0 470 300" role="img" aria-label="Top view of Lyra's four compartments: 1 sachet roll, 2 blister cards, 3 red ginseng stick box, eye drops and ointment, 4 three supplement bottles; the e-ink screen sits behind them">
+        <rect class="body" x="10" y="10" width="450" height="280" rx="24"/>
+        <rect x="150" y="22" width="170" height="52" rx="6" fill="#e8e7e1" stroke="var(--ink)" stroke-width="1.5"/>
+        <text class="lbl" x="235" y="53" text-anchor="middle" style="fill:#1b1b1b">e-ink 4.2″</text>
+        <circle cx="352" cy="48" r="15" class="cup"/>
+        <g>
+          <rect class="wide" x="26" y="88" width="98" height="186" rx="12"/>
+          <rect class="cup" x="136" y="88" width="98" height="186" rx="12"/>
+          <rect class="cup" x="246" y="88" width="98" height="186" rx="12"/>
+          <rect class="cup" x="356" y="88" width="90" height="186" rx="12"/>
+        </g>
+        <g class="item">
+          <circle cx="75" cy="150" r="30"/><circle cx="75" cy="150" r="12"/><path d="M75 180 v42 h-26 v24 h52 v-24 h-26"/>
+          <rect x="150" y="112" width="70" height="40" rx="3"/><rect x="150" y="162" width="70" height="40" rx="3"/>
+          <rect x="258" y="104" width="74" height="60" rx="3"/><rect x="262" y="176" width="22" height="46" rx="4"/><rect x="294" y="172" width="34" height="62" rx="6"/>
+          <rect x="366" y="104" width="30" height="46" rx="6"/><rect x="404" y="104" width="30" height="46" rx="6"/><rect x="384" y="162" width="32" height="50" rx="6"/>
+        </g>
+        <text class="num" x="36" y="108">1</text><text class="num" x="146" y="108">2</text><text class="num" x="256" y="108">3</text><text class="num" x="366" y="100">4</text>
+        <text class="lbl" x="75" y="262" text-anchor="middle">약봉투</text>
+        <text class="lbl" x="185" y="232" text-anchor="middle">블리스터</text><text class="sub" x="185" y="250" text-anchor="middle">아스피린·위장약</text>
+        <text class="lbl" x="295" y="254" text-anchor="middle">스틱·연고·안약</text>
+        <text class="lbl" x="401" y="236" text-anchor="middle">병</text><text class="sub" x="401" y="254" text-anchor="middle">영양제 ×3</text>
       </svg>
-      <figcaption>Korean layout: a clip-in tray joins load cells 1 and 2 into one wide bay for the pouch strip. The other four cups hold whatever she already has.</figcaption>
+      <figcaption>Lyra's four compartments, one load cell each. 1 sachets (a roll or loose), 2 blister cards, 3 sticks, ointment and eye drops, 4 bottles. Each compartment holds several items.</figcaption>
     </figure>
   </div>
 
   <section id="items">
     <header>
       <span class="eyebrow">01 · What's on her Lyra</span>
-      <h2>Four kinds of package, one rule: weigh the unit she takes out</h2>
+      <h2>Four compartments, several items each, one rule</h2>
     </header>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Item</th><th>When</th><th>Unit</th><th class="num">Unit weight</th><th>How Lyra knows</th><th>Kind</th></tr></thead>
+        <thead><tr><th>#</th><th>Item</th><th>When</th><th>Unit</th><th class="num">Weight</th><th>How Lyra knows</th></tr></thead>
         <tbody>
-          <tr><td class="kr">처방약 약봉투 (pharmacy pouch strip, 14 days)</td><td class="kr">아침·점심·저녁 식후 30분</td><td>1 pouch</td><td class="num">1.85 / 1.10 / 1.50 g</td><td>Each time's pouch has its own weight (different pills inside). Lyra matches the weight that left against it.</td><td>Prescription</td></tr>
-          <tr><td class="kr">아스피린 100 (blister box)</td><td class="kr">아침</td><td>1 tablet</td><td class="num">0.13 g</td><td>Too light to count by weight. Opening the box triggers “드셨나요?”, answered with one press.</td><td>Prescription</td></tr>
-          <tr><td class="kr">홍삼스틱 (red ginseng sticks, 30)</td><td class="kr">아침</td><td>1 stick</td><td class="num">12 g</td><td>A stick is 400× the scale's noise, so it is counted every time.</td><td>Supplement</td></tr>
-          <tr><td class="kr">오메가3 (bottle)</td><td class="kr">저녁</td><td>1 capsule</td><td class="num">1.3 g</td><td>Counted by weight; heavy enough to be exact.</td><td>Supplement</td></tr>
-          <tr><td class="kr">칼슘·비타민D (bottle)</td><td class="kr">취침 전</td><td>1 tablet</td><td class="num">1.5 g</td><td>Counted by weight; heavy enough to be exact.</td><td>Supplement</td></tr>
+          <tr><td>1</td><td class="kr">약봉투 roll (pharmacy sachets)</td><td class="kr">아침·점심·저녁</td><td>1 sachet</td><td class="num">1.85 / 1.10 / 1.50 g</td><td>Each time's sachet weighs differently: the weight that left says which time it was</td></tr>
+          <tr><td>2</td><td class="kr">아스피린 100 (blister)</td><td class="kr">아침</td><td>1 tablet</td><td class="num">0.13 g</td><td>Too light to count or identify: one knob answer</td></tr>
+          <tr><td>2</td><td class="kr">위장약 (blister)</td><td class="kr">아침·저녁</td><td>1 tablet</td><td class="num">0.35 g</td><td>Counted by weight; lifting its card identifies it</td></tr>
+          <tr><td>3</td><td class="kr">홍삼스틱 (box of 30)</td><td class="kr">아침</td><td>1 stick</td><td class="num">12 g</td><td>A 12 g step; if it looks like the eye-drop bottle, Lyra waits 3 minutes to see if anything comes back</td></tr>
+          <tr><td>3</td><td class="kr">인공눈물 (eye drops)</td><td class="kr">아침·취침</td><td>use</td><td class="num">9 g bottle</td><td>Lifted and returned during the window = used</td></tr>
+          <tr><td>3</td><td class="kr">연고 (ointment)</td><td class="kr">취침</td><td>use</td><td class="num">25 g tube</td><td>Lifted and returned during the window = used</td></tr>
+          <tr><td>4</td><td class="kr">비타민C · 오메가3 · 칼슘·비타민D</td><td class="kr">아침 · 저녁 · 취침</td><td>1 each</td><td class="num">1.1 / 1.3 / 1.5 g</td><td>Bottle weights differ, so lifting one names it; what comes back counts the pills</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="muted">Supplements get a gentler treatment: the cup glows and Lyra chimes once. There is no voice escalation, and the family is never alerted if one is skipped. Prescription items follow the full reminder ladder.</p>
+    <p><b>The rule:</b> the weight that <em>leaves</em> a compartment says <em>which</em> item it was, and the weight that <em>comes back</em> says <em>how much</em> was used. When the weight can't be sure, Lyra asks with the knob.</p>
+    <p class="muted">Supplements get a gentler treatment: the compartment glows and Lyra chimes once. There is no voice escalation, and the family is never alerted if one is skipped. Prescription items follow the full reminder ladder.</p>
   </section>
 
   <section id="flow">
@@ -268,12 +271,12 @@ figcaption { font-size: 15px; color: var(--muted); }
 <text class="phase-h" x="8" y="1326">Refill</text>
 <text class="phase-s" x="8" y="1344">day 7, Sundays</text>
 <path class="e" d="M888.0 104.0 L336.0 104.0" marker-end="url(#fa)"/>
-<text class="e-l" x="612.0" y="98.0" text-anchor="middle">hands over the strip</text>
+<text class="e-l" x="612.0" y="98.0" text-anchor="middle">hands over the roll</text>
 <path class="e" d="M698.0 168.0 L517.0 168.0 L517.0 191.0" marker-end="url(#fa)"/>
 <text class="e-l" x="607.5" y="162.0" text-anchor="middle">schedule</text>
 <path class="e" d="M698.0 230.0 L681.0 230.0 L681.0 218.0 L664.0 218.0" marker-end="url(#fa)"/>
 <path class="e" d="M238.0 131.0 L238.0 218.0 L370.0 218.0" marker-end="url(#fa)"/>
-<text class="e-l" x="304.0" y="212.0" text-anchor="middle">weighed</text>
+<text class="e-l" x="304.0" y="212.0" text-anchor="middle">weighed in</text>
 <path class="e" d="M370.0 308.0 L238.0 308.0 L238.0 347.0" marker-end="url(#fa)"/>
 <path class="e" d="M336.0 374.0 L517.0 374.0 L517.0 414.0" marker-end="url(#fa)"/>
 <path class="e" d="M472.0 462.0 L472.0 485.5 L437.0 485.5 L437.0 509.0" marker-end="url(#fa)"/>
@@ -307,20 +310,20 @@ figcaption { font-size: 15px; color: var(--muted); }
 <text class="n-t n-b" x="964.0" y="100.0" text-anchor="middle">Dispenses 14-day strip</text>
 <text class="n-t" x="964.0" y="116.0" text-anchor="middle">약봉투 · 식후 30분</text>
 <rect class="n" x="140.0" y="77.0" width="196" height="54" rx="7"/>
-<text class="n-t n-b" x="238.0" y="100.0" text-anchor="middle">Puts the strip on the</text>
-<text class="n-t" x="238.0" y="116.0" text-anchor="middle">wide tray, packs in cups</text>
+<text class="n-t n-b" x="238.0" y="100.0" text-anchor="middle">Puts each pack in its</text>
+<text class="n-t" x="238.0" y="116.0" text-anchor="middle">compartment, one by one</text>
 <rect class="n" x="698.0" y="141.0" width="156" height="54" rx="7"/>
 <text class="n-t n-b" x="776.0" y="164.0" text-anchor="middle">Scans Lyra&#x27;s QR code</text>
 <text class="n-t" x="776.0" y="180.0" text-anchor="middle">phone browser, no app</text>
 <rect class="n" x="370.0" y="191.0" width="294" height="54" rx="7"/>
-<text class="n-t n-b" x="517.0" y="214.0" text-anchor="middle">Setup page: item → bay</text>
-<text class="n-t" x="517.0" y="230.0" text-anchor="middle">times from the pouch label</text>
+<text class="n-t n-b" x="517.0" y="214.0" text-anchor="middle">Weighs each item as it</text>
+<text class="n-t" x="517.0" y="230.0" text-anchor="middle">goes in; times from label</text>
 <rect class="n" x="698.0" y="203.0" width="156" height="54" rx="7"/>
-<text class="n-t n-b" x="776.0" y="226.0" text-anchor="middle">10 aspirin on bay 3</text>
-<text class="n-t" x="776.0" y="242.0" text-anchor="middle">= pill weight</text>
+<text class="n-t n-b" x="776.0" y="226.0" text-anchor="middle">Setup page: item →</text>
+<text class="n-t" x="776.0" y="242.0" text-anchor="middle">compartment, times</text>
 <rect class="n" x="370.0" y="281.0" width="294" height="54" rx="7"/>
-<text class="n-t n-b" x="517.0" y="304.0" text-anchor="middle">Cups 1·3·4 glow</text>
-<text class="n-t" x="517.0" y="320.0" text-anchor="middle">screen: 아침 약 · 3 items</text>
+<text class="n-t n-b" x="517.0" y="304.0" text-anchor="middle">Compartments 1–4 glow</text>
+<text class="n-t" x="517.0" y="320.0" text-anchor="middle">screen: 아침 약 · 6 items</text>
 <rect class="n" x="140.0" y="347.0" width="196" height="54" rx="7"/>
 <text class="n-t n-b" x="238.0" y="370.0" text-anchor="middle">Tears one pouch</text>
 <text class="n-t" x="238.0" y="386.0" text-anchor="middle">off the strip</text>
@@ -337,16 +340,16 @@ figcaption { font-size: 15px; color: var(--muted); }
 <text class="n-t n-b" x="238.0" y="442.0" text-anchor="middle">Hears “저녁 약봉투예요”</text>
 <text class="n-t" x="238.0" y="458.0" text-anchor="middle">puts it back in 10 min</text>
 <rect class="n" x="140.0" y="583.0" width="196" height="54" rx="7"/>
-<text class="n-t n-b" x="238.0" y="606.0" text-anchor="middle">Lifts aspirin blister,</text>
-<text class="n-t" x="238.0" y="622.0" text-anchor="middle">takes one ginseng stick</text>
+<text class="n-t n-b" x="238.0" y="606.0" text-anchor="middle">Pops an aspirin, lifts</text>
+<text class="n-t" x="238.0" y="622.0" text-anchor="middle">the vitamin C bottle</text>
 <rect class="n" x="370.0" y="583.0" width="294" height="54" rx="7"/>
-<text class="n-t n-b" x="517.0" y="606.0" text-anchor="middle">Aspirin 130 mg: “드셨나요?”</text>
-<text class="n-t" x="517.0" y="622.0" text-anchor="middle">one press ✓ · stick 12 g ✓</text>
+<text class="n-t n-b" x="517.0" y="606.0" text-anchor="middle">Aspirin: “어느 것?” one press ✓</text>
+<text class="n-t" x="517.0" y="622.0" text-anchor="middle">bottle named by weight ✓</text>
 <rect class="n n-muted" x="140.0" y="679.0" width="196" height="54" rx="7"/>
 <text class="n-t n-b" x="238.0" y="702.0" text-anchor="middle">At church, lunch out</text>
 <text class="n-t" x="238.0" y="718.0" text-anchor="middle">radar: nobody home</text>
 <rect class="n" x="370.0" y="679.0" width="294" height="54" rx="7"/>
-<text class="n-t n-b" x="517.0" y="702.0" text-anchor="middle">Cups glow, no sound</text>
+<text class="n-t n-b" x="517.0" y="702.0" text-anchor="middle">Compartment glows, no sound</text>
 <text class="n-t" x="517.0" y="718.0" text-anchor="middle">waits for her to return</text>
 <polygon class="n n-dec" points="517.0,752.0 607.0,784 517.0,816.0 427.0,784"/>
 <text class="n-t n-b" x="517.0" y="780.0" text-anchor="middle">Home before</text>
@@ -361,8 +364,8 @@ figcaption { font-size: 15px; color: var(--muted); }
 <text class="n-t n-b" x="776.0" y="862.0" text-anchor="middle">“점심 약을 못 드셨어요.</text>
 <text class="n-t" x="776.0" y="878.0" text-anchor="middle">외출 중이셨어요.”</text>
 <rect class="n" x="370.0" y="933.0" width="294" height="54" rx="7"/>
-<text class="n-t n-b" x="517.0" y="956.0" text-anchor="middle">Cups 1·5 glow</text>
-<text class="n-t" x="517.0" y="972.0" text-anchor="middle">screen: 저녁 약 · 2 items</text>
+<text class="n-t n-b" x="517.0" y="956.0" text-anchor="middle">Compartments 1·2·4 glow</text>
+<text class="n-t" x="517.0" y="972.0" text-anchor="middle">screen: 저녁 약 · 3 items</text>
 <rect class="n n-muted" x="140.0" y="1019.0" width="196" height="54" rx="7"/>
 <text class="n-t n-b" x="238.0" y="1042.0" text-anchor="middle">Watching TV,</text>
 <text class="n-t" x="238.0" y="1058.0" text-anchor="middle">not yet taken</text>
@@ -370,8 +373,8 @@ figcaption { font-size: 15px; color: var(--muted); }
 <text class="n-t n-b" x="517.0" y="1042.0" text-anchor="middle">+15 min chime · +30 min voice</text>
 <text class="n-t" x="517.0" y="1058.0" text-anchor="middle">“어머니, 저녁 약 드실 시간이에요”</text>
 <rect class="n" x="140.0" y="1097.0" width="196" height="54" rx="7"/>
-<text class="n-t n-b" x="238.0" y="1120.0" text-anchor="middle">Takes the 저녁 pouch</text>
-<text class="n-t" x="238.0" y="1136.0" text-anchor="middle">and one omega-3</text>
+<text class="n-t n-b" x="238.0" y="1120.0" text-anchor="middle">Takes the 저녁 sachet,</text>
+<text class="n-t" x="238.0" y="1136.0" text-anchor="middle">lifts the omega-3</text>
 <rect class="n" x="370.0" y="1097.0" width="294" height="54" rx="7"/>
 <text class="n-t n-b" x="517.0" y="1120.0" text-anchor="middle">✓ 1.50 g = 저녁 pouch</text>
 <text class="n-t" x="517.0" y="1136.0" text-anchor="middle">✓ omega-3, 1 capsule</text>
@@ -393,8 +396,8 @@ figcaption { font-size: 15px; color: var(--muted); }
 <text class="n-t n-b" x="964.0" y="1336.0" text-anchor="middle">Prepares the next</text>
 <text class="n-t" x="964.0" y="1352.0" text-anchor="middle">14-day strip</text>
 <rect class="n" x="140.0" y="1401.0" width="196" height="54" rx="7"/>
-<text class="n-t n-b" x="238.0" y="1424.0" text-anchor="middle">Puts the new strip</text>
-<text class="n-t" x="238.0" y="1440.0" text-anchor="middle">on the tray</text>
+<text class="n-t n-b" x="238.0" y="1424.0" text-anchor="middle">Puts the new roll</text>
+<text class="n-t" x="238.0" y="1440.0" text-anchor="middle">in compartment 1</text>
 <rect class="n" x="370.0" y="1457.0" width="294" height="54" rx="7"/>
 <text class="n-t n-b" x="517.0" y="1480.0" text-anchor="middle">“새 약봉투인가요?” one press</text>
 <text class="n-t" x="517.0" y="1496.0" text-anchor="middle">count 42 from the label</text>
@@ -459,13 +462,13 @@ figcaption { font-size: 15px; color: var(--muted); }
             <text x="90" y="128" style="font-size:20px">식후 30분 · 3가지</text>
             <circle fill="#1b1b1b" cx="32" cy="170" r="15"/><text x="32" y="177" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">1</text>
             <text x="58" y="177" style="font-size:21px">약봉투 (아침) 1포</text>
-            <circle fill="#1b1b1b" cx="32" cy="214" r="15"/><text x="32" y="221" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">3</text>
+            <circle fill="#1b1b1b" cx="32" cy="214" r="15"/><text x="32" y="221" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">2</text>
             <text x="58" y="221" style="font-size:21px">아스피린 1알</text>
-            <circle fill="#1b1b1b" cx="32" cy="258" r="15"/><text x="32" y="265" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">4</text>
+            <circle fill="#1b1b1b" cx="32" cy="258" r="15"/><text x="32" y="265" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">3</text>
             <text x="58" y="265" style="font-size:21px">홍삼스틱 1포 · 영양제</text>
           </svg>
         </div>
-        <figcaption><b>아침 약 · Morning.</b> Cups 1, 3 and 4 glow. Supplements carry a small 영양제 tag.</figcaption>
+        <figcaption><b>아침 약 · Morning.</b> Compartments 1, 2 and 3 glow; each line carries its compartment number. Supplements carry a small 영양제 tag.</figcaption>
       </figure>
 
       <figure class="screen">
@@ -541,10 +544,10 @@ figcaption { font-size: 15px; color: var(--muted); }
       <div class="rule"><h3>The pouch is the unit</h3><p>A pouch holds every pill for one time, so Lyra counts pouches, not pills. Each time's pouch weight is learned from its first three takes, using the median.</p></div>
       <div class="rule"><h3>Wrong time's pouch</h3><p>One pouch varies by about 50 mg, so a pouch matches its time within ±0.15 g. Lyra says “저녁 약봉투예요” only when the weight matches another time's pouch and is at least 0.3 g from the one due now. Weight is evidence; the printed label decides, so a press still accepts it if the label is right.</p></div>
       <div class="rule"><h3>Never silently wrong</h3><p>If the weight matches no pouch clearly, Lyra asks her to read the time printed on the pouch. Until she presses “네”, it counts as a pouch to put back. Two pouches stuck together are caught by their summed weight.</p></div>
-      <div class="rule"><h3>A tray, not a cup</h3><p>The strip lies flat on a clip-in tray across two load cells, which Lyra reads as one bay. It is never lifted, so the tray counts as empty only below 0.3 g. The last 1.1 g pouch still counts.</p></div>
+      <div class="rule"><h3>One scale, several items</h3><p>Each compartment is one load cell. Lifting a bottle removes its whole weight, which names it; putting it back 1.3 g lighter means one capsule. A 12 g stick and a 9–12 g eye-drop bottle can look alike: Lyra shows “checking…” and decides when the bottle comes back, or when nothing does for 3 minutes.</p></div>
       <div class="rule"><h3>Pouch strips aren't topped up</h3><p>A large weight increase on the tray means a new strip. Lyra asks “새 약봉투인가요?” and takes the count from the label, usually 42 for 14 days × 3.</p></div>
       <div class="rule"><h3>Times follow the pharmacy label</h3><p>식후 30분 becomes a due time about 30 minutes after her usual mealtime, set once on the setup page. After a week, personal timing moves each reminder toward when she actually takes it.</p></div>
-      <div class="rule"><h3>Supplements stay quiet</h3><p>Red ginseng, omega-3 and calcium: the cup glows and Lyra chimes once. Skips are logged but never sent to her daughter. The weekly summary lists them separately.</p></div>
+      <div class="rule"><h3>Supplements stay quiet</h3><p>Red ginseng, omega-3 and calcium: the compartment glows and Lyra chimes once. Skips are logged but never sent to her daughter. The weekly summary lists them separately.</p></div>
     </div>
   </section>
 
@@ -553,20 +556,20 @@ figcaption { font-size: 15px; color: var(--muted); }
       <span class="eyebrow">05 · Results for this household</span>
       <h2>What the simulation shows, with the firmware's own code</h2>
     </header>
-    <p>This is a 21-day simulation of 김순자's tray in <code>test/host/sim.cpp</code>, section [4]. It injects a wrong pouch on day 9, two stuck pouches on day 12, Sunday outings, skipped weekend ginseng and a new strip on day 13. Every check passes on all 101 random seeds tried.</p>
+    <p>This is a 21-day simulation of 김순자's four compartments in <code>test/host/sim.cpp</code>, section [4], run for 201 random households. It includes lifts, direct picks, look-alike weights, a wrong sachet, stuck sachets and Sunday outings. In every run, every dose she took was recorded against the right item, and nothing was credited to the wrong one. To try it yourself, open the <a href="lab.html">Lyra Screen Lab</a>.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Result</th><th>Evidence</th></tr></thead>
+        <thead><tr><th>Item</th><th>How it was confirmed</th></tr></thead>
         <tbody>
-          <tr><td>Each time's pouch weight learned</td><td><span class="pill ok">within 0.1 g</span> 1.88 / 1.08 / 1.51 g after 21 days, against true 1.85 / 1.10 / 1.50 g (seed 42)</td></tr>
-          <tr><td>Evening pouch taken at lunch</td><td><span class="pill ok">named by weight in 100 of 101 runs</span> In the other run Lyra asked her to check the label; still not recorded.</td></tr>
-          <tr><td>Two pouches stuck together</td><td><span class="pill ok">caught in 101 of 101 runs</span> Both put back, so nothing was sent to family.</td></tr>
-          <tr><td>Wrong or extra pouch recorded silently</td><td><span class="pill ok">never, in 101 runs</span></td></tr>
-          <tr><td>Aspirin, 130 mg blister</td><td><span class="pill ask">21 of 21 confirmed by one press</span> By design: the weight only proves the box was opened.</td></tr>
-          <tr><td>Red ginseng sticks</td><td><span class="pill ok">15 of 15 counted</span> 6 weekend skips logged, 0 family alerts.</td></tr>
-          <tr><td>Sunday lunch while out</td><td><span class="pill ok">3 of 3 classed “away”</span> KakaoTalk says she was out, not that she forgot.</td></tr>
-          <tr><td>Strip running low</td><td><span class="pill ok">alert on day 7</span> 7 days left; the new strip was recognised on day 13.</td></tr>
-          <tr><td>Prescription pouches</td><td><span class="pill ok">60 of 63 taken</span> The only misses are the three Sunday lunches while she was out. The last pouches on an almost empty strip still count.</td></tr>
+          <tr><td>약봉투 (12,060 doses)</td><td><span class="pill ok">84.1% weighed</span> <span class="pill ask">0.9% one knob answer</span> The rest were in the first three days, while each time's sachet weight was learned.</td></tr>
+          <tr><td>Wrong sachet at lunch</td><td><span class="pill ok">named by weight in 196 of 201 runs</span> In the others Lyra asked her to check the printed time. It was never recorded silently.</td></tr>
+          <tr><td>Two sachets stuck together</td><td><span class="pill ok">caught in 201 of 201 runs</span></td></tr>
+          <tr><td>위장약, 350 mg (8,442)</td><td><span class="pill ok">89.7% weighed</span> <span class="pill ask">0.9% knob</span></td></tr>
+          <tr><td>아스피린, 130 mg (4,221)</td><td><span class="pill ask">66% one knob answer</span> By design: too light to say which card it came from.</td></tr>
+          <tr><td>홍삼스틱, bottles (15,678)</td><td><span class="pill ok">100% weighed</span></td></tr>
+          <tr><td>Eye drops, ointment (12,663)</td><td><span class="pill ok">100% “opened and returned”</span></td></tr>
+          <tr><td>Items named when lifted</td><td><span class="pill ok">31,075 of 32,245</span> The other 1,170 were look-alikes shown as “checking…” until resolved; 0 wrong.</td></tr>
+          <tr><td>Questions per day</td><td>0.4 “which one?” and 0.3 “did you take it?”</td></tr>
         </tbody>
       </table>
     </div>
@@ -590,7 +593,7 @@ figcaption { font-size: 15px; color: var(--muted); }
         </tbody>
       </table>
     </div>
-    <p class="muted">Code: the pouch, stick and supplement logic is in <code>lyra/firmware/lib/lyra_core</code>; the double-width tray is a bay map in <code>src/main.cpp</code>. The full spec is on <a href="index.html">the main Lyra page</a>.</p>
+    <p class="muted">Code: the pouch, stick and supplement logic is in <code>lyra/firmware/lib/lyra_core</code>; the compartment tracker is <code>lib/lyra_core/src/compartment.cpp</code>. The full spec is on <a href="index.html">the main Lyra page</a>.</p>
   </section>
 
 </div>

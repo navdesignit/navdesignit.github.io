@@ -164,6 +164,53 @@ int main() {
                 e.kind == AccessEngine::NoticeKind::Returned ? "item put back" : e.took ? "opened, took something" : "opened",
                 e.kind == AccessEngine::NoticeKind::NotScheduled ? " (nothing due)" : e.kind == AccessEngine::NoticeKind::OpenedAgain ? " (again)" : "");
 
+  // [C] Edge cases: refill, a bottle left out, leaving home before lunch.
+  std::printf("\n[C] Refill, item left out, leaving home\n");
+  {
+    AccessEngine e(cfg);
+    e.threshold_g = 0.12f;
+    const int32_t d = 200 * kMinPerDay;
+    e.beginDay(200);
+    for (int32_t m = d + 7 * 60; m < d + 11 * 60; ++m) e.tick(m, true);
+    // morning done at 08:40 for all four
+    // (feed accesses directly: the detector is tested above)
+    int32_t now = d + 8 * 60 + 40;
+    for (int c = 0; c < kCompartments; ++c) e.onAccess(Access{static_cast<uint8_t>(c), 0, 0, 1.2f, true}, now);
+    // 15:00 the daughter adds a new bottle to compartment 4: weight comes in, nothing out
+    AccessEngine::Output o = e.onAccess(Access{3, 0, 0, -110.0f, false}, d + 15 * 60);
+    CHECK(o.notice == AccessEngine::NoticeKind::Refill, "weight coming in with nothing out = refill, not an opening");
+    // caregiver refill mode: openings are refills
+    e.setRefillMode(d + 15 * 60 + 10);
+    o = e.onAccess(Access{1, 0, 0, 0.5f, true}, d + 15 * 60 + 5);
+    CHECK(o.notice == AccessEngine::NoticeKind::Refill, "refill mode (long press): openings are not counted");
+    // 18:40 omega-3 bottle lifted out and never put back
+    o = e.onAccess(Access{3, 0, 0, 106.0f, true}, d + 18 * 60 + 40);
+    CHECK(o.notice == AccessEngine::NoticeKind::Opened, "evening compartment 4 opened (bottle lifted)");
+    bool item_out = false;
+    for (int32_t m = d + 18 * 60 + 41; m < d + 18 * 60 + 55 && !item_out; ++m) item_out = e.tick(m, true).notice == AccessEngine::NoticeKind::ItemOut;
+    CHECK(item_out, "bottle out 10 min: 'put it back' reminder");
+    o = e.onAccess(Access{3, 0, 0, -104.7f, false}, d + 18 * 60 + 56);
+    CHECK(o.notice == AccessEngine::NoticeKind::Returned && o.took, "back 16 min later: returned (1.3 g lighter = took), not a refill");
+    // a ginseng stick is taken away for good: no item-out warning
+    AccessEngine e2(cfg);
+    e2.threshold_g = 0.12f;
+    e2.beginDay(200);
+    for (int32_t m = d + 7 * 60; m < d + 8 * 60 + 35; ++m) e2.tick(m, true);
+    e2.onAccess(Access{2, 0, 0, 12.1f, true}, d + 8 * 60 + 35);
+    bool false_out = false;
+    for (int32_t m = d + 8 * 60 + 36; m < d + 9 * 60 + 30; ++m) false_out |= e2.tick(m, true).notice == AccessEngine::NoticeKind::ItemOut;
+    CHECK(!false_out, "a 12 g stick taken away is not 'item left out'");
+    // leaving home at 11:50, lunch sachet (compartment 1) not yet taken
+    for (int32_t m = d + 9 * 60 + 30; m < d + 11 * 60 + 50; ++m) e2.tick(m, true);
+    o = e2.tick(d + 11 * 60 + 50, false);
+    CHECK(o.notice == AccessEngine::NoticeKind::Leaving && o.slot == 1 && (o.remaining & 1),
+          "leaving at 11:50: 'take your lunch sachet with you' (compartment 1)");
+    int again = 0;
+    e2.tick(d + 11 * 60 + 55, true);
+    again += e2.tick(d + 11 * 60 + 56, false).notice == AccessEngine::NoticeKind::Leaving;
+    CHECK(again == 0, "said once per dose time, not every time she steps out of range");
+  }
+
   // [B] Knocks and table bumps never count.
   std::printf("\n[B] 500 knocks on a quiet compartment\n");
   AccessDetector k(0);

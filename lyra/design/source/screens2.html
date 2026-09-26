@@ -1,0 +1,462 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: 'Noto Sans KR'; font-weight: 400; src: url('fonts/NotoSansKR-400.ttf') format('truetype'); }
+@font-face { font-family: 'Noto Sans KR'; font-weight: 500; src: url('fonts/NotoSansKR-500.ttf') format('truetype'); }
+@font-face { font-family: 'Noto Sans KR'; font-weight: 700; src: url('fonts/NotoSansKR-700.ttf') format('truetype'); }
+@font-face { font-family: 'Noto Sans KR'; font-weight: 900; src: url('fonts/NotoSansKR-900.ttf') format('truetype'); }
+@font-face { font-family: 'Schibsted Grotesk'; font-weight: 500; src: url('fonts/SchibstedGrotesk-500.ttf') format('truetype'); }
+@font-face { font-family: 'Schibsted Grotesk'; font-weight: 700; src: url('fonts/SchibstedGrotesk-700.ttf') format('truetype'); }
+@font-face { font-family: 'Schibsted Grotesk'; font-weight: 800; src: url('fonts/SchibstedGrotesk-800.ttf') format('truetype'); }
+</style>
+<body style="margin:0;background:#888">
+<script>
+// Lyra e-ink screens, 400 x 300 px, drawn as vector SVG.
+// Black, white and one grey (#8f8d86), which a 1-bit panel shows as a 50% dither.
+const INK = '#1b1b1b', PAPER = '#e8e7e1';
+const KR = "'Noto Sans KR', sans-serif", NUM = "'Schibsted Grotesk', 'Noto Sans KR', sans-serif";
+const DITHER = '#8f8d86'; // grey: a 50% dither on a 1-bit panel, one grey level on a 4-grey panel
+const f = (v) => +v.toFixed(2);
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+class SvgCtx {
+  constructor() { this.out = []; this.st = []; this.s = { fillStyle: INK, strokeStyle: INK, lineWidth: 1, lineCap: 'round', lineJoin: 'round', dash: [], font: '400 12px sans-serif', textAlign: 'left', m: [1, 0, 0, 1, 0, 0] }; this.d = ''; this.cx = null; }
+  set fillStyle(v) { this.s.fillStyle = v; } get fillStyle() { return this.s.fillStyle; }
+  set strokeStyle(v) { this.s.strokeStyle = v; } get strokeStyle() { return this.s.strokeStyle; }
+  set lineWidth(v) { this.s.lineWidth = v; } set lineCap(v) { this.s.lineCap = v; } set lineJoin(v) { this.s.lineJoin = v; }
+  set font(v) { this.s.font = v; } set textAlign(v) { this.s.textAlign = v; } set textBaseline(v) {}
+  setLineDash(a) { this.s.dash = a.slice(); }
+  save() { this.st.push({ ...this.s, dash: this.s.dash.slice(), m: this.s.m.slice() }); }
+  restore() { this.s = this.st.pop(); }
+  setTransform() { this.s.m = [1, 0, 0, 1, 0, 0]; }
+  translate(x, y) { const m = this.s.m; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
+  rotate(a) { const [p, q, r, t] = this.s.m, c = Math.cos(a), s = Math.sin(a); this.s.m[0] = p * c + r * s; this.s.m[1] = q * c + t * s; this.s.m[2] = -p * s + r * c; this.s.m[3] = -q * s + t * c; }
+  tf() { const m = this.s.m; return (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0) ? '' : ` transform="matrix(${m.map(f).join(' ')})"`; }
+  beginPath() { this.d = ''; this.cx = null; }
+  moveTo(x, y) { this.d += `M${f(x)} ${f(y)}`; this.cx = [x, y]; }
+  lineTo(x, y) { this.d += this.cx ? `L${f(x)} ${f(y)}` : `M${f(x)} ${f(y)}`; this.cx = [x, y]; }
+  closePath() { this.d += 'Z'; }
+  quadraticCurveTo(a, b, x, y) { this.d += `Q${f(a)} ${f(b)} ${f(x)} ${f(y)}`; this.cx = [x, y]; }
+  arc(x, y, r, a0, a1, ccw = false) {
+    const sx = x + r * Math.cos(a0), sy = y + r * Math.sin(a0);
+    this.lineTo(sx, sy);
+    let d = ccw ? a0 - a1 : a1 - a0;
+    if (d >= Math.PI * 2 - 1e-6) { const mx = x - r * Math.cos(a0), my = y - r * Math.sin(a0); this.d += `A${f(r)} ${f(r)} 0 1 1 ${f(mx)} ${f(my)}A${f(r)} ${f(r)} 0 1 1 ${f(sx)} ${f(sy)}`; this.cx = [sx, sy]; return; }
+    d = ((d % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const ex = x + r * Math.cos(a1), ey = y + r * Math.sin(a1);
+    this.d += `A${f(r)} ${f(r)} 0 ${d > Math.PI ? 1 : 0} ${ccw ? 0 : 1} ${f(ex)} ${f(ey)}`; this.cx = [ex, ey];
+  }
+  arcTo(x1, y1, x2, y2, r) {
+    const [x0, y0] = this.cx; let ax = x0 - x1, ay = y0 - y1, bx = x2 - x1, by = y2 - y1;
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by); ax /= la; ay /= la; bx /= lb; by /= lb;
+    const th = Math.acos(Math.max(-1, Math.min(1, ax * bx + ay * by))), t = r / Math.tan(th / 2);
+    const cross = ax * by - ay * bx;
+    this.lineTo(x1 + ax * t, y1 + ay * t);
+    const ex = x1 + bx * t, ey = y1 + by * t;
+    this.d += `A${f(r)} ${f(r)} 0 0 ${cross < 0 ? 1 : 0} ${f(ex)} ${f(ey)}`; this.cx = [ex, ey];
+  }
+  ellipse(x, y, rx, ry, rot) {
+    const c = Math.cos(rot), s = Math.sin(rot), deg = f(rot * 180 / Math.PI);
+    const sx = x + rx * c, sy = y + rx * s, mx = x - rx * c, my = y - rx * s;
+    this.d += `M${f(sx)} ${f(sy)}A${f(rx)} ${f(ry)} ${deg} 1 1 ${f(mx)} ${f(my)}A${f(rx)} ${f(ry)} ${deg} 1 1 ${f(sx)} ${f(sy)}Z`; this.cx = [sx, sy];
+  }
+  fill() { this.out.push(`<path d="${this.d}" fill="${this.s.fillStyle}"${this.tf()}/>`); }
+  stroke() {
+    const s = this.s, dash = s.dash.length ? ` stroke-dasharray="${s.dash.join(' ')}"` : '';
+    this.out.push(`<path d="${this.d}" fill="none" stroke="${s.strokeStyle}" stroke-width="${f(s.lineWidth)}" stroke-linecap="${s.lineCap}" stroke-linejoin="${s.lineJoin}"${dash}${this.tf()}/>`);
+  }
+  fillRect(x, y, w, h) { this.out.push(`<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" fill="${this.s.fillStyle}"${this.tf()}/>`); }
+  fillText(t, x, y) {
+    const m = /^(\d+) ([\d.]+)px (.*)$/.exec(this.s.font), anchor = { left: 'start', center: 'middle', right: 'end' }[this.s.textAlign];
+    this.out.push(`<text x="${f(x)}" y="${f(y)}" font-family="${m[3]}" font-weight="${m[1]}" font-size="${m[2]}" text-anchor="${anchor}" fill="${this.s.fillStyle}"${this.tf()}>${esc(t)}</text>`);
+  }
+}
+let ctx = new SvgCtx();
+const DEFS = '';
+function svgDoc(id, w = 400, h = 300) { return `<svg xmlns="http://www.w3.org/2000/svg" id="${id}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${DEFS}${ctx.out.join('')}</svg>`; }
+function reset(w = 400, h = 300) { ctx = new SvgCtx(); ctx.fillStyle = PAPER; ctx.fillRect(0, 0, w, h); ctx.setLineDash([]); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; }
+function txt(s, x, y, size, w = 700, align = 'left', col = INK, font = KR) { ctx.font = `${w} ${size}px ${font}`; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillText(s, x, y); }
+function num(s, x, y, size, w = 800, align = 'left', col = INK) { txt(s, x, y, size, w, align, col, NUM); }
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function ln(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+function circ(x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); fill ? ctx.fill() : ctx.stroke(); }
+function ell(x, y, rx, ry, rot, fill) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); fill ? ctx.fill() : ctx.stroke(); }
+function pen(col, w) { ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; }
+function check(x, y, s, col = INK) { pen(col, s * 0.16); ctx.beginPath(); ctx.moveTo(x - s * .42, y + s * .02); ctx.lineTo(x - s * .12, y + s * .32); ctx.lineTo(x + s * .45, y - s * .3); ctx.stroke(); }
+function arrow(x1, y1, x2, y2, col = INK, w = 3) { pen(col, w); ln(x1, y1, x2, y2); const a = Math.atan2(y2 - y1, x2 - x1), h = 9; ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - h * Math.cos(a - .5), y2 - h * Math.sin(a - .5)); ctx.moveTo(x2, y2); ctx.lineTo(x2 - h * Math.cos(a + .5), y2 - h * Math.sin(a + .5)); ctx.stroke(); }
+
+// ---------------------------------------------------------------- form icons
+// Each is drawn inside a box of height s centred on (x, y), in one colour.
+function zigEdge(x1, x2, y, t, down) { const n = Math.max(3, Math.round((x2 - x1) / (t * 1.6))), st = (x2 - x1) / n; for (let i = 0; i < n; i++) { ctx.lineTo(x1 + st * (i + .5), y + (down ? t : -t)); ctx.lineTo(x1 + st * (i + 1), y); } }
+function sachet(x, y, s, col) { // a strip of two printed vinyl sachets, pills inside
+  const w = s * 1.25, h = s * 0.82, x0 = x - w / 2, y0 = y - h / 2, t = s * 0.05;
+  pen(col, Math.max(1.6, s * 0.035));
+  ctx.beginPath(); ctx.moveTo(x0, y0); zigEdge(x0, x0 + w, y0, t, false); ctx.lineTo(x0 + w, y0 + h); zigEdge(x0 + w, x0, y0 + h, t, true); ctx.closePath(); ctx.stroke();
+  ctx.setLineDash([s * .05, s * .05]); ln(x, y0 + t, x, y0 + h - t); ctx.setLineDash([]);
+  for (const px of [x0, x]) {
+    const pw = w / 2;
+    ctx.lineWidth = Math.max(1.4, s * 0.03);
+    ln(px + pw * .18, y0 + h * .22, px + pw * .82, y0 + h * .22);
+    ln(px + pw * .18, y0 + h * .36, px + pw * .58, y0 + h * .36);
+    circ(px + pw * .32, y0 + h * .68, s * .07, true);
+    ell(px + pw * .66, y0 + h * .7, s * .11, s * .055, -.4, true);
+  }
+}
+function blister(x, y, s, col) { // a blister card, one pocket pressed out
+  const w = s * 1.2, h = s * .82;
+  pen(col, Math.max(1.6, s * 0.035)); rr(x - w / 2, y - h / 2, w, h, s * .09); ctx.stroke();
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) {
+    const bx = x - w / 2 + w * (.16 + c * .226), by = y - h / 2 + h * (.3 + r * .4);
+    if (r === 1 && c === 3) { ctx.setLineDash([s * .035, s * .04]); ell(bx, by, s * .085, s * .12, 0, false); ctx.setLineDash([]); }
+    else { ell(bx, by, s * .085, s * .12, 0, false); ell(bx, by + s * .015, s * .04, s * .065, 0, true); }
+  }
+}
+function stickDrops(x, y, s, col) { // a red-ginseng stick, and eye drops
+  pen(col, Math.max(1.6, s * 0.035));
+  const sw = s * .22, sh = s * .96, sx = x - s * .34, sy = y - sh / 2;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + sw * .62, sy); ctx.lineTo(sx + sw * .8, sy + s * .06); ctx.lineTo(sx + sw, sy + s * .02); ctx.lineTo(sx + sw, sy + sh); ctx.lineTo(sx, sy + sh); ctx.closePath(); ctx.stroke();
+  ln(sx, sy + s * .14, sx + sw, sy + s * .14); ln(sx, sy + sh - s * .1, sx + sw, sy + sh - s * .1);
+  ln(sx + sw * .3, sy + s * .3, sx + sw * .3, sy + sh * .72);
+  const bx = x + s * .2, bw = s * .36, bh = s * .44, by = y + s * .48 - bh;
+  rr(bx - bw / 2, by, bw, bh, s * .06); ctx.stroke();
+  rr(bx - bw * .22, by - s * .1, bw * .44, s * .1, s * .02); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx - bw * .14, by - s * .1); ctx.lineTo(bx, by - s * .26); ctx.lineTo(bx + bw * .14, by - s * .1); ctx.stroke();
+  ctx.beginPath(); const dx = bx + s * .3, dy = y - s * .28; ctx.moveTo(dx, dy - s * .1); ctx.quadraticCurveTo(dx + s * .08, dy + s * .02, dx, dy + s * .05); ctx.quadraticCurveTo(dx - s * .08, dy + s * .02, dx, dy - s * .1); ctx.fill();
+}
+function bottle(x, y, s, col) { // a supplement bottle and a capsule
+  pen(col, Math.max(1.6, s * 0.035));
+  const bw = s * .56, bh = s * .6, bx = x - s * .16, by = y + s * .48 - bh;
+  rr(bx - bw / 2, by, bw, bh, s * .08); ctx.stroke();
+  const cw = s * .44, ch = s * .2; rr(bx - cw / 2, by - ch, cw, ch, s * .03); ctx.stroke();
+  for (let i = 1; i < 5; i++) ln(bx - cw / 2 + cw * i / 5, by - ch + s * .04, bx - cw / 2 + cw * i / 5, by - s * .04);
+  ln(bx - bw / 2, by + bh * .32, bx + bw / 2, by + bh * .32); ln(bx - bw / 2, by + bh * .7, bx + bw / 2, by + bh * .7);
+  ctx.save(); ctx.translate(x + s * .36, y + s * .3); ctx.rotate(-.6);
+  const kw = s * .34, kh = s * .15; rr(-kw / 2, -kh / 2, kw, kh, kh / 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -kh / 2); ctx.lineTo(kw / 2 - kh / 2, -kh / 2); ctx.arc(kw / 2 - kh / 2, 0, kh / 2, -Math.PI / 2, Math.PI / 2); ctx.lineTo(0, kh / 2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+const ICON = [sachet, blister, stickDrops, bottle];
+const NAME = ['약봉투', '블리스터', '스틱·안약', '영양제'];
+
+function slotIcon(k, x, y, r, col = INK) { // 0 morning 1 noon 2 evening 3 night
+  pen(col, Math.max(2, r / 7));
+  if (k === 0) { ctx.beginPath(); ctx.arc(x, y + r * .3, r * .5, Math.PI, 0); ctx.fill(); ln(x - r, y + r * .3, x + r, y + r * .3); [-.85, -.5, -.15].forEach((a) => { const t = a * Math.PI; ln(x + Math.cos(t) * r * .72, y + r * .3 + Math.sin(t) * r * .72, x + Math.cos(t) * r, y + r * .3 + Math.sin(t) * r); }); }
+  else if (k === 1) { circ(x, y, r * .45, true); for (let a = 0; a < 8; a++) { const t = a * Math.PI / 4; ln(x + Math.cos(t) * r * .66, y + Math.sin(t) * r * .66, x + Math.cos(t) * r, y + Math.sin(t) * r); } }
+  else if (k === 2) { ctx.beginPath(); ctx.arc(x, y + r * .4, r * .55, Math.PI, 0); ctx.fill(); ln(x - r, y + r * .4, x + r, y + r * .4); ln(x - r * .6, y + r * .72, x + r * .6, y + r * .72); }
+  else { circ(x, y, r * .62, true); ctx.fillStyle = PAPER; circ(x + r * .35, y - r * .22, r * .56, true); }
+}
+const SLOT = ['아침', '점심', '저녁', '자기 전'];
+function weather(sky, x, y, r) {
+  pen(INK, 3);
+  const cloud = (cx, cy, s) => { ctx.beginPath(); ctx.arc(cx - s * .45, cy + s * .1, s * .35, Math.PI * .5, Math.PI * 1.5); ctx.arc(cx - s * .05, cy - s * .15, s * .45, Math.PI, Math.PI * 1.95); ctx.arc(cx + s * .45, cy + s * .08, s * .37, Math.PI * 1.4, Math.PI * .5); ctx.closePath(); ctx.fill(); };
+  if (sky === 'sun') return slotIcon(1, x, y, r);
+  cloud(x, y - r * .1, r);
+}
+function door(x, y, w, h) { pen(INK, 3); rr(x, y, w, h, 4); ctx.stroke(); circ(x + w * .74, y + h * .54, 3.5, true); ln(x - 8, y + h, x + w + 8, y + h); }
+
+// ---------------------------------------------------------------- tiles
+// The 2x2 map: tile c sits where compartment c sits (1 2 / 3 4).
+function tile(c, st, x, y, w, h, o = {}) {
+  const tall = h > w * 1.1;
+  const s = tall ? w * .5 : Math.min(h * .62, w * .42), ix = tall ? x + w / 2 : x + w * .32, iy = tall ? y + h * .56 : y + h * .52;
+  ctx.setLineDash([]);
+  if (st === 'due') {
+    ctx.fillStyle = INK; rr(x, y, w, h, 10); ctx.fill();
+    ICON[c](ix, iy, s, PAPER);
+    num(String(c + 1), x + w - 16, y + h * .5 + h * .17, Math.min(52, h * .46), 800, 'right', PAPER);
+  } else if (st === 'done') {
+    pen(INK, 2.5); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+    num(String(c + 1), x + w - 12, y + 22, 16, 700, 'right');
+    check(x + w * .76, y + h * .44, Math.min(34, h * .34));
+    if (o.at) num(o.at, x + w * .76, y + h - 14, 16, 700, 'center');
+  } else if (st === 'missed') {
+    pen(INK, 2.5); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+    num(String(c + 1), x + w - 12, y + 22, 16, 700, 'right');
+    pen(INK, 4); ln(x + 10, y + h - 10, x + w - 10, y + 10);
+  } else if (st === 'ghost') { // "put it back here"
+    pen(INK, 3); ctx.setLineDash([8, 6]); rr(x + 1.5, y + 1.5, w - 3, h - 3, 10); ctx.stroke(); ctx.setLineDash([]);
+    ICON[c](ix, iy, s * .9, DITHER);
+    arrow(x + w * .78, y + h * .18, x + w * .78, y + h * .74, INK, 4);
+  } else if (st === 'focus') {
+    pen(INK, 5); rr(x + 2.5, y + 2.5, w - 5, h - 5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+  } else if (st === 'plain') {
+    pen(INK, 2.5); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+    num(String(c + 1), x + w - 12, y + 22, 16, 700, 'right');
+  } else { // not needed now
+    pen(INK, 1.5); ctx.setLineDash([2, 5]); rr(x + 1, y + 1, w - 2, h - 2, 10); ctx.stroke(); ctx.setLineDash([]);
+    ICON[c](ix, iy, s * .8, DITHER);
+  }
+}
+function grid(states, x, y, w, h, gap = 8, o = {}) {
+  const tw = (w - gap) / 2, th = (h - gap) / 2;
+  for (let c = 0; c < 4; c++) tile(c, states[c], x + (c % 2) * (tw + gap), y + Math.floor(c / 2) * (th + gap), tw, th, { at: (o.at || [])[c] });
+}
+function mini(states, x, y, tw = 22, th = 16, gap = 4) { // small 2x2 map
+  for (let c = 0; c < 4; c++) {
+    const tx = x + (c % 2) * (tw + gap), ty = y + Math.floor(c / 2) * (th + gap);
+    if (states[c] === 'due') { ctx.fillStyle = INK; rr(tx, ty, tw, th, 3); ctx.fill(); }
+    else if (states[c] === 'done') { pen(INK, 2); rr(tx + 1, ty + 1, tw - 2, th - 2, 3); ctx.stroke(); check(tx + tw / 2, ty + th / 2, th * .7); }
+    else { pen(INK, 1.3); ctx.setLineDash([2, 3]); rr(tx + .5, ty + .5, tw - 1, th - 1, 3); ctx.stroke(); ctx.setLineDash([]); }
+  }
+}
+function header(k, label, time) {
+  if (k >= 0) slotIcon(k, 30, 24, 16);
+  txt(label, k >= 0 ? 56 : 16, 34, 24, 900);
+  if (time) num(time, 386, 32, 19, 700, 'right');
+}
+
+// ---------------------------------------------------------------- screens
+function ambient({ time, date, sky, temp, dust, next, nextMap, mask, done, tomorrow }) {
+  num(time, 22, 100, 78, 800);
+  txt(date, 24, 128, 15, 500);
+  weather(sky, 340, 58, 26); num(temp, 340, 122, 32, 800, 'center');
+  pen(INK, 1.5); ln(16, 146, 384, 146);
+  txt('미세먼지', 24, 184, 14, 500); txt(['', '좋음', '보통', '나쁨', '매우나쁨'][dust], 96, 186, 22, 900);
+  for (let i = 0; i < 4; i++) { pen(INK, 2); circ(304 + i * 25, 178, 8.5, i < dust); }
+  if (mask) txt('외출 시 마스크', 24, 208, 13, 700);
+  pen(INK, 1.5); ln(16, 222, 384, 222);
+  if (done) { check(34, 258, 26); txt('오늘 약 끝', 58, 267, 20, 900); if (tomorrow) { txt('내일', 318, 266, 14, 500, 'right'); num(tomorrow, 384, 267, 20, 700, 'right'); } return; }
+  slotIcon(next[0], 36, 254, 15); num(next[1], 60, 266, 24, 800);
+  mini(nextMap, 334, 240);
+}
+function nearNext({ time, k, at, left, map }) {
+  num(time, 386, 32, 19, 700, 'right');
+  txt('다음 약', 22, 58, 18, 700);
+  slotIcon(k, 38, 102, 18); txt(SLOT[k], 64, 112, 26, 900);
+  num(at, 20, 188, 60, 800);
+  txt(left, 24, 224, 18, 500);
+  grid(map, 210, 44, 176, 240, 8);
+}
+const SCREENS = {
+  '01-ambient': () => ambient({ time: '14:20', date: '9월 26일 토요일', sky: 'sun', temp: '24°', dust: 1, next: [2, '18:30'], nextMap: ['due', 'due', 'none', 'due'] }),
+  '02-ambient-dust': () => ambient({ time: '07:10', date: '9월 26일 토요일', sky: 'cloud', temp: '3°', dust: 4, mask: true, next: [0, '08:30'], nextMap: ['due', 'due', 'due', 'due'] }),
+  '03-near-next': () => nearNext({ time: '14:22', k: 2, at: '18:30', left: '4시간 후', map: ['plain', 'plain', 'none', 'plain'] }),
+  '04-due': () => { header(0, '아침', '08:32'); grid(['due', 'due', 'due', 'due'], 12, 50, 376, 242); },
+  '05-partial': () => { header(0, '아침', '08:42'); grid(['done', 'done', 'due', 'due'], 12, 50, 376, 242, 8, { at: ['08:41', '08:42'] }); },
+  '06-complete': () => { header(0, '아침', '08:45'); grid(['done', 'done', 'done', 'done'], 12, 50, 376, 242, 8, { at: ['08:41', '08:42', '08:43', '08:45'] }); },
+  '07-not-now': () => {
+    header(-1, '지금은 아니에요', '12:32');
+    grid(['none', 'none', 'none', 'focus'], 12, 50, 376, 242);
+    slotIcon(2, 346, 206, 13); num('18:30', 346, 262, 22, 800, 'center');
+  },
+  '08-leaving': () => {
+    num('11:50', 386, 32, 19, 700, 'right');
+    door(24, 70, 58, 116); arrow(100, 128, 136, 128);
+    grid(['due', 'none', 'none', 'none'], 152, 44, 234, 158);
+    txt('챙겨 가세요', 22, 250, 30, 900);
+    slotIcon(1, 34, 280, 11); txt('점심', 52, 287, 17, 700); num('12:30', 96, 288, 19, 800);
+  },
+  '09-put-back': () => { header(-1, '제자리에', '18:33'); grid(['none', 'none', 'none', 'ghost'], 12, 50, 376, 242); },
+  '10-missed': () => {
+    header(2, '저녁', '21:31');
+    grid(['done', 'missed', 'none', 'done'], 12, 50, 376, 210, 8, { at: ['18:35', '', '', '18:36'] });
+    txt('지은님께 알렸어요', 16, 288, 17, 700);
+  },
+  '11-all-done': () => ambient({ time: '23:20', date: '9월 26일 토요일', sky: 'cloud', temp: '17°', dust: 2, done: true, tomorrow: '08:30' }),
+  '12-ai-supply': () => {
+    mini(['due', 'none', 'none', 'none'], 20, 18, 20, 14, 4); txt('약봉투', 74, 38, 17, 700);
+    sachet(100, 142, 96, INK);
+    num('3', 210, 168, 88, 800); txt('일분', 276, 166, 30, 900); txt('남았어요', 278, 196, 18, 500);
+    const days = ['토', '일', '월', '화'];
+    for (let i = 0; i < 4; i++) {
+      const bx = 24 + i * 58, by = 226;
+      if (i < 3) { ctx.fillStyle = INK; rr(bx, by, 50, 50, 8); ctx.fill(); txt(days[i], bx + 25, by + 33, 18, 900, 'center', PAPER); }
+      else { pen(INK, 2); ctx.setLineDash([3, 4]); rr(bx + 1, by + 1, 48, 48, 8); ctx.stroke(); ctx.setLineDash([]); txt(days[i], bx + 25, by + 33, 18, 700, 'center'); }
+    }
+    txt('월요일에 약국', 262, 258, 17, 700); txt('9월 28일 저녁까지', 262, 280, 13, 500);
+  },
+  '13-ai-outing': () => {
+    num('10:00', 386, 32, 19, 700, 'right');
+    txt('화요일', 22, 36, 24, 900); txt('보통 10:30에 나가세요', 104, 35, 14, 500);
+    door(24, 74, 58, 116); arrow(100, 132, 136, 132);
+    grid(['due', 'none', 'none', 'none'], 152, 50, 234, 158);
+    txt('점심 약 챙기기', 22, 256, 28, 900);
+    slotIcon(1, 34, 282, 11); num('12:30', 52, 290, 19, 800);
+  },
+  '14-ai-week': () => {
+    txt('이번 주', 22, 36, 24, 900); num('67 / 70', 386, 36, 26, 800, 'right');
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    // rows: dose times; marks: 1 all opened, 2 missed, 0 nothing needed
+    const m = [[1, 1, 1, 1, 1, 1, 1], [2, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 2, 1, 2]];
+    for (let d = 0; d < 7; d++) txt(days[d], 104 + d * 42, 74, 15, 700, 'center');
+    for (let r = 0; r < 4; r++) {
+      slotIcon(r, 40, 104 + r * 48, 13);
+      for (let d = 0; d < 7; d++) {
+        const x = 104 + d * 42, y = 104 + r * 48;
+        if (m[r][d] === 1) { ctx.fillStyle = INK; circ(x, y, 14, true); check(x, y + 1, 15, PAPER); }
+        else { pen(INK, 2); circ(x, y, 13, false); ln(x - 9, y + 9, x + 9, y - 9); }
+      }
+    }
+  },
+  '15-button-today': () => {
+    header(-1, '오늘', '16:40');
+    const rows = [[[0, '08:38'], [1, '12:38'], [2, null]], [[0, '08:39'], [2, null]], [[0, '08:40'], [3, null]], [[0, '08:41'], [2, null], [3, null]]];
+    const tw = 184, th = 117;
+    for (let c = 0; c < 4; c++) {
+      const x = 12 + (c % 2) * (tw + 8), y = 50 + Math.floor(c / 2) * (th + 8);
+      pen(INK, 2); rr(x + 1, y + 1, tw - 2, th - 2, 10); ctx.stroke();
+      ICON[c](x + 32, y + 34, 34, INK); num(String(c + 1), x + tw - 12, y + 24, 16, 700, 'right');
+      rows[c].forEach(([k, at], i) => {
+        const ry = y + 66 + i * 21 - (rows[c].length > 2 ? 12 : 0);
+        slotIcon(k, x + 76, ry - 5, 8);
+        if (at) { num(at, x + 96, ry + 1, 16, 700); check(x + 160, ry - 5, 13); }
+        else { pen(INK, 2); circ(x + 160, ry - 5, 6, false); }
+      });
+    }
+  },
+  '16-button-refill': () => {
+    pen(INK, 3); circ(30, 24, 13, false); ln(22, 24, 38, 24); ln(30, 16, 30, 32);
+    txt('약 채우기', 54, 34, 24, 900);
+    grid(['plain', 'none', 'none', 'plain'], 12, 50, 376, 210);
+    for (const [c, g] of [[0, '+42 g'], [3, '+118 g']]) { const x = 12 + (c % 2) * 192, y = 50 + Math.floor(c / 2) * 109; ctx.fillStyle = PAPER; ctx.fillRect(x + 110, y + 60, 70, 30); num(g, x + 176, y + 84, 17, 800, 'right'); }
+    txt('버튼을 한 번 누르면 끝', 16, 288, 15, 700);
+  },
+};
+
+// ---------------------------------------------------------------- concepts B and C
+function ring(cx, cy, r, now, doses) { // 24-hour ring, midnight at top
+  const ang = (m) => -Math.PI / 2 + (m / 1440) * Math.PI * 2;
+  pen(INK, 1.5); ctx.setLineDash([2, 4]); circ(cx, cy, r, false); ctx.setLineDash([]);
+  pen(INK, 6); ctx.beginPath(); ctx.arc(cx, cy, r, ang(0), ang(now)); ctx.stroke();
+  for (const [k, m, st] of doses) {
+    const a = ang(m), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    ctx.fillStyle = st === 'done' ? INK : PAPER; pen(INK, 2.5); circ(x, y, 9, false); ctx.fillStyle = st === 'done' ? INK : PAPER; circ(x, y, 7.5, true);
+    if (st === 'done') check(x, y + 1, 9, PAPER);
+    if (st === 'due') { ctx.fillStyle = INK; circ(x, y, 7.5, true); }
+    slotIcon(k, cx + Math.cos(a) * (r + 24), cy + Math.sin(a) * (r + 24), 9);
+  }
+  const a = ang(now); pen(INK, 2); ln(cx + Math.cos(a) * (r - 14), cy + Math.sin(a) * (r - 14), cx + Math.cos(a) * (r + 10), cy + Math.sin(a) * (r + 10));
+}
+SCREENS['B1-ring-due'] = () => {
+  ring(150, 158, 104, 512, [[0, 510, 'due'], [1, 750, 'up'], [2, 1110, 'up'], [3, 1320, 'up']]);
+  mini(['due', 'due', 'due', 'due'], 116, 132, 32, 24, 4);
+  slotIcon(0, 300, 70, 16); txt('아침', 322, 80, 24, 900);
+  num('08:32', 386, 150, 40, 800, 'right');
+  txt('네 칸 모두', 386, 186, 16, 700, 'right');
+};
+SCREENS['B2-ring-ambient'] = () => {
+  ring(150, 158, 104, 860, [[0, 510, 'done'], [1, 750, 'done'], [2, 1110, 'up'], [3, 1320, 'up']]);
+  num('14:20', 150, 170, 34, 800, 'center');
+  weather('sun', 330, 64, 22); num('24°', 330, 118, 26, 800, 'center');
+  txt('미세먼지', 330, 160, 13, 500, 'center'); txt('좋음', 330, 186, 20, 900, 'center');
+  slotIcon(2, 300, 246, 12); num('18:30', 386, 254, 20, 800, 'right');
+};
+SCREENS['C1-one-due'] = () => {
+  ctx.fillStyle = INK; rr(12, 12, 250, 276, 14); ctx.fill();
+  sachet(137, 132, 150, PAPER);
+  num('1', 137, 262, 44, 800, 'center', PAPER);
+  slotIcon(0, 292, 36, 13); txt('아침', 312, 44, 20, 900); num('08:32', 290, 76, 18, 700);
+  mini(['due', 'none', 'none', 'none'], 290, 110, 44, 34, 6);
+  txt('다음', 290, 236, 14, 500); txt('2 · 3 · 4', 290, 264, 22, 900);
+};
+SCREENS['C2-one-ambient'] = () => {
+  num('14:20', 200, 150, 112, 800, 'center');
+  txt('9월 26일 토요일  ·  24°  ·  미세먼지 좋음', 200, 196, 15, 500, 'center');
+  pen(INK, 1.5); ln(120, 226, 280, 226);
+  slotIcon(2, 170, 256, 12); num('18:30', 190, 264, 20, 800);
+};
+
+// ---------------------------------------------------------------- one master kit (all in one artboard)
+function content(name) { reset(); SCREENS[name](); return ctx.out.join(''); }
+function frame(x, y, body, cap, sub) {
+  ctx.out.push(`<g transform="translate(${x} ${y})">${body}</g>`);
+  pen(INK, 1); ctx.strokeStyle = '#9a9890'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 400, y); ctx.lineTo(x + 400, y + 300); ctx.lineTo(x, y + 300); ctx.closePath(); ctx.stroke();
+  txt(cap, x, y + 324, 15, 700);
+  if (sub) txt(sub, x, y + 344, 13, 400, 'left', '#55544f');
+}
+const CAPS = {
+  '01-ambient': ['1 · Resting, clean air', 'Clock, weather, fine dust; next dose time + 2×2 map'],
+  '02-ambient-dust': ['2 · Resting, very bad air', '매우나쁨 + mask hint: the daily reason to look'],
+  '03-near-next': ['3 · Someone comes near, nothing due', 'Next dose time and which compartments'],
+  '04-due': ['4 · Dose time: open these', 'Black tile = open the compartment in that spot'],
+  '05-partial': ['5 · Two opened', 'Check + time replaces the black tile'],
+  '06-complete': ['6 · All opened', 'Then the screen returns to the clock'],
+  '07-not-now': ['7 · Opened when not due', 'No alarm; shows when it is next due'],
+  '08-leaving': ['8 · Leaving before a dose time', 'Said once per dose time'],
+  '09-put-back': ['9 · Container out 10 min', 'Dashed tile = put it back here'],
+  '10-missed': ['10 · Dose time ended, one not opened', 'Family told once'],
+  '11-all-done': ['11 · All done today', 'Tomorrow’s first time'],
+  '12-ai-supply': ['12 · AI: sachets running out', 'Days left from the roll’s weight trend'],
+  '13-ai-outing': ['13 · AI: learned outing', 'Tuesday 10:30 outings → pack the lunch sachet'],
+  '14-ai-week': ['14 · AI: this week', 'Dose times complete, Sunday morning'],
+  '15-button-today': ['15 · Hidden button, short press', 'Today, per compartment'],
+  '16-button-refill': ['16 · Hidden button, hold 3 s', 'Refill mode for family or carer'],
+  'B1-ring-due': ['B · Ring concept: due', '24-hour ring around the 2×2 map'],
+  'B2-ring-ambient': ['B · Ring concept: resting', 'The day as a ring, doses as beads'],
+  'C1-one-due': ['C · One-thing concept: due', 'One compartment at a time, largest possible'],
+  'C2-one-ambient': ['C · One-thing concept: resting', 'Only the clock and the next time'],
+};
+function device(x, y) { // top view of Lyra: 2x2 compartments, lights, hidden button
+  const w = 300, g = 12, cw = (w - g * 3) / 2;
+  pen(INK, 3); rr(x, y, w, w, 28); ctx.stroke();
+  for (let c = 0; c < 4; c++) {
+    const cx = x + g + (c % 2) * (cw + g), cy = y + g + Math.floor(c / 2) * (cw + g);
+    pen(INK, 2); rr(cx, cy, cw, cw, 16); ctx.stroke();
+    pen(INK, 1.2); ctx.setLineDash([3, 4]); rr(cx + 8, cy + 8, cw - 16, cw - 16, 10); ctx.stroke(); ctx.setLineDash([]);
+    ICON[c](cx + cw / 2, cy + cw / 2 + 4, cw * .42, INK);
+    num(String(c + 1), cx + 14, cy + 28, 18, 800);
+  }
+  pen(INK, 2); circ(x + w - 22, y + w + 16, 5, false);
+}
+window.kit = () => {
+  const W = 1760; let y = 0;
+  const names = Object.keys(SCREENS);
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  reset(W, 3300);
+  txt('Lyra', 60, 96, 56, 900); txt('e-ink UI kit · 4.2-inch, 400 × 300, black and white', 64, 132, 20, 500);
+  txt('Four compartments in a 2 × 2 square. The screen draws the same square: a tile sits where its compartment sits.', 64, 162, 16, 400, 'left', '#55544f');
+  // 1. the map
+  y = 210; txt('1  The map', 60, y, 26, 900);
+  device(64, y + 30);
+  txt('Lyra, top view', 64, y + 380, 14, 700); txt('small circle = the hidden button, under the front-right edge', 64, y + 400, 13, 400, 'left', '#55544f');
+  arrow(390, y + 180, 470, y + 180, INK, 3);
+  frame(490, y + 30, bodies['04-due'], 'The screen: same 2 × 2', 'Black tile = open the compartment in that spot');
+  // 2. icons
+  let x0 = 960; txt('2  Form icons', x0, y, 26, 900);
+  const labels = [['약봉투', 'sachet roll'], ['블리스터', 'blister pack'], ['스틱·안약·연고', 'stick, drops, tube'], ['영양제 병', 'bottle']];
+  for (let c = 0; c < 4; c++) { const ix = x0 + 90 + (c % 2) * 380, iy = y + 110 + Math.floor(c / 2) * 170; ICON[c](ix, iy, 110, INK); txt(`${c + 1} · ${labels[c][0]}`, ix + 90, iy - 6, 18, 900); txt(labels[c][1], ix + 90, iy + 18, 14, 400, 'left', '#55544f'); }
+  for (let k = 0; k < 4; k++) { const ix = x0 + 40 + k * 190, iy = y + 450; slotIcon(k, ix, iy, 20); txt(SLOT[k], ix + 30, iy + 7, 17, 700); }
+  weather('sun', x0 + 50, y + 530, 22); weather('cloud', x0 + 140, y + 530, 22);
+  for (let i = 0; i < 4; i++) { pen(INK, 2); circ(x0 + 240 + i * 25, y + 528, 8.5, i < 3); } txt('fine dust, 4 steps', x0 + 350, y + 534, 14, 400, 'left', '#55544f');
+  // 3. tile states
+  y = 820; txt('3  Tile states', 60, y, 26, 900);
+  const states = [['due', 'Due: open this one', {}], ['done', 'Opened, with time', { at: '08:41' }], ['none', 'Not needed now', {}], ['missed', 'Dose time ended', {}], ['ghost', 'Put it back here', {}], ['focus', 'Opened when not due', {}]];
+  states.forEach(([st, cap, o], i) => { const tx = 64 + i * 280; tile(3, st, tx, y + 30, 240, 150, o); txt(cap, tx, y + 206, 15, 700); });
+  // 4. what shows when
+  y = 1090; txt('4  What the screen shows (most important first)', 60, y, 26, 900);
+  const rules = ['Container out 10 min → put it back (9)', 'Person leaves near a dose time → take it with you (8)', 'A dose time is open → the 2 × 2 map, black = open (4, 5)', 'AI: a usual outing is due → pack the next dose (13)', 'AI: 3 days of sachets or fewer → pharmacy day (12)', 'A dose time just ended with one unopened → slash, family told (10)', 'Someone within 1.5 m, nothing due → next dose time (3)', 'Nobody near → clock, weather, fine dust (1, 2, 11)'];
+  rules.forEach((r, i) => { num(String(i + 1), 76, y + 44 + i * 30, 18, 800, 'center'); txt(r, 100, y + 44 + i * 30, 16, 500); });
+  txt('Hidden button: short press = today (15). Hold 3 s = refill mode (16).', 960, y + 44, 16, 700);
+  txt('E-ink: page change = full refresh; a tile flip = quiet partial refresh.', 960, y + 74, 16, 500);
+  txt('Type: Noto Sans KR 900 / 700 / 500 · numbers Schibsted Grotesk 800 / 700', 960, y + 104, 16, 500);
+  txt('Colour: ink #1B1B1B · paper #E8E7E1 · grey #8F8D86 (a 50% dither on the panel)', 960, y + 134, 16, 500);
+  // 5. all screens
+  y = 1400; txt('5  Every screen', 60, y, 26, 900);
+  const main = names.filter((n) => /^\d/.test(n));
+  main.forEach((n, i) => frame(64 + (i % 4) * 424, y + 30 + Math.floor(i / 4) * 390, bodies[n], ...CAPS[n]));
+  // 6. concepts
+  y = 1400 + 30 + 4 * 390 + 40; txt('6  Concepts compared: A map (chosen) · B ring · C one thing', 60, y, 26, 900);
+  ['B1-ring-due', 'B2-ring-ambient', 'C1-one-due', 'C2-one-ambient'].forEach((n, i) => frame(64 + i * 424, y + 30, bodies[n], ...CAPS[n]));
+  const H = y + 30 + 390;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${DEFS}<rect width="${W}" height="${H}" fill="#f4f3ef"/>${ctx.out.slice(1).join('')}</svg>`;
+};
+
+
+window.mapFig = () => {
+  const body = content('04-due');
+  reset(900, 400); ctx.out = [];
+  device(20, 30);
+  txt('Lyra, top view', 20, 380, 15, 700); txt('○ hidden button under the front-right edge', 150, 380, 13, 400, 'left', '#55544f');
+  arrow(345, 180, 440, 180, INK, 3);
+  ctx.out.push(`<g transform="translate(470 30)">${body}</g>`);
+  pen(INK, 1); ctx.strokeStyle = '#9a9890'; ctx.beginPath(); ctx.moveTo(470, 30); ctx.lineTo(870, 30); ctx.lineTo(870, 330); ctx.lineTo(470, 330); ctx.closePath(); ctx.stroke();
+  txt('The screen draws the same 2 × 2', 470, 360, 15, 700); txt('black tile = open the compartment in that spot', 470, 380, 13, 400, 'left', '#55544f');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="900" height="400">${DEFS}<rect width="900" height="400" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
+window.names = Object.keys(SCREENS);
+</script>
