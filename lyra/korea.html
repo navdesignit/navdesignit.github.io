@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lyra Korean Home</title>
+<meta name="description" content="Lyra for a Korean home: pharmacy pouch strips, a blister box, red ginseng sticks and supplement bottles, with a swimlane flow of one day.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;700&family=Schibsted+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f5f3;
+  --surface: #ffffff;
+  --ink: #16191e;
+  --muted: #59606b;
+  --line: #d9dcd8;
+  --lane: #eceee9;
+  --amber: #b86a0c;
+  --amber-soft: #fbead3;
+  --ok: #1f7a4d;
+  --ok-soft: #dcf0e4;
+  --warn: #9a5b00;
+  --code-bg: #eceee9;
+  --paper: #e8e7e1;
+  --paper-ink: #1b1b1b;
+  --display: "Schibsted Grotesk", "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+  --body: "Atkinson Hyperlegible", "Noto Sans KR", "Segoe UI", Roboto, Arial, sans-serif;
+  --kr: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111316; --surface: #191c20; --ink: #e8eaec; --muted: #a2a9b3; --line: #2d3238; --lane: #16191d;
+    --amber: #f0a33a; --amber-soft: #3a2a14; --ok: #5cc98f; --ok-soft: #173325; --warn: #f0b457; --code-bg: #20242a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111316; --surface: #191c20; --ink: #e8eaec; --muted: #a2a9b3; --line: #2d3238; --lane: #16191d;
+  --amber: #f0a33a; --amber-soft: #3a2a14; --ok: #5cc98f; --ok-soft: #173325; --warn: #f0b457; --code-bg: #20242a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); padding-inline: 16px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 48px 96px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(40px, 7vw, 72px); font-weight: 800; letter-spacing: -0.03em; }
+h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 20px; font-weight: 700; }
+p { margin: 0; max-width: 70ch; }
+a { color: var(--amber); }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.kr { font-family: var(--kr); }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+section { display: flex; flex-direction: column; gap: 20px; padding-block: 44px; border-top: 1px solid var(--line); }
+section > header { display: flex; flex-direction: column; gap: 8px; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; padding-bottom: 44px; }
+.hero .lede { font-size: 21px; line-height: 1.5; max-width: 36ch; }
+.persona { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.persona b { font-family: var(--display); font-size: 18px; }
+
+.tray { width: 100%; height: auto; max-width: 100%; }
+.tray .body { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.tray .cup { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+.tray .wide { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 2; }
+.tray .num { font: 700 13px var(--body); fill: var(--ink); }
+.tray .lbl { font: 400 12px var(--kr); fill: var(--ink); }
+.tray .sub { font: 500 10.5px var(--mono); fill: var(--muted); }
+.tray .item { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font: 500 12px/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 8px; border-radius: 999px; white-space: nowrap; margin: 1px 2px 1px 0; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.ask { background: var(--amber-soft); color: var(--warn); }
+
+/* ---- flowchart ---- */
+.flow-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 12px; }
+.flow { display: block; width: 100%; min-width: 900px; height: auto; color: var(--ink); }
+.flow .lane { fill: var(--bg); }
+.flow .lane-alt { fill: var(--lane); }
+.flow .lane-h { font: 700 14px var(--display); fill: var(--ink); }
+.flow .lane-s { font: 500 11px var(--mono); fill: var(--muted); }
+.flow .phase-rule { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 4; }
+.flow .phase-h { font: 700 17px var(--kr); fill: var(--ink); }
+.flow .phase-s { font: 500 10.5px var(--mono); fill: var(--muted); }
+.flow .n { fill: var(--surface); stroke: currentColor; stroke-width: 1.3; }
+.flow .n-dec { fill: var(--surface); stroke: currentColor; stroke-width: 1.3; }
+.flow .n-catch { fill: var(--amber-soft); stroke: var(--amber); stroke-width: 2; }
+.flow .n-msg { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 1.3; }
+.flow .n-muted { fill: none; stroke: var(--muted); stroke-dasharray: 5 4; }
+.flow .n-t { font: 400 12px var(--kr); fill: var(--ink); }
+.flow .n-b { font-weight: 700; }
+.flow .e { fill: none; stroke: currentColor; stroke-width: 1.4; }
+.flow .e-dash { stroke-dasharray: 5 4; }
+.flow .e-acc { stroke: var(--amber); stroke-width: 2; }
+.flow .acc-fill { fill: var(--amber); }
+.flow .e-l { font: 500 11px var(--kr); fill: var(--muted); }
+.flow .acc-text { fill: var(--amber); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 26px; height: 14px; border-radius: 4px; display: inline-block; }
+.sw.catch { background: var(--amber-soft); border: 2px solid var(--amber); }
+.sw.msg { background: var(--ok-soft); border: 1.3px solid var(--ok); border-radius: 7px; }
+.sw.muted { border: 1.3px dashed var(--muted); }
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+figcaption { font-size: 15px; color: var(--muted); }
+
+/* ---- e-ink screens ---- */
+.screens { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.screen { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.bezel { background: #2a2c2f; border-radius: 12px; padding: 10px; }
+.eink { display: block; width: 100%; height: auto; background: var(--paper); border-radius: 3px; }
+.eink text { fill: #1b1b1b; font-family: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; }
+.screen figcaption b { color: var(--ink); font-family: var(--display); }
+
+.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.rule { border-left: 3px solid var(--amber); padding: 4px 0 4px 16px; display: flex; flex-direction: column; gap: 6px; }
+.note { font-size: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+
+@media (max-width: 820px) {
+  .hero, .rules { grid-template-columns: minmax(0, 1fr); }
+  .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  .screens { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<!-- Pictograms and state marks shared by the e-ink mockups. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="p-morning" viewBox="-20 -20 40 40">
+      <path fill="#1b1b1b" d="M-10 6 A10 10 0 0 1 10 6 Z"/>
+      <line fill="none" stroke="#1b1b1b" x1="-19" y1="6" x2="19" y2="6" stroke-width="2"/>
+      <g fill="none" stroke="#1b1b1b" stroke-width="2.4" stroke-linecap="round"><line x1="0" y1="-7" x2="0" y2="-14"/><line x1="-11" y1="-3" x2="-16" y2="-8"/><line x1="11" y1="-3" x2="16" y2="-8"/></g>
+    </symbol>
+    <symbol id="p-noon" viewBox="-20 -20 40 40">
+      <circle fill="#1b1b1b" r="9"/>
+      <g fill="none" stroke="#1b1b1b" stroke-width="2.4" stroke-linecap="round"><line x1="0" y1="-13" x2="0" y2="-19"/><line x1="0" y1="13" x2="0" y2="19"/><line x1="-13" y1="0" x2="-19" y2="0"/><line x1="13" y1="0" x2="19" y2="0"/><line x1="-9" y1="-9" x2="-13.5" y2="-13.5"/><line x1="9" y1="9" x2="13.5" y2="13.5"/><line x1="9" y1="-9" x2="13.5" y2="-13.5"/><line x1="-9" y1="9" x2="-13.5" y2="13.5"/></g>
+    </symbol>
+    <symbol id="p-evening" viewBox="-20 -20 40 40">
+      <path fill="#1b1b1b" d="M-11 8 A11 11 0 0 1 11 8 Z"/>
+      <line fill="none" stroke="#1b1b1b" x1="-19" y1="8" x2="19" y2="8" stroke-width="2"/>
+      <line fill="none" stroke="#1b1b1b" x1="-13" y1="13" x2="13" y2="13" stroke-width="2"/>
+    </symbol>
+    <symbol id="p-night" viewBox="-20 -20 40 40"><path fill="#1b1b1b" d="M4 -13 A13 13 0 1 0 13 6 A11 11 0 0 1 4 -13 Z"/></symbol>
+    <symbol id="m-done" viewBox="-20 -20 40 40"><circle fill="#1b1b1b" r="18"/><path d="M-9 0 L-3 7 L10 -7" stroke="#e8e7e1" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="m-todo" viewBox="-20 -20 40 40"><circle fill="none" stroke="#1b1b1b" r="16.5" stroke-width="3"/></symbol>
+    <symbol id="m-miss" viewBox="-20 -20 40 40"><circle fill="none" stroke="#1b1b1b" r="16.5" stroke-width="2"/><path fill="none" stroke="#1b1b1b" d="M-8 -8 L8 8 M8 -8 L-8 8" stroke-width="3.2" stroke-linecap="round"/></symbol>
+    <symbol id="m-pouch" viewBox="-20 -20 40 40"><rect x="-15" y="-11" width="30" height="22" rx="2" fill="none" stroke="#1b1b1b" stroke-width="2.4"/><line x1="-15" y1="-5" x2="15" y2="-5" stroke="#1b1b1b" stroke-width="1.6"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="stack">
+      <span class="eyebrow">Lyra · Korean home edition · Sep 2026</span>
+      <h1>Lyra for a Korean home</h1>
+      <p class="lede">Korean pharmacies hand out a strip of dose pouches, not bottles. Lyra weighs the pouch as the unit, knows which time's pouch left the tray, and speaks polite Korean.</p>
+      <div class="persona">
+        <b class="kr">김순자 · 78 · lives alone in an apartment in Daegu</b>
+        <p class="muted">Her daughter 지은 lives in Seoul and hears from Lyra on KakaoTalk. Korea became a super-aged society in December 2024, with more than 20% of residents aged 65 or over (Ministry of the Interior and Safety resident registration data).</p>
+      </div>
+    </div>
+    <figure>
+      <svg class="tray" viewBox="0 0 460 300" role="img" aria-label="Top view of the Korean tray layout: a double-width tray for the pouch strip across cells 1 and 2, then aspirin blister, red ginseng stick box, omega-3 bottle, and calcium bottle">
+        <rect class="body" x="10" y="10" width="440" height="280" rx="24"/>
+        <rect class="wide" x="30" y="30" width="270" height="110" rx="14"/>
+        <g class="item"><rect x="48" y="62" width="44" height="46" rx="3"/><rect x="96" y="62" width="44" height="46" rx="3"/><rect x="144" y="62" width="44" height="46" rx="3"/><rect x="192" y="62" width="44" height="46" rx="3"/><path d="M240 62 h40 v46 h-40" /></g>
+        <text class="num" x="40" y="50">1</text>
+        <text class="lbl" x="165" y="128" text-anchor="middle">약봉투 strip · cells 1+2 as one bay</text>
+        <circle class="cup" cx="370" cy="85" r="52"/>
+        <text class="num" x="326" y="44">3</text>
+        <text class="lbl" x="370" y="82" text-anchor="middle">아스피린</text>
+        <text class="sub" x="370" y="99" text-anchor="middle">blister 130 mg</text>
+        <circle class="cup" cx="95" cy="215" r="58"/>
+        <text class="num" x="44" y="170">4</text>
+        <text class="lbl" x="95" y="212" text-anchor="middle">홍삼스틱</text>
+        <text class="sub" x="95" y="229" text-anchor="middle">stick 12 g</text>
+        <circle class="cup" cx="235" cy="215" r="52"/>
+        <text class="num" x="190" y="170">5</text>
+        <text class="lbl" x="235" y="212" text-anchor="middle">오메가3</text>
+        <text class="sub" x="235" y="229" text-anchor="middle">bottle 1.3 g</text>
+        <circle class="cup" cx="370" cy="215" r="52"/>
+        <text class="num" x="326" y="170">6</text>
+        <text class="lbl" x="370" y="212" text-anchor="middle">칼슘·비타민D</text>
+        <text class="sub" x="370" y="229" text-anchor="middle">bottle 1.5 g</text>
+      </svg>
+      <figcaption>Korean layout: a clip-in tray joins load cells 1 and 2 into one wide bay for the pouch strip. The other four cups hold whatever she already has.</figcaption>
+    </figure>
+  </div>
+
+  <section id="items">
+    <header>
+      <span class="eyebrow">01 · What's on her Lyra</span>
+      <h2>Four kinds of package, one rule: weigh the unit she takes out</h2>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>When</th><th>Unit</th><th class="num">Unit weight</th><th>How Lyra knows</th><th>Kind</th></tr></thead>
+        <tbody>
+          <tr><td class="kr">처방약 약봉투 (pharmacy pouch strip, 14 days)</td><td class="kr">아침·점심·저녁 식후 30분</td><td>1 pouch</td><td class="num">1.85 / 1.10 / 1.50 g</td><td>Each time's pouch has its own weight (different pills inside). Lyra matches the weight that left against it.</td><td>Prescription</td></tr>
+          <tr><td class="kr">아스피린 100 (blister box)</td><td class="kr">아침</td><td>1 tablet</td><td class="num">0.13 g</td><td>Too light to count by weight. Opening the box triggers “드셨나요?”, answered with one press.</td><td>Prescription</td></tr>
+          <tr><td class="kr">홍삼스틱 (red ginseng sticks, 30)</td><td class="kr">아침</td><td>1 stick</td><td class="num">12 g</td><td>A stick is 400× the scale's noise, so it is counted every time.</td><td>Supplement</td></tr>
+          <tr><td class="kr">오메가3 (bottle)</td><td class="kr">저녁</td><td>1 capsule</td><td class="num">1.3 g</td><td>Counted by weight; heavy enough to be exact.</td><td>Supplement</td></tr>
+          <tr><td class="kr">칼슘·비타민D (bottle)</td><td class="kr">취침 전</td><td>1 tablet</td><td class="num">1.5 g</td><td>Counted by weight; heavy enough to be exact.</td><td>Supplement</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Supplements get a gentler treatment: the cup glows and Lyra chimes once. There is no voice escalation, and the family is never alerted if one is skipped. Prescription items follow the full reminder ladder.</p>
+  </section>
+
+  <section id="flow">
+    <header>
+      <span class="eyebrow">02 · One day, as a flow</span>
+      <h2>Who does what, from setup to refill</h2>
+    </header>
+    <p>Columns are the four parties. Bands are the parts of the day. The orange path is a safety catch; green bubbles are KakaoTalk messages to her daughter; dashed boxes are things Lyra only observes.</p>
+    <div class="legend">
+      <span><i class="sw catch"></i>safety catch</span>
+      <span><i class="sw msg"></i>KakaoTalk message</span>
+      <span><i class="sw muted"></i>observed, not an action</span>
+    </div>
+    <figure>
+      <div class="flow-wrap">
+        <svg class="flow" viewBox="0 0 1060 1594" role="img" aria-label="Swimlane flowchart of one day with Lyra in a Korean home: setup, morning, Sunday lunch, evening, night and refill, across the person, Lyra, the daughter on KakaoTalk and the pharmacy.">
+<defs><marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/></marker><marker id="fa-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" class="acc-fill"/></marker></defs>
+<rect class="lane" x="128" y="0" width="220" height="1594" rx="6"/>
+<text class="lane-h" x="238.0" y="24" text-anchor="middle">김순자 · person</text>
+<text class="lane-s" x="238.0" y="42" text-anchor="middle">78, lives alone</text>
+<rect class="lane lane-alt" x="358" y="0" width="318" height="1594" rx="6"/>
+<text class="lane-h" x="517.0" y="24" text-anchor="middle">Lyra</text>
+<text class="lane-s" x="517.0" y="42" text-anchor="middle">on the dining table</text>
+<rect class="lane" x="686" y="0" width="180" height="1594" rx="6"/>
+<text class="lane-h" x="776.0" y="24" text-anchor="middle">딸 지은 · family</text>
+<text class="lane-s" x="776.0" y="42" text-anchor="middle">KakaoTalk, Seoul</text>
+<rect class="lane lane-alt" x="876" y="0" width="176" height="1594" rx="6"/>
+<text class="lane-h" x="964.0" y="24" text-anchor="middle">약국 · pharmacy</text>
+<text class="lane-s" x="964.0" y="42" text-anchor="middle">near her flat</text>
+<line class="phase-rule" x1="0" y1="63" x2="1060" y2="63"/>
+<text class="phase-h" x="8" y="90">Setup</text>
+<text class="phase-s" x="8" y="108">day 0, once</text>
+<line class="phase-rule" x1="0" y1="269" x2="1060" y2="269"/>
+<text class="phase-h" x="8" y="296">아침</text>
+<text class="phase-s" x="8" y="314">08:30 · morning</text>
+<line class="phase-rule" x1="0" y1="661" x2="1060" y2="661"/>
+<text class="phase-h" x="8" y="688">점심</text>
+<text class="phase-s" x="8" y="706">12:30 · Sunday</text>
+<line class="phase-rule" x1="0" y1="921" x2="1060" y2="921"/>
+<text class="phase-h" x="8" y="948">저녁</text>
+<text class="phase-s" x="8" y="966">18:30 · evening</text>
+<line class="phase-rule" x1="0" y1="1169" x2="1060" y2="1169"/>
+<text class="phase-h" x="8" y="1196">취침</text>
+<text class="phase-s" x="8" y="1214">22:00 · night</text>
+<line class="phase-rule" x1="0" y1="1299" x2="1060" y2="1299"/>
+<text class="phase-h" x="8" y="1326">Refill</text>
+<text class="phase-s" x="8" y="1344">day 7, Sundays</text>
+<path class="e" d="M888.0 104.0 L336.0 104.0" marker-end="url(#fa)"/>
+<text class="e-l" x="612.0" y="98.0" text-anchor="middle">hands over the strip</text>
+<path class="e" d="M698.0 168.0 L517.0 168.0 L517.0 191.0" marker-end="url(#fa)"/>
+<text class="e-l" x="607.5" y="162.0" text-anchor="middle">schedule</text>
+<path class="e" d="M698.0 230.0 L681.0 230.0 L681.0 218.0 L664.0 218.0" marker-end="url(#fa)"/>
+<path class="e" d="M238.0 131.0 L238.0 218.0 L370.0 218.0" marker-end="url(#fa)"/>
+<text class="e-l" x="304.0" y="212.0" text-anchor="middle">weighed</text>
+<path class="e" d="M370.0 308.0 L238.0 308.0 L238.0 347.0" marker-end="url(#fa)"/>
+<path class="e" d="M336.0 374.0 L517.0 374.0 L517.0 414.0" marker-end="url(#fa)"/>
+<path class="e" d="M472.0 462.0 L472.0 485.5 L437.0 485.5 L437.0 509.0" marker-end="url(#fa)"/>
+<text class="e-l" x="464.0" y="482.0" text-anchor="end">1.87 g = 아침</text>
+<path class="e" d="M562.0 462.0 L562.0 485.5 L597.0 485.5 L597.0 509.0" marker-end="url(#fa)"/>
+<text class="e-l" x="570.0" y="482.0" text-anchor="start">no clear match</text>
+<path class="e e-acc" d="M427.0 446.0 L336.0 446.0" marker-end="url(#fa-acc)"/>
+<text class="e-l acc-text" x="381.5" y="440.0" text-anchor="middle">1.50 g = 저녁</text>
+<path class="e" d="M336.0 610.0 L370.0 610.0" marker-end="url(#fa)"/>
+<path class="e e-dash" d="M336.0 706.0 L370.0 706.0" marker-end="url(#fa)"/>
+<path class="e" d="M517.0 733.0 L517.0 752.0" marker-end="url(#fa)"/>
+<path class="e" d="M472.0 800.0 L472.0 819.5 L437.0 819.5 L437.0 839.0" marker-end="url(#fa)"/>
+<text class="e-l" x="464.0" y="820.0" text-anchor="end">yes</text>
+<path class="e" d="M562.0 800.0 L562.0 819.5 L597.0 819.5 L597.0 839.0" marker-end="url(#fa)"/>
+<text class="e-l" x="570.0" y="820.0" text-anchor="start">no</text>
+<path class="e" d="M666.0 866.0 L698.0 866.0" marker-end="url(#fa)"/>
+<path class="e" d="M517.0 987.0 L517.0 1019.0" marker-end="url(#fa)"/>
+<text class="e-l" x="523.0" y="1007.0">late, she is home</text>
+<path class="e" d="M370.0 1046.0 L336.0 1046.0" marker-end="url(#fa)"/>
+<path class="e" d="M238.0 1073.0 L238.0 1097.0" marker-end="url(#fa)"/>
+<path class="e" d="M336.0 1124.0 L370.0 1124.0" marker-end="url(#fa)"/>
+<path class="e e-dash" d="M370.0 1210.0 L336.0 1210.0" marker-end="url(#fa)"/>
+<path class="e" d="M238.0 1229.0 L238.0 1264.0 L370.0 1264.0" marker-end="url(#fa)"/>
+<path class="e" d="M664.0 1340.0 L698.0 1340.0" marker-end="url(#fa)"/>
+<path class="e e-dash" d="M854.0 1340.0 L888.0 1340.0" marker-end="url(#fa)"/>
+<path class="e" d="M964.0 1367.0 L964.0 1428.0 L336.0 1428.0" marker-end="url(#fa)"/>
+<text class="e-l" x="650.0" y="1422.0" text-anchor="middle">new strip</text>
+<path class="e" d="M336.0 1428.0 L353.0 1428.0 L353.0 1484.0 L370.0 1484.0" marker-end="url(#fa)"/>
+<path class="e" d="M664.0 1548.0 L698.0 1548.0" marker-end="url(#fa)"/>
+<rect class="n" x="888.0" y="77.0" width="152" height="54" rx="7"/>
+<text class="n-t n-b" x="964.0" y="100.0" text-anchor="middle">Dispenses 14-day strip</text>
+<text class="n-t" x="964.0" y="116.0" text-anchor="middle">약봉투 · 식후 30분</text>
+<rect class="n" x="140.0" y="77.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="100.0" text-anchor="middle">Puts the strip on the</text>
+<text class="n-t" x="238.0" y="116.0" text-anchor="middle">wide tray, packs in cups</text>
+<rect class="n" x="698.0" y="141.0" width="156" height="54" rx="7"/>
+<text class="n-t n-b" x="776.0" y="164.0" text-anchor="middle">Scans Lyra&#x27;s QR code</text>
+<text class="n-t" x="776.0" y="180.0" text-anchor="middle">phone browser, no app</text>
+<rect class="n" x="370.0" y="191.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="214.0" text-anchor="middle">Setup page: item → bay</text>
+<text class="n-t" x="517.0" y="230.0" text-anchor="middle">times from the pouch label</text>
+<rect class="n" x="698.0" y="203.0" width="156" height="54" rx="7"/>
+<text class="n-t n-b" x="776.0" y="226.0" text-anchor="middle">10 aspirin on bay 3</text>
+<text class="n-t" x="776.0" y="242.0" text-anchor="middle">= pill weight</text>
+<rect class="n" x="370.0" y="281.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="304.0" text-anchor="middle">Cups 1·3·4 glow</text>
+<text class="n-t" x="517.0" y="320.0" text-anchor="middle">screen: 아침 약 · 3 items</text>
+<rect class="n" x="140.0" y="347.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="370.0" text-anchor="middle">Tears one pouch</text>
+<text class="n-t" x="238.0" y="386.0" text-anchor="middle">off the strip</text>
+<polygon class="n n-dec" points="517.0,414.0 607.0,446 517.0,478.0 427.0,446"/>
+<text class="n-t n-b" x="517.0" y="442.0" text-anchor="middle">Which pouch</text>
+<text class="n-t" x="517.0" y="458.0" text-anchor="middle">left the tray?</text>
+<rect class="n" x="368.0" y="509.0" width="138" height="54" rx="7"/>
+<text class="n-t n-b" x="437.0" y="532.0" text-anchor="middle">✓ 아침 pouch</text>
+<text class="n-t" x="437.0" y="548.0" text-anchor="middle">08:41 · weighed</text>
+<rect class="n" x="528.0" y="509.0" width="138" height="54" rx="7"/>
+<text class="n-t n-b" x="597.0" y="532.0" text-anchor="middle">Unclear weight:</text>
+<text class="n-t" x="597.0" y="548.0" text-anchor="middle">“봉투를 확인하세요”</text>
+<rect class="n n-catch" x="140.0" y="419.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="442.0" text-anchor="middle">Hears “저녁 약봉투예요”</text>
+<text class="n-t" x="238.0" y="458.0" text-anchor="middle">puts it back in 10 min</text>
+<rect class="n" x="140.0" y="583.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="606.0" text-anchor="middle">Lifts aspirin blister,</text>
+<text class="n-t" x="238.0" y="622.0" text-anchor="middle">takes one ginseng stick</text>
+<rect class="n" x="370.0" y="583.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="606.0" text-anchor="middle">Aspirin 130 mg: “드셨나요?”</text>
+<text class="n-t" x="517.0" y="622.0" text-anchor="middle">one press ✓ · stick 12 g ✓</text>
+<rect class="n n-muted" x="140.0" y="679.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="702.0" text-anchor="middle">At church, lunch out</text>
+<text class="n-t" x="238.0" y="718.0" text-anchor="middle">radar: nobody home</text>
+<rect class="n" x="370.0" y="679.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="702.0" text-anchor="middle">Cups glow, no sound</text>
+<text class="n-t" x="517.0" y="718.0" text-anchor="middle">waits for her to return</text>
+<polygon class="n n-dec" points="517.0,752.0 607.0,784 517.0,816.0 427.0,784"/>
+<text class="n-t n-b" x="517.0" y="780.0" text-anchor="middle">Home before</text>
+<text class="n-t" x="517.0" y="796.0" text-anchor="middle">15:30?</text>
+<rect class="n" x="368.0" y="839.0" width="138" height="54" rx="7"/>
+<text class="n-t n-b" x="437.0" y="862.0" text-anchor="middle">Reminds at once</text>
+<text class="n-t" x="437.0" y="878.0" text-anchor="middle">on return</text>
+<rect class="n" x="528.0" y="839.0" width="138" height="54" rx="7"/>
+<text class="n-t n-b" x="597.0" y="862.0" text-anchor="middle">Missed at 15:30</text>
+<text class="n-t" x="597.0" y="878.0" text-anchor="middle">reason: away</text>
+<rect class="n n-msg" x="698.0" y="839.0" width="156" height="54" rx="14"/>
+<text class="n-t n-b" x="776.0" y="862.0" text-anchor="middle">“점심 약을 못 드셨어요.</text>
+<text class="n-t" x="776.0" y="878.0" text-anchor="middle">외출 중이셨어요.”</text>
+<rect class="n" x="370.0" y="933.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="956.0" text-anchor="middle">Cups 1·5 glow</text>
+<text class="n-t" x="517.0" y="972.0" text-anchor="middle">screen: 저녁 약 · 2 items</text>
+<rect class="n n-muted" x="140.0" y="1019.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="1042.0" text-anchor="middle">Watching TV,</text>
+<text class="n-t" x="238.0" y="1058.0" text-anchor="middle">not yet taken</text>
+<rect class="n" x="370.0" y="1019.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1042.0" text-anchor="middle">+15 min chime · +30 min voice</text>
+<text class="n-t" x="517.0" y="1058.0" text-anchor="middle">“어머니, 저녁 약 드실 시간이에요”</text>
+<rect class="n" x="140.0" y="1097.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="1120.0" text-anchor="middle">Takes the 저녁 pouch</text>
+<text class="n-t" x="238.0" y="1136.0" text-anchor="middle">and one omega-3</text>
+<rect class="n" x="370.0" y="1097.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1120.0" text-anchor="middle">✓ 1.50 g = 저녁 pouch</text>
+<text class="n-t" x="517.0" y="1136.0" text-anchor="middle">✓ omega-3, 1 capsule</text>
+<rect class="n" x="370.0" y="1183.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1206.0" text-anchor="middle">Calcium + D (영양제):</text>
+<text class="n-t" x="517.0" y="1222.0" text-anchor="middle">glow and one chime only</text>
+<rect class="n n-muted" x="140.0" y="1191.0" width="196" height="38" rx="7"/>
+<text class="n-t n-b" x="238.0" y="1214.0" text-anchor="middle">Skips it tonight</text>
+<rect class="n" x="370.0" y="1242.0" width="294" height="44" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1260.0" text-anchor="middle">Logged as missed:</text>
+<text class="n-t" x="517.0" y="1276.0" text-anchor="middle">no voice, no family alert</text>
+<rect class="n" x="370.0" y="1313.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1336.0" text-anchor="middle">7 days of pouches left</text>
+<text class="n-t" x="517.0" y="1352.0" text-anchor="middle">(21 pouches)</text>
+<rect class="n n-msg" x="698.0" y="1313.0" width="156" height="54" rx="14"/>
+<text class="n-t n-b" x="776.0" y="1336.0" text-anchor="middle">“약봉투가 7일 치</text>
+<text class="n-t" x="776.0" y="1352.0" text-anchor="middle">남았어요.”</text>
+<rect class="n" x="888.0" y="1313.0" width="152" height="54" rx="7"/>
+<text class="n-t n-b" x="964.0" y="1336.0" text-anchor="middle">Prepares the next</text>
+<text class="n-t" x="964.0" y="1352.0" text-anchor="middle">14-day strip</text>
+<rect class="n" x="140.0" y="1401.0" width="196" height="54" rx="7"/>
+<text class="n-t n-b" x="238.0" y="1424.0" text-anchor="middle">Puts the new strip</text>
+<text class="n-t" x="238.0" y="1440.0" text-anchor="middle">on the tray</text>
+<rect class="n" x="370.0" y="1457.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1480.0" text-anchor="middle">“새 약봉투인가요?” one press</text>
+<text class="n-t" x="517.0" y="1496.0" text-anchor="middle">count 42 from the label</text>
+<rect class="n" x="370.0" y="1521.0" width="294" height="54" rx="7"/>
+<text class="n-t n-b" x="517.0" y="1544.0" text-anchor="middle">Sunday summary</text>
+<text class="n-t" x="517.0" y="1560.0" text-anchor="middle">from on-device results</text>
+<rect class="n n-msg" x="698.0" y="1521.0" width="156" height="54" rx="14"/>
+<text class="n-t n-b" x="776.0" y="1544.0" text-anchor="middle">“이번 주 20/21,</text>
+<text class="n-t" x="776.0" y="1560.0" text-anchor="middle">일요일 점심만 빠짐”</text>
+</svg>
+
+      </div>
+      <figcaption>The day as the firmware runs it. The pouch check in the morning band is the Korea-specific step: Lyra compares the weight that left the tray with the pouch weight for each dose time.</figcaption>
+    </figure>
+  </section>
+
+  <section id="screens">
+    <header>
+      <span class="eyebrow">03 · Screens in Korean</span>
+      <h2>Polite, short, and big enough to read from the kitchen</h2>
+    </header>
+    <p>The text uses 존댓말, the polite form, as a grandchild would speak. Units follow Korean usage: 포 for pouches and sticks, 알 for tablets. Korean phrases are pre-rendered bitmaps from Noto Sans KR, so the device doesn't need a full Hangul font.</p>
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="오늘 화면: 아침 복용 완료 08:41, 점심 약봉투 1포 남음, 저녁 2종, 취침 칼슘">
+            <text x="16" y="30" style="font-size:19px;font-weight:700">9월 27일 (토)</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:19px;font-weight:700">12:40</text>
+            <rect fill="#1b1b1b" x="16" y="42" width="368" height="2"/>
+            <use href="#p-morning" x="20" y="54" width="38" height="38"/>
+            <text x="70" y="80" style="font-size:25px;font-weight:700">아침</text>
+            <text x="324" y="80" text-anchor="end" style="font-size:18px;font-weight:700">08:41</text>
+            <use href="#m-done" x="340" y="56" width="34" height="34"/>
+            <rect fill="#1b1b1b" x="8" y="100" width="384" height="62" rx="9"/>
+            <rect fill="#e8e7e1" x="11" y="103" width="378" height="56" rx="7"/>
+            <use href="#p-noon" x="20" y="112" width="38" height="38"/>
+            <text x="70" y="140" style="font-size:25px;font-weight:700">점심</text>
+            <text x="324" y="140" text-anchor="end" style="font-size:18px;font-weight:700">약봉투 1포</text>
+            <use href="#m-todo" x="340" y="114" width="34" height="34"/>
+            <use href="#p-evening" x="20" y="172" width="38" height="38"/>
+            <text x="70" y="198" style="font-size:25px;font-weight:700">저녁</text>
+            <text x="324" y="198" text-anchor="end" style="font-size:18px;font-weight:700">2종</text>
+            <use href="#m-todo" x="340" y="174" width="34" height="34"/>
+            <use href="#p-night" x="20" y="232" width="38" height="38"/>
+            <text x="70" y="258" style="font-size:25px;font-weight:700">취침</text>
+            <text x="324" y="258" text-anchor="end" style="font-size:18px">칼슘 1알 · 영양제</text>
+            <use href="#m-todo" x="340" y="234" width="34" height="34"/>
+          </svg>
+        </div>
+        <figcaption><b>오늘 · Today.</b> It always answers “did I take it?”. The slot due now gets the heavy frame.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="아침 약 화면: 식후 30분, 1번 약봉투 아침 1포, 3번 아스피린 1알, 4번 홍삼스틱 1포">
+            <text x="16" y="30" style="font-size:19px;font-weight:700">9월 27일 (토)</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:19px;font-weight:700">08:32</text>
+            <rect fill="#1b1b1b" x="16" y="42" width="368" height="2"/>
+            <use href="#p-morning" x="16" y="56" width="60" height="60"/>
+            <text x="88" y="96" style="font-size:42px;font-weight:700">아침 약</text>
+            <text x="90" y="128" style="font-size:20px">식후 30분 · 3가지</text>
+            <circle fill="#1b1b1b" cx="32" cy="170" r="15"/><text x="32" y="177" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">1</text>
+            <text x="58" y="177" style="font-size:21px">약봉투 (아침) 1포</text>
+            <circle fill="#1b1b1b" cx="32" cy="214" r="15"/><text x="32" y="221" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">3</text>
+            <text x="58" y="221" style="font-size:21px">아스피린 1알</text>
+            <circle fill="#1b1b1b" cx="32" cy="258" r="15"/><text x="32" y="265" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#e8e7e1">4</text>
+            <text x="58" y="265" style="font-size:21px">홍삼스틱 1포 · 영양제</text>
+          </svg>
+        </div>
+        <figcaption><b>아침 약 · Morning.</b> Cups 1, 3 and 4 glow. Supplements carry a small 영양제 tag.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="잘못된 봉투 화면: 저녁 약봉투예요. 돌려놓고 점심 봉투를 드세요">
+            <text x="16" y="30" style="font-size:19px;font-weight:700">9월 27일 (토)</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:19px;font-weight:700">12:44</text>
+            <rect fill="#1b1b1b" x="16" y="42" width="368" height="2"/>
+            <use href="#m-pouch" x="130" y="62" width="70" height="70"/>
+            <use href="#m-miss" x="206" y="68" width="60" height="60"/>
+            <text x="200" y="192" text-anchor="middle" style="font-size:38px;font-weight:700">저녁 약봉투예요</text>
+            <text x="200" y="232" text-anchor="middle" style="font-size:21px">돌려놓으시고</text>
+            <text x="200" y="264" text-anchor="middle" style="font-size:21px;font-weight:700">점심 봉투를 드세요</text>
+          </svg>
+        </div>
+        <figcaption><b>Wrong pouch.</b> The weight that left matches the evening pouch, not lunch, and Lyra says it aloud. Nothing is recorded until the right pouch leaves, or until she checks the label and presses.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="봉투 확인 화면: 봉투에 점심이라고 쓰여 있나요? 누르시면 네">
+            <text x="16" y="30" style="font-size:19px;font-weight:700">9월 27일 (토)</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:19px;font-weight:700">12:44</text>
+            <rect fill="#1b1b1b" x="16" y="42" width="368" height="2"/>
+            <use href="#m-pouch" x="162" y="62" width="76" height="76"/>
+            <text x="200" y="190" text-anchor="middle" style="font-size:36px;font-weight:700">봉투를 확인하세요</text>
+            <text x="200" y="230" text-anchor="middle" style="font-size:21px">‘점심’이라고 쓰여 있나요?</text>
+            <text x="200" y="264" text-anchor="middle" style="font-size:21px;font-weight:700">누르시면 = 네</text>
+          </svg>
+        </div>
+        <figcaption><b>Unclear weight.</b> Korean pouches have the dose time printed on them. When the weight is ambiguous, Lyra asks her to read the label before she answers.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="드셨나요 화면: 아스피린 한 알 드셨나요? 누르시면 네">
+            <text x="16" y="30" style="font-size:19px;font-weight:700">9월 27일 (토)</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:19px;font-weight:700">08:43</text>
+            <rect fill="#1b1b1b" x="16" y="42" width="368" height="2"/>
+            <use href="#m-todo" x="164" y="62" width="72" height="72"/>
+            <text x="200" y="192" text-anchor="middle" style="font-size:40px;font-weight:700">드셨나요?</text>
+            <text x="200" y="230" text-anchor="middle" style="font-size:21px">아스피린 1알</text>
+            <text x="200" y="264" text-anchor="middle" style="font-size:21px;font-weight:700">누르시면 = 네</text>
+          </svg>
+        </div>
+        <figcaption><b>Light tablet.</b> A 130 mg aspirin is within the scale's error, so every dose is confirmed with one press. Lyra never guesses the count.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="완료 화면: 점심 약봉투 12:47, 딸 지은의 메시지 엄마 최고예요">
+            <text x="16" y="30" style="font-size:19px;font-weight:700">9월 27일 (토)</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:19px;font-weight:700">12:47</text>
+            <rect fill="#1b1b1b" x="16" y="42" width="368" height="2"/>
+            <use href="#m-done" x="162" y="58" width="76" height="76"/>
+            <text x="200" y="186" text-anchor="middle" style="font-size:42px;font-weight:700">잘하셨어요</text>
+            <text x="200" y="222" text-anchor="middle" style="font-size:20px">점심 약봉투 · 12:47</text>
+            <rect x="46" y="238" width="308" height="44" rx="10" fill="none" stroke="#1b1b1b" stroke-width="1.5"/>
+            <text x="200" y="267" text-anchor="middle" style="font-size:19px">“엄마 최고예요!” — 지은</text>
+          </svg>
+        </div>
+        <figcaption><b>Done.</b> Her daughter's KakaoTalk reply appears after the next dose, as a small reward.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="logic">
+    <header>
+      <span class="eyebrow">04 · What changes for Korea</span>
+      <h2>Rules the firmware follows for these packages</h2>
+    </header>
+    <div class="rules">
+      <div class="rule"><h3>The pouch is the unit</h3><p>A pouch holds every pill for one time, so Lyra counts pouches, not pills. Each time's pouch weight is learned from its first three takes, using the median.</p></div>
+      <div class="rule"><h3>Wrong time's pouch</h3><p>One pouch varies by about 50 mg, so a pouch matches its time within ±0.15 g. Lyra says “저녁 약봉투예요” only when the weight matches another time's pouch and is at least 0.3 g from the one due now. Weight is evidence; the printed label decides, so a press still accepts it if the label is right.</p></div>
+      <div class="rule"><h3>Never silently wrong</h3><p>If the weight matches no pouch clearly, Lyra asks her to read the time printed on the pouch. Until she presses “네”, it counts as a pouch to put back. Two pouches stuck together are caught by their summed weight.</p></div>
+      <div class="rule"><h3>A tray, not a cup</h3><p>The strip lies flat on a clip-in tray across two load cells, which Lyra reads as one bay. It is never lifted, so the tray counts as empty only below 0.3 g. The last 1.1 g pouch still counts.</p></div>
+      <div class="rule"><h3>Pouch strips aren't topped up</h3><p>A large weight increase on the tray means a new strip. Lyra asks “새 약봉투인가요?” and takes the count from the label, usually 42 for 14 days × 3.</p></div>
+      <div class="rule"><h3>Times follow the pharmacy label</h3><p>식후 30분 becomes a due time about 30 minutes after her usual mealtime, set once on the setup page. After a week, personal timing moves each reminder toward when she actually takes it.</p></div>
+      <div class="rule"><h3>Supplements stay quiet</h3><p>Red ginseng, omega-3 and calcium: the cup glows and Lyra chimes once. Skips are logged but never sent to her daughter. The weekly summary lists them separately.</p></div>
+    </div>
+  </section>
+
+  <section id="results">
+    <header>
+      <span class="eyebrow">05 · Results for this household</span>
+      <h2>What the simulation shows, with the firmware's own code</h2>
+    </header>
+    <p>This is a 21-day simulation of 김순자's tray in <code>test/host/sim.cpp</code>, section [4]. It injects a wrong pouch on day 9, two stuck pouches on day 12, Sunday outings, skipped weekend ginseng and a new strip on day 13. Every check passes on all 101 random seeds tried.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Result</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td>Each time's pouch weight learned</td><td><span class="pill ok">within 0.1 g</span> 1.88 / 1.08 / 1.51 g after 21 days, against true 1.85 / 1.10 / 1.50 g (seed 42)</td></tr>
+          <tr><td>Evening pouch taken at lunch</td><td><span class="pill ok">named by weight in 100 of 101 runs</span> In the other run Lyra asked her to check the label; still not recorded.</td></tr>
+          <tr><td>Two pouches stuck together</td><td><span class="pill ok">caught in 101 of 101 runs</span> Both put back, so nothing was sent to family.</td></tr>
+          <tr><td>Wrong or extra pouch recorded silently</td><td><span class="pill ok">never, in 101 runs</span></td></tr>
+          <tr><td>Aspirin, 130 mg blister</td><td><span class="pill ask">21 of 21 confirmed by one press</span> By design: the weight only proves the box was opened.</td></tr>
+          <tr><td>Red ginseng sticks</td><td><span class="pill ok">15 of 15 counted</span> 6 weekend skips logged, 0 family alerts.</td></tr>
+          <tr><td>Sunday lunch while out</td><td><span class="pill ok">3 of 3 classed “away”</span> KakaoTalk says she was out, not that she forgot.</td></tr>
+          <tr><td>Strip running low</td><td><span class="pill ok">alert on day 7</span> 7 days left; the new strip was recognised on day 13.</td></tr>
+          <tr><td>Prescription pouches</td><td><span class="pill ok">60 of 63 taken</span> The only misses are the three Sunday lunches while she was out. The last pouches on an almost empty strip still count.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>What has to be true in hardware:</b> the tray reads a pouch to about ±50 mg, and pouches for different times differ by at least 0.3 g. When a prescription gives two times identical pouches, Lyra can't tell them apart by weight and falls back to the printed-label check. The setup page tells the pharmacist when that happens.</p>
+  </section>
+
+  <section id="korea">
+    <header>
+      <span class="eyebrow">06 · Korea specifics</span>
+      <h2>Messages, language and approvals</h2>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Need</th><th>Lyra Korea</th></tr></thead>
+        <tbody>
+          <tr><td>Family messages</td><td>KakaoTalk, sent through a registered business channel (알림톡). SMS is the fallback. The family installs nothing new.</td></tr>
+          <tr><td>Voice</td><td>Prompts recorded in 존댓말 by a native speaker. Holding the knob reads the screen aloud, which helps with low vision.</td></tr>
+          <tr><td>Setup</td><td>A Korean setup web page opened from the QR code. The pharmacist or family enters the pouch times, 14-day count and supplements.</td></tr>
+          <tr><td>Care workers</td><td>A second recipient can be added, for example a local elderly-care worker, with the same alerts as the family.</td></tr>
+          <tr><td>Power and approvals</td><td>USB-C with a Korean 220 V adapter. Needs KC certification for the radio and a review by 식약처 (MFDS) on how it is classified.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Code: the pouch, stick and supplement logic is in <code>lyra/firmware/lib/lyra_core</code>; the double-width tray is a bay map in <code>src/main.cpp</code>. The full spec is on <a href="index.html">the main Lyra page</a>.</p>
+  </section>
+
+</div>
+
+</body>
+</html>

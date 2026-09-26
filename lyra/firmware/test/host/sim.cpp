@@ -396,6 +396,7 @@ static void simulateKorea() {
 
   BayDetector::Config tray_cfg;
   tray_cfg.noise_g = 0.028f;  // two cells summed: √2 × noise
+  tray_cfg.empty_g = 0.3f;    // the strip lies flat and is never lifted: the last pouch (1.1 g) still counts
   BayDetector det[kBays] = {BayDetector(tray_cfg), BayDetector(), BayDetector(), BayDetector(), BayDetector(), BayDetector()};
   float weight[kBays] = {};
   weight[0] = 14 * (pouch_true[0] + pouch_true[1] + pouch_true[2]);
@@ -551,6 +552,10 @@ static void simulateKorea() {
     if (r.slot == 1 && r.status == DoseStatus::Missed && r.miss == MissReason::Away) ++lunch_away;
   }
   CHECK(lunch_away == 3, "Sunday lunch pouches missed while out: %d, classed 'away'", lunch_away);
+  if (std::getenv("LYRA_DEBUG"))
+    for (const auto& r : h)
+      if (r.day >= 100 && !eng.med(r.med).supplement && r.taken_min < 0)
+        std::printf("   k-missed: day %d med %d slot %d status %d miss %d\n", r.day - 100, r.med, r.slot, (int)r.status, (int)r.miss);
   std::printf("   pouches: %d taken, %d weighed, %d while learning\n", pouch_total, pouch_weighed, pouch_total - pouch_weighed);
 
   int asp_taken = 0, asp_confirmed = 0;
@@ -572,6 +577,7 @@ static void simulateKorea() {
   CHECK(voice_for_supplement_only == 0, "no voice reminder when only supplements are left (%d)", voice_for_supplement_only);
 
   Adherence rx = adherence(h, 100, 120, kPouch);
+  CHECK(rx.taken == rx.planned - 3, "prescription pouches: only the 3 Sunday lunches missed (%d of %d taken)", rx.taken, rx.planned);
   std::printf("   prescription pouches: taking %.1f%%, on time %.1f%% (%d doses); family alerts: %d\n", rx.takingPct(), rx.timingPct(), rx.planned,
               med_alerts);
 }

@@ -270,7 +270,7 @@ void pageNotice(const Context& c) {
       mark = DoseStatus::Missed;
       snprintf(a, sizeof a, "%s pouch", o.notice_slot >= 0 ? kSlotName[o.notice_slot] : "Other");
       const int now_slot = c.active_slot >= 0 ? c.active_slot : 0;
-      snprintf(b, sizeof b, "Put it back. Take the %s one.", kSlotName[now_slot]);
+      snprintf(b, sizeof b, "Put it back. Label says %s? Press", kSlotName[now_slot]);
       break;
     }
     case Notice::PutBackThanks:

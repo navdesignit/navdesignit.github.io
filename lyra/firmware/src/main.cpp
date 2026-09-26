@@ -245,6 +245,15 @@ void setup() {
   const String dev = p.getString("id", "lyra-dev");
   no_activity_min = p.getInt("noact_min", 10 * 60);
   if (p.getBytesLength("baymap") == sizeof bay_cells) p.getBytes("baymap", bay_cells, sizeof bay_cells);
+  // Merged bays hold a flat pouch tray that is never lifted: its "empty" line
+  // sits under one pouch, and the two summed cells add √2 noise.
+  for (int b = 0; b < kBays; ++b) {
+    if (__builtin_popcount(bay_cells[b]) < 2) continue;
+    BayDetector::Config tray;
+    tray.empty_g = 0.3f;
+    tray.noise_g = 0.028f;
+    detector[b] = BayDetector(tray);
+  }
   p.end();
   configTzTime(tz.c_str(), "pool.ntp.org", "time.google.com");
 

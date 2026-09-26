@@ -323,13 +323,18 @@ EngineOutput DoseEngine::onPouchRemoved(int m, const BayEvent& e, int32_t now) {
     if (err < best_err) best_err = err, best_k = k;
   }
   if (best_k == open->slot && near(d, w)) {
+    md.slot_unit_g[open->slot] += (d - w) * 0.1f;  // keep refining this time's pouch weight
     open->source = DoseSource::Weighed;
     open->confidence = 99;
     markTaken(*open, open->planned - open->taken, now, out);
     return out;
   }
-  // Another time's pouch: nearest to it, clearly away from the right one.
-  if (best_k >= 0 && best_k != open->slot && best_err <= 1.5f * kPouchTolG && std::fabs(d - w) > kPouchTolG) {
+  // Another time's pouch: matches it, and is at least two tolerances away
+  // from the right one. The screen still lets her press if the printed time
+  // is right (the weight is evidence, the label decides).
+  if (best_k >= 0 && best_k != open->slot && best_err <= kPouchTolG && std::fabs(d - w) >= 2 * kPouchTolG) {
+    confirm_med_ = static_cast<int8_t>(m);
+    confirm_min_ = now;
     out.notice = Notice::WrongPouch;
     out.notice_slot = static_cast<int8_t>(best_k);
     extra_med_ = static_cast<int8_t>(m);
