@@ -81,3 +81,15 @@ At the alarm, only the right side turns black; the rail stays readable.
 8. The day's record.
 
 Files: 10 states in `en/` and `ko/` (SVG live and outlined, PNG), boards, storyboards, 8 mockups.
+
+## Concept 5 · Anchor (evidence-based, simplest)
+
+`concept5-anchor/` keeps only what research shows helps older adults take medicine:
+
+1. **Tie each dose to a daily routine** ("after breakfast"). Implementation intentions and routine anchoring come from the JAGS 2026 systematic review and the PATTERN study.
+2. **Show the exact compartment.** Taking from the wrong compartment is the most common pill-organizer error.
+3. **Confirm with the time it was opened.** This removes "did I take it?" and prevents missed or double doses.
+4. **One timely cue, then one more.** Digital reminders help (Haile 2026).
+5. **Family only on a miss.** Caregiver support improves adherence.
+
+The time and air quality are always on top. There are 6 states in `en/` and `ko/` (SVG live and outlined, PNG), plus a board with the evidence.

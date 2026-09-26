@@ -906,6 +906,55 @@ window.alwaysBoard = () => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
 };
 
+// ---------------------------------------------------------------- Concept 5 · Anchor (evidence-based, simplest)
+// 1 routine anchor ("after breakfast") · 2 exact compartment · 3 confirmation with time
+// 4 one timely cue · 5 family only on a miss. Time and air always on top.
+function eTop(time, air) {
+  num(time, 16, 30, 24, 800);
+  const w = window.LANG === 'en' ? ['', 'Air good', 'Air fair', 'Air bad', 'Air very bad'][air] : ['', '공기 좋음', '공기 보통', '공기 나쁨', '공기 매우 나쁨'][air];
+  txt(w, 330, 29, 15, 700, 'right');
+  for (let i = 0; i < 4; i++) { pen(INK, 1.5); circ(342 + i * 13, 24, 4.5, i < air); }
+  pen(INK, 1); ln(16, 42, 384, 42);
+}
+function eBox(st, at = [], ink = INK, paper = PAPER) { for (let i = 0; i < 4; i++) aTile(i, st[i], 16 + (i % 2) * 118, 52 + Math.floor(i / 2) * 118, 110, at[i], ink, paper); }
+function eRight(lines, x = 262, y = 90) { y -= lines[0][1]; for (const [t, size, w] of lines) { y += size + 6; if (t) txt(t, x, y, size, w || 900); } }
+function eBottom(t) { txt(t, 262, 282, 14, 700); }
+const eMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+const eAt = (m) => [0, 1, 2, 3].map((i) => m[i] || '');
+SCREENS['E1-next'] = () => { eTop('10:20', 1); eBox(eMap(1).map((s) => (s === 'due' ? 'next' : s))); eRight([[L('다음', 'Next'), 16, 700], [L('점심', 'After'), 25], [L('식사 후', 'lunch'), 25], [L('12시 30분경', 'around 12:30'), 16, 700]]); eBottom(L('아침 ✓ 8:41', 'Morning ✓ 8:41')); };
+SCREENS['E2-cue'] = () => { eTop('8:32', 1); eBox(eMap(0)); eRight([[L('아침', 'After'), 25], [L('식사 후', 'breakfast'), 25], [L('검은 칸', 'Open the'), 18, 700], [L('4개 여세요', '4 black'), 18, 700]]); };
+SCREENS['E3-partial'] = () => { eTop('8:42', 1); eBox(eMap(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), eAt({ [posOf(0)]: '8:41', [posOf(1)]: '8:42' })); eRight([[L('2칸', '2 more'), 30], [L('더', 'to open'), 30]]); };
+SCREENS['E4-done'] = () => { eTop('8:47', 1); eBox(['done', 'done', 'done', 'done'], eAt({ 0: '8:44', 1: '8:42', 2: '8:41', 3: '8:46' })); check(296, 100, 56); eRight([[L('아침 끝', 'Morning'), 26], [L('', 'done'), 26]], 262, 172); eBottom(L('다음 · 점심 식사 후', 'Next · after lunch')); };
+SCREENS['E5-cue-again'] = () => { eTop('8:47', 1); ctx.fillStyle = INK; rr(10, 48, 380, 246, 12); ctx.fill(); eBox(eMap(0), [], PAPER, INK); eRight([[L('아침 약', 'Morning'), 25], [L('아직이에요', 'medicine'), 30]]); for (const t of []) {} txt(L('한 번만 더 알려 드려요', 'One more reminder'), 262, 282, 14, 700, 'left', PAPER); };
+SCREENS['E6-missed'] = () => { eTop('21:31', 1); eBox(eMap(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [posOf(1)]: 'missed' }), eAt({ [posOf(0)]: '18:35', [posOf(3)]: '18:36' })); eRight([[L('저녁', 'Evening'), 26], [L('한 칸 못 여심', '1 not opened'), 18, 700]]); eBottom(L('지은님께 알렸어요', 'Ji-eun was told')); };
+// fix E5: the right text must be white on black
+SCREENS['E5-cue-again'] = () => { eTop('8:47', 1); ctx.fillStyle = INK; rr(10, 48, 380, 246, 12); ctx.fill(); eBox(eMap(0), [], PAPER, INK); txt(L('아침 약', 'Morning'), 262, 90, 24, 900, 'left', PAPER); txt(L('아직이에요', 'medicine'), 262, 122, 24, 900, 'left', PAPER); txt(L('한 번 더 알림', 'Reminding again'), 262, 282, 14, 700, 'left', PAPER); };
+
+window.anchorBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('E'));
+  const caps = {
+    'E1-next': [L('다음: 루틴으로 말하기', 'Next, said as a routine'), L('근거 1 · 기존 습관에 묶기', 'Evidence 1 · anchor to a routine')],
+    'E2-cue': [L('그 순간 한 번 알리기', 'One cue at the routine moment'), L('근거 1·2·4 · 루틴, 정확한 칸, 알림', 'Evidence 1, 2, 4 · routine, exact spot, cue')],
+    'E3-partial': [L('연 칸엔 시간', 'Opened tiles show the time'), L('근거 3 · 먹었는지 확인', 'Evidence 3 · confirmation')],
+    'E4-done': [L('끝, 그리고 다음', 'Done, and what is next'), L('근거 3 · "먹었나?" 없애기', 'Evidence 3 · ends "did I take it?"')],
+    'E5-cue-again': [L('한 번 더, 그뿐', 'One more cue, no more'), L('근거 4 · 짧고 정확한 알림', 'Evidence 4 · brief, timely')],
+    'E6-missed': [L('놓치면 가족에게 한 번', 'Missed: family told once'), L('근거 5 · 보호자 지원', 'Evidence 5 · caregiver support')],
+  };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 2 * 400 + 260;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 콘셉트 5 · 앵커', 'Lyra · Concept 5 · Anchor'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('연구로 입증된 다섯 가지만. 나머지는 모두 뺐어요.', 'Only the five things research shows help older adults take medicine. Everything else removed.'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 3) * 560, 170 + Math.floor(i / 3) * 400, bodies[n], ...caps[n]));
+  const ev = window.LANG === 'en'
+    ? ['1  Tie each dose to a daily routine: "after breakfast" (implementation intentions, routine anchoring)', '2  Show the exact compartment: taking from the wrong compartment is the most common organizer error', '3  Confirm with the time it was opened: removes "did I take it?" (missed and double doses)', '4  One timely cue, then one more: digital reminders work, and brief cues respect attention', '5  Family only on a miss: caregiver support improves adherence']
+    : ['1  약을 기존 습관에 묶기: "아침 식사 후" (실행 의도, 루틴 앵커링)', '2  정확한 칸 보여주기: 칸을 잘못 여는 것이 약통의 가장 흔한 실수', '3  연 시간으로 확인: "먹었나?"를 없애 빠뜨림과 중복 복용 방지', '4  제때 한 번, 그리고 한 번 더: 디지털 알림은 효과, 짧게', '5  놓쳤을 때만 가족에게: 보호자 지원은 복약을 높임'];
+  const y0 = 170 + 2 * 400 + 30;
+  txt(L('근거', 'Evidence'), 64, y0, 24, 900, 'left', INK, NUM);
+  ev.forEach((t, k) => txt(t, 64, y0 + 36 + k * 30, 17, 500));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
 window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
 window.names = Object.keys(SCREENS);
 </script>
