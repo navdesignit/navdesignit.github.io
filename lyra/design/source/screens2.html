@@ -955,6 +955,76 @@ window.anchorBoard = () => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
 };
 
+// ---------------------------------------------------------------- Concept 6 · Fade
+// The reminder is drawn as strong as the habit is weak. Habit strength = share of doses
+// opened before any cue (last 14 days). Level 0 bold · 1 medium · 2 quiet · 3 whisper.
+function fTop(time, air) {
+  num(time, 16, 26, 18, 800);
+  const w = window.LANG === 'en' ? ['', 'Air good', 'Air fair', 'Air bad', 'Air very bad'][air] : ['', '공기 좋음', '공기 보통', '공기 나쁨', '공기 매우 나쁨'][air];
+  txt(w, 330, 25, 13, 700, 'right'); for (let i = 0; i < 4; i++) { pen(INK, 1.3); circ(343 + i * 12, 21, 4, i < air); }
+}
+function fGrid(level, st, at = []) {
+  const S = [112, 88, 66, 13][level], G = [8, 8, 7, 3][level];
+  const x0 = level === 3 ? 348 : 16, y0 = level === 3 ? 250 : [44, 60, 80, 0][level];
+  for (let i = 0; i < 4; i++) {
+    const x = x0 + (i % 2) * (S + G), y = y0 + Math.floor(i / 2) * (S + G), s = st[i];
+    if (level === 3) { if (s === 'due') { ctx.fillStyle = INK; rr(x, y, S, S, 2); ctx.fill(); } else if (s === 'done') { pen(INK, 1.2); rr(x + .6, y + .6, S - 1.2, S - 1.2, 2); ctx.stroke(); } else { pen(INK, .8); ctx.setLineDash([1, 2]); rr(x + .5, y + .5, S - 1, S - 1, 2); ctx.stroke(); ctx.setLineDash([]); } continue; }
+    if (s === 'due' && level < 2) { ctx.fillStyle = INK; rr(x, y, S, S, 10); ctx.fill(); icon(i, x + S / 2, y + S / 2, S * .52, PAPER); }
+    else if (s === 'due') { pen(INK, 3); rr(x + 1.5, y + 1.5, S - 3, S - 3, 9); ctx.stroke(); icon(i, x + S / 2, y + S / 2, S * .5, INK); }
+    else if (s === 'done') { pen(INK, 1.5); rr(x + .75, y + .75, S - 1.5, S - 1.5, 9); ctx.stroke(); icon(i, x + S / 2, y + S * .36, S * .3, INK); num(at[i] || '', x + S / 2, y + S * .84, S * .19, 800, 'center'); }
+    else { pen(INK, 1); ctx.setLineDash([2, 5]); rr(x + .5, y + .5, S - 1, S - 1, 9); ctx.stroke(); ctx.setLineDash([]); }
+  }
+}
+function fSay(level, big, small) {
+  if (level === 0) { txt(big[0], 262, 96, 26, 900); txt(big[1] || '', 262, 128, 26, 900); if (small) { txt(small[0], 262, 168, 15, 700); txt(small[1] || '', 262, 188, 15, 700); } }
+  else if (level === 1) { txt(big[0], 218, 110, 20, 900); txt(big[1] || '', 218, 136, 20, 900); }
+  else if (level === 2) { txt(big.join(' '), 170, 150, 15, 700); }
+}
+const fMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+const AB = () => L('아침,식사 후', 'After,breakfast').split(',');
+const OPEN4 = () => L('검은 칸,4개 여세요', 'Open the,4 black').split(',');
+SCREENS['F1-day1'] = () => { fTop('8:20', 1); fGrid(0, fMap(0)); fSay(0, AB(), OPEN4()); };
+SCREENS['F2-day14'] = () => { fTop('8:20', 1); fGrid(1, fMap(0)); fSay(1, AB()); };
+SCREENS['F3-day30'] = () => { fTop('8:20', 1); fGrid(2, fMap(0)); fSay(2, AB()); };
+SCREENS['F4-day60'] = () => { fTop('8:20', 1); fGrid(3, fMap(0)); };
+SCREENS['F5-opened'] = () => { fTop('8:47', 1); fGrid(1, ['done', 'done', 'done', 'done'], ['8:44', '8:42', '8:41', '8:46']); txt(L('아침', 'Morning'), 218, 110, 20, 900); txt(L('끝', 'done'), 218, 136, 20, 900); txt(L('다음 · 점심 식사 후', 'Next · after lunch'), 218, 176, 14, 700); };
+SCREENS['F6-slip'] = () => { fTop('8:40', 1); fGrid(0, fMap(0)); fSay(0, AB(), L('어제 저녁을,놓쳐 다시 크게', 'Missed last night,so back to full').split(',')); };
+SCREENS['F7-rest-day60'] = () => { fTop('14:20', 1); txt(L('토요일 오후', 'Saturday afternoon'), 200, 150, 15, 500, 'center'); fGrid(3, fMap(2).map((s) => (s === 'due' ? 'done' : s))); };
+
+window.fadeBoard = () => {
+  const bodies = Object.fromEntries(['F1-day1', 'F2-day14', 'F3-day30', 'F4-day60', 'F5-opened', 'F6-slip', 'F7-rest-day60'].map((n) => [n, content(n)]));
+  const H = 1500;
+  reset(1760, H); ctx.out = [];
+  txt('Lyra · Fade', 60, 96, 56, 900, 'left', INK, NUM);
+  txt(L('필요 없어지도록 설계한 첫 복약 알림', 'The first medicine reminder designed to be needed less.'), 62, 140, 26, 700);
+  txt(L('같은 순간(아침 식사 후), 습관이 자랄수록 화면은 옅어집니다.', 'The same moment, after breakfast, as the habit grows. The ink on the screen is the habit.'), 62, 176, 18, 500);
+  const cols = [['F1-day1', L('1일째', 'Day 1'), '35%', L('빛 · 차임 · 음성', 'Light · chime · voice')], ['F2-day14', L('14일째', 'Day 14'), '62%', L('빛 · 차임', 'Light · chime')], ['F3-day30', L('30일째', 'Day 30'), '84%', L('빛만', 'Light only')], ['F4-day60', L('60일째', 'Day 60'), '95%', L('없음 · 스스로 시작', 'Nothing · you start it')]];
+  cols.forEach(([n, d, h, cue], i) => {
+    const x = 64 + i * 424, y = 250;
+    num(d, x, y - 14, 22, 800);
+    ctx.out.push(`<g transform="translate(${x} ${y})">${bodies[n]}</g>`); pen('#9a9890', 1); rr(x, y, 400, 300, 0); ctx.stroke();
+    label(L('습관 강도', 'HABIT STRENGTH'), x, y + 332, 10); num(h, x, y + 376, 40, 800);
+    label(L('알림', 'CUE'), x + 200, y + 332, 10); txt(cue, x + 200, y + 370, 18, 700);
+  });
+  // habit strength curve, 60 days
+  const gx = 64, gy = 700, gw = 1632, gh = 200, X = (d) => gx + (d / 60) * gw, Y = (v) => gy + gh - (v / 100) * gh;
+  pen('#c9c7bf', 1); for (const v of [50, 80]) ln(gx, Y(v), gx + gw, Y(v));
+  label('80%', gx + gw + 6, Y(80) + 3, 9); label('50%', gx + gw + 6, Y(50) + 3, 9);
+  const pts = [[0, 30], [4, 38], [8, 47], [12, 57], [14, 62], [18, 68], [22, 74], [26, 80], [30, 84], [34, 86], [38, 72], [40, 78], [44, 86], [50, 91], [56, 94], [60, 95]];
+  pen(INK, 3); ctx.beginPath(); pts.forEach(([d, v], k) => (k ? ctx.lineTo(X(d), Y(v)) : ctx.moveTo(X(d), Y(v)))); ctx.stroke();
+  for (const d of [1, 14, 30, 60]) { const v = pts.reduce((a, p) => (Math.abs(p[0] - d) < Math.abs(a[0] - d) ? p : a))[1]; ctx.fillStyle = INK; circ(X(d), Y(v), 6, true); }
+  pen(INK, 1.5); circ(X(38), Y(72), 8, false); txt(L('38일째: 한 번 놓침 → 알림이 다시 커짐', 'Day 38: a miss, so the reminder grows back'), X(38) + 14, Y(72) + 28, 15, 700);
+  txt(L('습관 강도 = 최근 14일 중 알림 전에 스스로 연 비율', 'Habit strength = share of doses opened before any cue, last 14 days'), gx, gy + gh + 36, 16, 500);
+  // more states
+  const more = [['F5-opened', L('연 칸엔 시간', 'Opened tiles keep their time')], ['F6-slip', L('습관이 흔들리면 즉시 다시 크게', 'A slip brings full reminders back at once')], ['F7-rest-day60', L('60일째 평소: 거의 빈 종이', 'Day 60 at rest: almost blank paper')]];
+  more.forEach(([n, cap], i) => { const x = 64 + i * 424, y = 1010; ctx.out.push(`<g transform="translate(${x} ${y})">${bodies[n]}</g>`); pen('#9a9890', 1); rr(x, y, 400, 300, 0); ctx.stroke(); txt(cap, x, y + 330, 16, 700); });
+  txt(L('왜: 시계 알림은 습관을 만들지 못합니다 (Stawarz 2014).', 'Clock alarms don’t build habits (Stawarz 2014).'), 1336, 1050, 16, 700);
+  txt(L('필요한 순간에만 돕기 (JITAI, 2018).', 'Help only at the right moment (JITAI, 2018).'), 1336, 1080, 16, 700);
+  txt(L('루틴에 묶기 (JAGS 2026).', 'Anchor to a routine (JAGS 2026).'), 1336, 1110, 16, 700);
+  txt(L('그래서 Lyra는 점점 조용해집니다.', 'So Lyra gets quieter as you get better.'), 1336, 1160, 20, 900);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
 window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
 window.names = Object.keys(SCREENS);
 </script>

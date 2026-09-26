@@ -93,3 +93,18 @@ Files: 10 states in `en/` and `ko/` (SVG live and outlined, PNG), boards, storyb
 5. **Family only on a miss.** Caregiver support improves adherence.
 
 The time and air quality are always on top. There are 6 states in `en/` and `ko/` (SVG live and outlined, PNG), plus a board with the evidence.
+
+## Concept 6 · Fade (recommended for competitions and investors)
+
+The first medicine reminder designed to be needed less. At the same routine moment ("after breakfast"), the reminder is drawn as strong as the habit is weak:
+
+| Habit strength | What the screen shows | Cue |
+| --- | --- | --- |
+| Below 50% | Bold black tiles and the words | Light, chime and voice |
+| 50–80% | Smaller black tiles | Light and chime |
+| 80% or more | Outlines and a short word | Light only |
+| 95% | A tiny mark in the corner | Nothing: the person starts it themselves |
+
+Habit strength is the share of doses opened before any cue, over the last 14 days. After a missed dose, full reminders come back at once. The ink on the screen is the habit.
+
+The files are the poster board (`Lyra-Fade-en/ko`), 7 states (SVG live and outlined, PNG), and mockups including a Day 1 vs Day 60 pair.
