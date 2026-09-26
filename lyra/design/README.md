@@ -61,3 +61,23 @@ Each of the 9 states is in `en/` and `ko/` as SVG (live and outlined) and PNG. T
 `concept2-calm/`: one sentence per screen, black and white only (the fast panel, so tiles flip instantly), with no labels or codes. The part of the day is written in words ("Saturday afternoon"). At the alarm the whole screen turns black, so it can be seen from across the room. There are 10 states in `en/` and `ko/` (SVG live and outlined, PNG), two boards, and 8 mockups.
 
 Why: dementia-friendly clocks work because they give one unambiguous message and name the part of the day. Older eyes read black on white best, with heavy weights and large text. Grey should never carry information.
+
+## Concept 3 · Always, and the interaction storyboard
+
+`concept3-always/` splits the screen into two parts:
+- **Left rail, which never moves:** the time, the part of the day, air quality (a word and 4 dots), the temperature and the next alarm.
+- **Right side, the box:** black means open now. After opening, each tile shows the time that compartment was opened, so the whole day's record is readable at a glance.
+
+At the alarm, only the right side turns black; the rail stays readable.
+
+`Lyra-Storyboard-en/ko` shows how a day feels, in 8 steps:
+1. Silent resting.
+2. The ring glows softly at dose time.
+3. One chime if the person is near.
+4. A voice line and the screen inverting if still not opened.
+5. Each tile shows its time as it is opened.
+6. The ring goes off and the next alarm is shown.
+7. No sound or light while the person is out.
+8. The day's record.
+
+Files: 10 states in `en/` and `ko/` (SVG live and outlined, PNG), boards, storyboards, 8 mockups.

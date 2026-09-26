@@ -814,6 +814,98 @@ window.calmBoard = () => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
 };
 
+// ---------------------------------------------------------------- Concept 3 · Always
+// A fixed left rail that never changes place: time, part of day, air, next alarm.
+// The main area is the box: black = open now; after opening, each tile shows its time.
+function aRail({ time, part, air, temp, next, nextL, invert }) {
+  const ink = INK;
+  num(time, 14, 58, time.length > 4 ? 38 : 44, 800);
+  txt(part, 16, 84, 15, 700);
+  pen(INK, 1); ln(16, 100, 112, 100);
+  txt(L('공기', 'Air'), 16, 124, 13, 500);
+  txt(['', '좋음', '보통', '나쁨', '매우 나쁨'][air].replace(/^(.*)$/, (m) => (window.LANG === 'en' ? ['', 'Good', 'Fair', 'Bad', 'Very bad'][air] : m)), 16, 148, air === 4 ? 17 : 20, 900);
+  for (let i = 0; i < 4; i++) { pen(INK, 1.5); circ(21 + i * 16, 164, 5.5, i < air); }
+  txt(temp, 16, 196, 18, 700);
+  pen(INK, 1); ln(16, 212, 112, 212);
+  bell(24, 236, 14, INK); txt(nextL, 38, 241, 12, 700);
+  if (/^[0-9:]+$/.test(next)) num(next, 16, 276, 26, 800); else txt(next, 16, 274, 17, 900);
+  pen(INK, 1); ln(124, 12, 124, 288);
+}
+function aTile(i, st, x, y, s, at, ink = INK, paper = PAPER) {
+  if (st === 'due') { ctx.fillStyle = ink; rr(x, y, s, s, 10); ctx.fill(); icon(i, x + s / 2, y + s / 2, s * .52, paper); }
+  else if (st === 'done') { pen(ink, 2.5); rr(x + 1.25, y + 1.25, s - 2.5, s - 2.5, 10); ctx.stroke(); icon(i, x + s / 2, y + s * .36, s * .32, ink); num(at || '', x + s / 2, y + s * .84, s * .2, 800, 'center', ink); }
+  else if (st === 'next') { pen(ink, 2.5); rr(x + 1.25, y + 1.25, s - 2.5, s - 2.5, 10); ctx.stroke(); icon(i, x + s / 2, y + s / 2, s * .46, ink); }
+  else if (st === 'missed') { pen(ink, 2.5); rr(x + 1.25, y + 1.25, s - 2.5, s - 2.5, 10); ctx.stroke(); icon(i, x + s / 2, y + s / 2, s * .42, ink); pen(ink, 5); ln(x + 10, y + s - 10, x + s - 10, y + 10); }
+  else { pen(ink, 1.3); ctx.setLineDash([2, 5]); rr(x + 1, y + 1, s - 2, s - 2, 10); ctx.stroke(); ctx.setLineDash([]); }
+}
+function aBox(st, at = [], ink = INK, paper = PAPER, s = 118, y = 22) { for (let i = 0; i < 4; i++) aTile(i, st[i], 140 + (i % 2) * (s + 8), y + Math.floor(i / 2) * (s + 8), s, at[i], ink, paper); }
+function aScreen(rail, st, at, line, invert) {
+  if (invert) { ctx.fillStyle = INK; ctx.fillRect(130, 0, 270, 300); }
+  aRail(rail);
+  if (line) { aBox(st, at, invert ? PAPER : INK, invert ? INK : PAPER, 104, 16); txt(line, 140, 282, 17, 900, 'left', invert ? PAPER : INK); }
+  else aBox(st, at, invert ? PAPER : INK, invert ? INK : PAPER);
+}
+const aMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+const RR = (time, part, next, nextL, air = 1) => ({ time, part: L(...part), air, temp: L('24° 맑음', '24° clear'), next, nextL: L(...nextL) });
+const at0 = (m) => [0, 1, 2, 3].map((i) => m[i] || '');
+SCREENS['A01-resting'] = () => aScreen(RR('7:50', ['토요일 아침', 'Sat morning'], '8:30', ['다음 알림', 'Next alarm']), aMap(0).map((s) => (s === 'due' ? 'next' : s)), [], L('8시 30분에 네 칸', 'Four at 8:30'));
+SCREENS['A02-due'] = () => aScreen(RR('8:30', ['토요일 아침', 'Sat morning'], '8:45', ['차임', 'Chime']), aMap(0), [], L('아침 약 드세요', 'Morning medicine'));
+SCREENS['A03-alarm'] = () => aScreen(RR('9:00', ['토요일 아침', 'Sat morning'], '9:10', ['다시 알림', 'Again']), aMap(0), [], L('약 드실 시간이에요', 'Time for medicine'), true);
+SCREENS['A04-partial'] = () => aScreen(RR('8:42', ['토요일 아침', 'Sat morning'], '8:45', ['차임', 'Chime']), aMap(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), at0({ [posOf(0)]: '8:41', [posOf(1)]: '8:42' }), L('두 칸 더', '2 more'));
+SCREENS['A05-done'] = () => aScreen(RR('8:47', ['토요일 아침', 'Sat morning'], '12:30', ['다음 알림', 'Next alarm']), ['done', 'done', 'done', 'done'], at0({ 0: '8:44', 1: '8:42', 2: '8:41', 3: '8:46' }));
+SCREENS['A06-later'] = () => aScreen(RR('2:20', ['토요일 오후', 'Sat afternoon'], '6:30', ['다음 알림', 'Next alarm'], 2), [0, 1, 2, 3].map((i) => (i === posOf(0) ? 'done' : 'none')), at0({ [posOf(0)]: '12:38' }), L('점심 12:38에 열었어요', 'Lunch opened at 12:38'));
+SCREENS['A07-away'] = () => aScreen(RR('12:40', ['토요일 낮', 'Sat midday'], L('돌아오면', 'On return'), ['조용히', 'Quiet'], 3), aMap(1), [], L('외출 중 · 소리 없음', 'You are out · no sound'));
+SCREENS['A08-missed'] = () => aScreen(RR('9:31', ['토요일 밤', 'Sat night'], '10:00', ['다음 알림', 'Next alarm']), aMap(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [posOf(1)]: 'missed' }), at0({ [posOf(0)]: '6:35', [posOf(3)]: '6:36' }), L('한 칸 못 여심 · 지은님께 알림', '1 not opened · Ji-eun told'));
+SCREENS['A09-bad-air'] = () => aScreen(RR('7:10', ['토요일 아침', 'Sat morning'], '8:30', ['다음 알림', 'Next alarm'], 4), aMap(0).map((s) => (s === 'due' ? 'next' : s)), [], L('마스크 쓰고 나가세요', 'Wear a mask outside'));
+SCREENS['A10-night'] = () => aScreen(RR('11:20', ['토요일 밤', 'Sat night'], '8:30', ['내일', 'Tomorrow']), ['done', 'done', 'done', 'done'], at0({ 0: '10:02', 1: '6:37', 2: '6:35', 3: '10:03' }), L('오늘 약 모두 끝', 'All done today'));
+
+// ---------------------------------------------------------------- interaction storyboard
+function lyraDevice(x, y, w, screenBody, ring, sound) {
+  const h = w * .62, lidH = h * .26, sx = x + w * .3, sy = y + lidH + h * .1, sw = w * .4, sh = sw * .75;
+  if (ring > 0) { pen('#f2c14e', ring === 2 ? 14 : 7); ctx.beginPath(); ctx.moveTo(x + 6, y + lidH); ctx.lineTo(x + w - 6, y + lidH); ctx.stroke(); }
+  ctx.fillStyle = '#fbfaf7'; rr(x, y + lidH, w, h - lidH, 16); ctx.fill(); pen('#9a9890', 1.2); ctx.stroke();
+  ctx.fillStyle = '#fbfaf7'; rr(x + 4, y, w - 8, lidH, 14); ctx.fill(); ctx.stroke();
+  pen(ring > 0 ? '#e0a526' : '#c9c7bf', 2.5); ln(x + 10, y + lidH + 1, x + w - 10, y + lidH + 1);
+  ctx.out.push(`<g transform="translate(${sx} ${sy}) scale(${sw / 400})">${screenBody}</g>`);
+  pen('#9a9890', 1); rr(sx, sy, sw, sh, 2); ctx.stroke(); circ(x + w * .8, sy + sh / 2, w * .035, false);
+  if (sound === 'chime') { txt('♪', x + w + 6, y + lidH + 30, 26, 700); } else if (sound === 'voice') { bell(x + w + 18, y + lidH + 24, 20, INK); waves(x + w + 18, y + lidH + 22, 16, INK); }
+}
+window.storyBoard = () => {
+  const steps = [
+    ['A01-resting', 0, 0, ['7:50', '평소: 조용히 시계와 공기', 'Resting: clock and air, silent']],
+    ['A02-due', 1, 0, ['8:30', '약 시간: 빛이 은은히, 칸이 검게', 'Dose time: ring glows softly, tiles turn black']],
+    ['A02-due', 1, 'chime', ['8:45', '곁에 계시면 차임 한 번', 'If you are near: one soft chime']],
+    ['A03-alarm', 2, 'voice', ['9:00', '그래도 아직이면 음성 + 화면 반전', 'Still not opened: voice line, screen inverts']],
+    ['A04-partial', 1, 0, ['8:42', '뚜껑을 열고 칸을 열면 그 칸에 시간', 'Open a compartment: its tile shows the time']],
+    ['A05-done', 0, 0, ['8:46', '다 열면 빛이 꺼지고 다음 알림 표시', 'All opened: ring off, next alarm shown']],
+    ['A07-away', 0, 0, ['12:40', '외출 중엔 소리도 빛도 없음', 'Out: no sound, no light']],
+    ['A06-later', 0, 0, ['2:20', '하루 종일: 무엇을 언제 열었는지', 'All day: what was opened, and when']],
+  ];
+  const bodies = Object.fromEntries(steps.map((s) => [s[0], content(s[0])]));
+  const H = 200 + 2 * 420;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 하루의 흐름', 'Lyra · How a day feels'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('빛 → 차임 → 음성, 곁에 있을 때만. 시간과 공기와 다음 알림은 늘 보여요.', 'Light, then chime, then voice, and only when you are near. Time, air and the next alarm are always visible.'), 62, 126, 18, 500);
+  steps.forEach(([n, ring, sound, [t, ko, en]], i) => {
+    const x = 70 + (i % 4) * 420, y = 180 + Math.floor(i / 4) * 420;
+    num(String(i + 1).padStart(2, '0'), x, y + 10, 16, 800); num(t, x + 30, y + 10, 16, 800);
+    lyraDevice(x, y + 30, 330, bodies[n], ring, sound);
+    txt(L(ko, en), x, y + 270, 17, 700);
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+window.alwaysBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('A'));
+  const caps = { 'A01-resting': 'Before: what is next', 'A02-due': 'Dose time', 'A03-alarm': 'Alarm: main area inverts', 'A04-partial': 'Opened tiles show their time', 'A05-done': 'Done: every time, next alarm', 'A06-later': 'Later: lunch opened at 12:38', 'A07-away': 'Out: quiet', 'A08-missed': 'Missed, family told', 'A09-bad-air': 'Very bad air', 'A10-night': 'Night: today’s record' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 3 * 390;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 콘셉트 3 · 늘 보이는', 'Lyra · Concept 3 · Always'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('왼쪽: 시간·공기·다음 알림은 늘 같은 자리 · 오른쪽: 상자, 연 칸엔 연 시간', 'Left: time, air and next alarm, always in the same place · Right: the box; opened tiles show when'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 4) * 424, 170 + Math.floor(i / 4) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
 window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
 window.names = Object.keys(SCREENS);
 </script>
