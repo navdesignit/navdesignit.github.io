@@ -44,3 +44,14 @@ From `source/`: run `./fetch-fonts.sh`, then `node render.mjs out` (needs Playwr
 Tiles sit by position as seen from the front with the lid open (back left, back right, front left, front right). The form in each is set by the carer; the example is bottle, blister, sachets, sticks and drops.
 
 Panel note: 3-colour e-ink panels need a full refresh of about 15 seconds and cannot do quick partial updates, so tiles cannot flip instantly. The same layout works on a black-and-white panel, with red printing as black.
+
+## One Screen (what the user sees)
+
+`one-screen/` is the user-facing design: one fixed layout, no pages and no navigation.
+
+- **Left, the box now:** a 2 × 2 map placed like the compartments. Red means open now, a check shows the time it was opened, and grey means not needed.
+- **Right, today's plan:** 4 rows (08:30, 12:30, 18:30, 22:00). Each row shows which compartments by position, and its status: done, now, next, later or missed.
+- **Bottom, the reminder line:** what Lyra will do next ("chime 08:45, voice 09:00"). It turns red while ringing, and the button quiets the alarm for 10 minutes. It also carries notices: out, missed and family told, put it back, sachets running out.
+- The button's only job for the user is to quiet an alarm. Holding it for 3 s (refill mode) is for the carer.
+
+Each of the 9 states is in `en/` and `ko/` as SVG (live and outlined) and PNG. There are boards and 8 mockups in the renders.

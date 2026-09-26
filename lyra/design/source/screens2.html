@@ -672,6 +672,105 @@ window.sigBoard = () => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
 };
 
+// ---------------------------------------------------------------- One Screen
+// One fixed layout, never a menu. Left: the box now. Right: today's plan.
+// Bottom: the reminder line. Nothing to navigate; the button only quiets an alarm.
+function bell(x, y, s, col) {
+  pen(col, s * .12); ctx.beginPath(); ctx.moveTo(x - s * .5, y + s * .35); ctx.quadraticCurveTo(x - s * .38, y + s * .2, x - s * .36, y - s * .1); ctx.quadraticCurveTo(x - s * .34, y - s * .5, x, y - s * .52); ctx.quadraticCurveTo(x + s * .34, y - s * .5, x + s * .36, y - s * .1); ctx.quadraticCurveTo(x + s * .38, y + s * .2, x + s * .5, y + s * .35); ctx.closePath(); ctx.fill();
+  circ(x, y + s * .5, s * .11, true);
+}
+function waves(x, y, s, col) { pen(col, 2); for (const r of [.75, 1.05]) { ctx.beginPath(); ctx.arc(x, y, s * r, -.6, .6); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, s * r, Math.PI - .6, Math.PI + .6); ctx.stroke(); } }
+const SLOTT = ['08:30', '12:30', '18:30', '22:00'];
+function onePlan(st, x = 206, y = 34, w = 178, rh = 45) {
+  for (let k = 0; k < 4; k++) {
+    const ry = y + k * rh, s = st[k], hot = s === 'now' || s === 'ring';
+    if (hot) { ctx.fillStyle = RED; rr(x, ry + 2, w, rh - 4, 4); ctx.fill(); }
+    else if (s === 'next') { pen(INK, 1.5); rr(x + .75, ry + 2.75, w - 1.5, rh - 5.5, 4); ctx.stroke(); }
+    const c = hot ? PAPER : s === 'later' ? DITHER : INK;
+    slotIcon(k, x + 16, ry + rh / 2 - 2, 9, c);
+    num(SLOTT[k], x + 32, ry + rh / 2 + 6, 18, 800, 'left', c);
+    // which compartments, by position
+    const need = due(k);
+    for (let i = 0; i < 4; i++) { const tx = x + 94 + (i % 2) * 15, ty = ry + rh / 2 - 12 + Math.floor(i / 2) * 12;
+      if (need[i]) { ctx.fillStyle = c; rr(tx, ty, 13, 10, 2); ctx.fill(); } else { pen(c, 1); ctx.setLineDash([1.5, 2]); rr(tx + .5, ty + .5, 12, 9, 2); ctx.stroke(); ctx.setLineDash([]); } }
+    const mx = x + w - 18, my = ry + rh / 2;
+    if (s === 'done') check(mx, my, 16, INK);
+    else if (s === 'missed') { pen(RED, 2.5); circ(mx, my, 8, false); ln(mx - 6, my + 6, mx + 6, my - 6); }
+    else if (hot) { label(L('지금', 'NOW'), mx + 8, my + 3, 8.5, 'right', PAPER); }
+    else if (s === 'next') { label(L('다음', 'NEXT'), mx + 8, my + 3, 8.5, 'right'); }
+    else { pen(c, 1.5); circ(mx, my, 6, false); }
+  }
+}
+function oneTop(time, dust = 1) {
+  num(time, 16, 26, 22, 800); label(L('9월 26일 토', 'SAT 26 SEP'), 86, 24, 8.5);
+  label(L('24° · 미세먼지', '24° · DUST'), 318, 24, 8.5, 'right');
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = i < dust ? (dust === 4 ? RED : INK) : PAPER; pen(INK, 1); rr(324 + i * 15, 16, 12, 8, 1.5); if (i < dust) ctx.fill(); else ctx.stroke(); }
+}
+// the reminder line: kind = quiet | wait | ring | done | missed | away | back | supply
+function oneLine(kind, big, small) {
+  const y = 222, hot = kind === 'ring' || kind === 'back';
+  if (hot) { ctx.fillStyle = RED; rr(12, y, 376, 70, 6); ctx.fill(); } else { rule(16, y + 2, 384); }
+  const c = hot ? PAPER : INK, ix = 40, iy = y + 36;
+  if (kind === 'ring') { bell(ix, iy, 26, c); waves(ix, iy - 2, 22, c); }
+  else if (kind === 'wait') { bell(ix, iy, 22, INK); }
+  else if (kind === 'quiet') { bell(ix, iy, 22, DITHER); }
+  else if (kind === 'done') check(ix, iy, 30, INK);
+  else if (kind === 'missed') { pen(RED, 3); circ(ix, iy, 15, false); ln(ix - 10, iy + 10, ix + 10, iy - 10); }
+  else if (kind === 'away') { door(ix - 12, iy - 20, 24, 40); }
+  else if (kind === 'back') { arrow(ix, iy - 20, ix, iy + 18, c, 4); }
+  else if (kind === 'supply') { sachet(ix, iy, 30, RED); }
+  txt(big, 72, y + 32, 20, 900, 'left', kind === 'missed' || kind === 'supply' ? RED : c);
+  txt(small, 72, y + 55, 13, 500, 'left', c);
+}
+function oneScreen({ time, dust, tiles, plan, line, at }) {
+  marks(); oneTop(time, dust);
+  sGrid(tiles, 16, 36, 87, 6, { at });
+  onePlan(plan);
+  oneLine(...line);
+}
+const ALL = (st) => [0, 1, 2, 3].map(() => st);
+SCREENS['O1-resting'] = () => oneScreen({ time: '14:20', dust: 1,
+  tiles: map(2).map((s) => (s === 'due' ? 'plain' : s)), plan: ['done', 'done', 'next', 'later'],
+  line: ['quiet', L('저녁 18:30까지 알림 없음', 'No reminder until 18:30'), L('빨간 칸이 생기면 여세요', 'When a tile turns red, open it')] });
+SCREENS['O2-due'] = () => oneScreen({ time: '08:32', dust: 1,
+  tiles: map(0), plan: ['now', 'later', 'later', 'later'],
+  line: ['wait', L('아침 약 · 빨간 칸 4개', 'Morning · open the 4 red'), L('08:45 차임 · 09:00 음성 안내', 'Chime at 08:45 · voice at 09:00')] });
+SCREENS['O3-ringing'] = () => oneScreen({ time: '08:45', dust: 1,
+  tiles: map(0), plan: ['ring', 'later', 'later', 'later'],
+  line: ['ring', L('아침 약 드실 시간이에요', 'Morning medicine time'), L('버튼: 10분 조용히', 'Press the button to quiet for 10 min')] });
+SCREENS['O4-partial'] = () => oneScreen({ time: '08:47', dust: 1,
+  tiles: map(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), at: [0, 1, 2, 3].map((i) => (i === posOf(0) ? '08:46' : i === posOf(1) ? '08:47' : '')),
+  plan: ['now', 'later', 'later', 'later'],
+  line: ['wait', L('2칸 남았어요', '2 left'), POS()[posOf(3)] + ' · ' + POS()[posOf(2)]] });
+SCREENS['O5-done'] = () => oneScreen({ time: '08:50', dust: 1,
+  tiles: map(1).map((s) => (s === 'due' ? 'plain' : s)), plan: ['done', 'next', 'later', 'later'],
+  line: ['done', L('아침 끝 · 29일째 제때', 'Morning done · day 29 on time'), L('다음 점심 12:30 · 약봉투 한 칸', 'Next: lunch 12:30 · the sachets')] });
+SCREENS['O6-away'] = () => oneScreen({ time: '12:40', dust: 3,
+  tiles: map(1), plan: ['done', 'now', 'later', 'later'],
+  line: ['away', L('외출 중 · 소리 안 냄', 'You are out · no sound'), L('돌아오시면 한 번 알려 드려요', 'One reminder when you are back')] });
+SCREENS['O7-missed'] = () => oneScreen({ time: '21:31', dust: 1,
+  tiles: map(3).map((s) => (s === 'due' ? 'plain' : s)), plan: ['done', 'done', 'missed', 'next'],
+  line: ['missed', L('저녁 약 1칸을 안 여셨어요', 'Evening: 1 not opened'), L('지은님께 한 번 알렸어요', 'Ji-eun was told, once')] });
+SCREENS['O8-put-back'] = () => oneScreen({ time: '18:43', dust: 1,
+  tiles: map(2, { [posOf(3)]: 'ghost', [posOf(0)]: 'done' }), at: [0, 1, 2, 3].map((i) => (i === posOf(0) ? '18:33' : '')),
+  plan: ['done', 'done', 'now', 'later'],
+  line: ['back', L('영양제 병을 제자리에', 'Put the bottle back'), L('10분째 밖에 있어요 · ' + POS()[posOf(3)], 'Out for 10 min · ' + POS()[posOf(3)])] });
+SCREENS['O9-supply'] = () => oneScreen({ time: '07:55', dust: 2,
+  tiles: map(0).map((s) => (s === 'due' ? 'plain' : s)), plan: ['next', 'later', 'later', 'later'],
+  line: ['supply', L('약봉투 3일분 남음', 'Sachets: 3 days left'), L('월요일에 약국에 가세요', 'Visit the pharmacy on Monday')] });
+
+window.oneBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('O'));
+  const caps = { 'O1-resting': 'Resting: the day at a glance', 'O2-due': 'Dose time: open the red', 'O3-ringing': 'Alarm ringing', 'O4-partial': 'Two left', 'O5-done': 'Done, what is next', 'O6-away': 'Out: no sound', 'O7-missed': 'Missed, family told once', 'O8-put-back': 'Put the bottle back', 'O9-supply': 'Sachets running out' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 3 * 390;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 한 화면', 'Lyra · One Screen'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('넘기는 화면 없음. 왼쪽: 지금 열 칸 · 오른쪽: 오늘 계획 · 아래: 알림', 'No pages to navigate. Left: open now · Right: today’s plan · Bottom: the reminder'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 3) * 560, 170 + Math.floor(i / 3) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
 window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
 window.names = Object.keys(SCREENS);
 </script>
