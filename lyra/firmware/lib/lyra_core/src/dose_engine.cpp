@@ -74,6 +74,7 @@ void DoseEngine::closeExpired(int32_t now, EngineOutput& out) {
     r.status = DoseStatus::Missed;
     // r.miss was set to Forgot while the person was seen during the window.
     if (r.miss != MissReason::Forgot) r.miss = MissReason::Away;
+    if (meds_[r.med].supplement) continue;  // logged, but no screen notice or alert
     out.notice = Notice::DoseMissed;
     out.notice_med = static_cast<int8_t>(r.med);
     out.notice_min = r.due_min;
@@ -112,6 +113,10 @@ EngineOutput DoseEngine::tick(int32_t now, bool present) {
       if (waited >= cfg_.voice_after_min) level = 3;
       else if (waited >= cfg_.chime_after_min) level = 2;
     }
+    bool group_has_medicine = false;
+    for (const auto& r : hist_)
+      if (r.due_min == group_due && isOpen(r.status) && !meds_[r.med].supplement) group_has_medicine = true;
+    if (!group_has_medicine) level = std::min<uint8_t>(level, 2);  // only supplements left: glow + one chime
     for (auto& r : hist_) {
       if (r.due_min != group_due || !isOpen(r.status)) continue;
       out.glow_mask |= static_cast<uint8_t>(1u << meds_[r.med].bay);
@@ -213,12 +218,155 @@ EngineOutput DoseEngine::confirmDose(int32_t now) {
   if (confirm_med_ < 0 || now - confirm_min_ > kConfirmWindowMin) return out;
   const int m = confirm_med_;
   confirm_med_ = -1;
+  if (extra_med_ == m) extra_med_ = -1;  // "yes, it's the right one": nothing to put back
   DoseRecord* r = openDoseFor(m, now);
   if (!r) return out;
   const int count = r->planned - r->taken;
   r->source = DoseSource::UserConfirmed;
   r->confidence = 0;
   markTaken(*r, count, now, out);
+  return out;
+}
+
+float DoseEngine::detectorUnitG(int m) const {
+  const Medicine& md = meds_[m];
+  if (md.form != Form::Pouch) return md.pill_g;
+  float sum = 0;
+  int n = 0;
+  for (int k = 0; k < kSlots; ++k)
+    if (md.per_slot[k] && md.slot_unit_g[k] > 0) sum += md.slot_unit_g[k], ++n;
+  return n ? sum / n : 0;
+}
+
+void DoseEngine::extraDose(int m, int count, float grams, int32_t now, EngineOutput& out) {
+  // Nothing open for this medicine: say why ("already taken at 8:02" /
+  // "not yet, from 18:00") and give 10 minutes to put it back.
+  Medicine& md = meds_[m];
+  if (md.stock_pills >= 0) md.stock_pills = std::max(0.0f, md.stock_pills - count);
+  extra_med_ = static_cast<int8_t>(m);
+  extra_pills_ = static_cast<int8_t>(count);
+  extra_g_ = grams;
+  extra_min_ = now;
+  out.notice_med = static_cast<int8_t>(m);
+  out.notice_pills = static_cast<int8_t>(count);
+
+  const DoseRecord* last = nullptr;
+  for (const auto& r : hist_)
+    if (r.med == m && r.taken_min >= 0 && now - r.taken_min <= 12 * 60 && (!last || r.taken_min > last->taken_min)) last = &r;
+  if (last) {
+    out.notice = Notice::AlreadyTaken;
+    out.notice_min = last->taken_min;
+    return;
+  }
+  const DoseRecord* next = nullptr;
+  for (const auto& r : hist_)
+    if (r.med == m && isOpen(r.status) && r.due_min > now && (!next || r.due_min < next->due_min)) next = &r;
+  out.notice = Notice::TooEarly;
+  out.notice_min = next ? next->due_min - cfg_.early_min : -1;
+}
+
+EngineOutput DoseEngine::onPouchRemoved(int m, const BayEvent& e, int32_t now) {
+  // A pouch holds every pill for one dose time, so the pouch is the unit.
+  // Pouches for different times weigh differently (different pills inside):
+  // match the weight that left against each slot's pouch.
+  EngineOutput out;
+  out.notice_med = static_cast<int8_t>(m);
+  Medicine& md = meds_[m];
+  const float d = e.delta_g;
+  if (d < kPouchMinG) {  // lighter than any pouch: something else (a pill dropped back?)
+    if (openDoseFor(m, now)) {
+      confirm_med_ = static_cast<int8_t>(m);
+      confirm_min_ = now;
+      out.notice = Notice::ConfirmDose;
+    } else {
+      out.notice_med = -1;
+    }
+    return out;
+  }
+  DoseRecord* open = openDoseFor(m, now);
+  const auto near = [&](float a, float b) { return std::fabs(a - b) <= kPouchTolG; };
+
+  if (!open) {
+    extraDose(m, std::max(1, static_cast<int>(std::lround(d / std::max(0.5f, detectorUnitG(m))))), d, now, out);
+    return out;
+  }
+  const float w = md.slot_unit_g[open->slot];
+
+  if (w <= 0) {
+    // Still learning this slot's pouch: accept one plausible pouch and learn it.
+    if (d > kPouchMaxG) {
+      confirm_med_ = static_cast<int8_t>(m);
+      confirm_min_ = now;
+      out.notice = Notice::ConfirmDose;
+      return out;
+    }
+    uint8_t& n = pouch_n_[m][open->slot];
+    pouch_learn_[m][open->slot][n] = d;
+    if (++n == 3) {
+      float v[3] = {pouch_learn_[m][open->slot][0], pouch_learn_[m][open->slot][1], pouch_learn_[m][open->slot][2]};
+      std::sort(v, v + 3);
+      md.slot_unit_g[open->slot] = v[1];
+    }
+    open->source = DoseSource::Learning;
+    open->confidence = 0;
+    markTaken(*open, open->planned - open->taken, now, out);
+    return out;
+  }
+
+  // Nearest known pouch.
+  int best_k = -1;
+  float best_err = 1e9f;
+  for (int k = 0; k < kSlots; ++k) {
+    const float wk = md.slot_unit_g[k];
+    if (!md.per_slot[k] || wk <= 0) continue;
+    const float err = std::fabs(d - wk);
+    if (err < best_err) best_err = err, best_k = k;
+  }
+  if (best_k == open->slot && near(d, w)) {
+    open->source = DoseSource::Weighed;
+    open->confidence = 99;
+    markTaken(*open, open->planned - open->taken, now, out);
+    return out;
+  }
+  // Another time's pouch: nearest to it, clearly away from the right one.
+  if (best_k >= 0 && best_k != open->slot && best_err <= 1.5f * kPouchTolG && std::fabs(d - w) > kPouchTolG) {
+    out.notice = Notice::WrongPouch;
+    out.notice_slot = static_cast<int8_t>(best_k);
+    extra_med_ = static_cast<int8_t>(m);
+    extra_pills_ = 1;
+    extra_g_ = d;
+    extra_min_ = now;
+    return out;
+  }
+  // Two pouches: this time's plus another (sum tolerance is √2 wider), or
+  // anything clearly heavier than one pouch.
+  for (int k = 0; k < kSlots; ++k) {
+    const float wk = md.slot_unit_g[k];
+    if (!md.per_slot[k] || wk <= 0) continue;
+    if (std::fabs(d - (w + wk)) <= 1.5f * kPouchTolG || (k == kSlots - 1 && d > w + 0.6f * detectorUnitG(m))) {
+      const float other = std::fabs(d - (w + wk)) <= 1.5f * kPouchTolG ? wk : d - w;
+      open->source = DoseSource::Weighed;
+      open->confidence = 90;
+      markTaken(*open, open->planned - open->taken, now, out);
+      out.notice = Notice::ExtraPills;
+      out.notice_pills = 1;
+      extra_med_ = static_cast<int8_t>(m);
+      extra_pills_ = 1;
+      extra_g_ = other;
+      extra_min_ = now;
+      return out;
+    }
+  }
+  // Doesn't match clearly: ask, and the screen asks to check the time
+  // printed on the pouch. Until "yes", it counts as a pouch to put back.
+  confirm_med_ = static_cast<int8_t>(m);
+  confirm_min_ = now;
+  extra_med_ = static_cast<int8_t>(m);
+  extra_pills_ = 1;
+  extra_g_ = d;
+  extra_min_ = now;
+  out.notice = Notice::ConfirmDose;
+  out.notice_slot = static_cast<int8_t>(open->slot);
   return out;
 }
 
@@ -246,7 +394,8 @@ EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
       out.notice_med = -1;
       return out;
     case BayEventKind::Added: {
-      if (extra_med_ == m && now - extra_min_ <= kPutBackWindowMin && e.pills == extra_pills_) {
+      const bool same_back = md.form == Form::Pouch ? std::fabs(-e.delta_g - extra_g_) <= kPouchTolG : e.pills == extra_pills_;
+      if (extra_med_ == m && now - extra_min_ <= kPutBackWindowMin && same_back) {
         // Extra pills went back in: undo them on the dose record.
         for (auto it = hist_.rbegin(); it != hist_.rend(); ++it) {
           if (it->med == m && it->taken > it->planned) {
@@ -259,6 +408,12 @@ EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
         out.notice = Notice::PutBackThanks;
         return out;
       }
+      if (md.form == Form::Pouch && e.delta_g < -2 * detectorUnitG(m)) {
+        // Pharmacy strips aren't topped up: a lot more weight = a new strip.
+        low_stock_sent_[m] = false;
+        out.notice = Notice::NewContainer;
+        return out;
+      }
       if (md.stock_pills >= 0 && e.pills > 0) md.stock_pills += e.pills;
       low_stock_sent_[m] = false;
       out.notice = Notice::Refilled;
@@ -267,6 +422,7 @@ EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
     }
     case BayEventKind::Swapped:
     case BayEventKind::Placed:
+      low_stock_sent_[m] = false;
       // Unknown container on this bay: the screen asks "New box of <name>?"
       // and the pill count (knob, or the pack barcode).
       out.notice = Notice::NewContainer;
@@ -279,28 +435,29 @@ EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
       return out;
   }
 
-  // ---- pills removed --------------------------------------------------------
+  // ---- units removed ---------------------------------------------------------
+  if (md.form == Form::Pouch) return onPouchRemoved(m, e, now);
+
   const bool weight_known = md.pill_g > 0 && e.pills > 0;
   DoseRecord* best = openDoseFor(m, now);
 
   if (best) {
     const int remaining = best->planned - best->taken;
+    // Pills under 150 mg cannot be counted reliably by weight (see the
+    // Monte-Carlo table in test/host): the scale only proves the container
+    // was opened, so always ask. Heavier pills: ask only when unsure.
+    if ((md.pill_g > 0 && md.pill_g < kMinCountablePillG) || (weight_known && e.confidence < cfg_.silent_confidence)) {
+      confirm_med_ = static_cast<int8_t>(m);
+      confirm_min_ = now;
+      out.notice = Notice::ConfirmDose;
+      return out;
+    }
     if (!weight_known) {
       // Still learning this pill: assume the planned amount was taken.
       learnPillWeight(m, e.delta_g, remaining);
       best->source = DoseSource::Learning;
       best->confidence = 0;
       markTaken(*best, remaining, now, out);
-      return out;
-    }
-    // Pills under 150 mg cannot be counted reliably by weight (see the
-    // Monte-Carlo table in test/host): the scale only proves the container
-    // was opened, so always ask. Heavier pills: ask only when unsure.
-    if (md.pill_g < kMinCountablePillG || e.confidence < cfg_.silent_confidence) {
-      // Weight says "something", but not how many: ask.
-      confirm_med_ = static_cast<int8_t>(m);
-      confirm_min_ = now;
-      out.notice = Notice::ConfirmDose;
       return out;
     }
     // Keep refining a learned pill weight on clean doses. Only for heavy
@@ -320,28 +477,8 @@ EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
     return out;
   }
 
-  // No open dose: this is an extra dose. Find out why, so the screen can say
-  // something useful ("already taken at 8:02" / "next dose at 19:00").
-  const int count = weight_known ? e.pills : 1;  // unknown pill weight: "at least one"
-  if (md.stock_pills >= 0) md.stock_pills = std::max(0.0f, md.stock_pills - count);
-  extra_med_ = static_cast<int8_t>(m);
-  extra_pills_ = static_cast<int8_t>(count);
-  extra_min_ = now;
-  out.notice_pills = static_cast<int8_t>(count);
-
-  const DoseRecord* last = nullptr;
-  for (const auto& r : hist_)
-    if (r.med == m && r.taken_min >= 0 && now - r.taken_min <= 12 * 60 && (!last || r.taken_min > last->taken_min)) last = &r;
-  if (last) {
-    out.notice = Notice::AlreadyTaken;
-    out.notice_min = last->taken_min;
-    return out;
-  }
-  const DoseRecord* next = nullptr;
-  for (const auto& r : hist_)
-    if (r.med == m && isOpen(r.status) && r.due_min > now && (!next || r.due_min < next->due_min)) next = &r;
-  out.notice = Notice::TooEarly;
-  out.notice_min = next ? next->due_min - cfg_.early_min : -1;
+  // No open dose: an extra dose.
+  extraDose(m, weight_known ? e.pills : 1, e.delta_g, now, out);  // unknown weight: "at least one"
   return out;
 }
 

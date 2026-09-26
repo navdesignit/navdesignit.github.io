@@ -46,9 +46,10 @@ BayEvent BayDetector::classify(float before, float after, uint32_t t_ms) const {
   }
 
   if (d > 0) {
-    // Lighter. A dose is at most ~10 pills; anything bigger is a different
-    // (lighter) container.
-    const bool plausible = pill_g_ > 0 ? d / pill_g_ <= 10.5f : d < 5.0f;
+    // Lighter. A dose is at most ~10 units; anything bigger is a different
+    // (lighter) container. Unit weight unknown: accept up to a fifth of what
+    // was on the bay (a 12 g stick from a 400 g box, a pill from a bottle).
+    const bool plausible = pill_g_ > 0 ? d / pill_g_ <= 10.5f : d < std::fmax(5.0f, 0.2f * before);
     if (!plausible) {
       e.kind = BayEventKind::Swapped;
       return e;

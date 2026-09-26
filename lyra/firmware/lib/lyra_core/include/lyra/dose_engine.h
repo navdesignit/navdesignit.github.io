@@ -32,6 +32,7 @@ enum class Notice : uint8_t {
   NewContainer,     // a different container sits on the bay: confirm on screen
   UnknownBay,       // pills taken from a bay with no medicine assigned
   ConfirmDose,      // container opened but the change was too small to count: ask
+  WrongPouch,       // pouch for another time was taken (notice_slot says which)
   DoseMissed,
 };
 
@@ -47,6 +48,7 @@ struct EngineOutput {
   int8_t notice_med = -1;
   int32_t notice_min = -1;      // e.g. when it was already taken / next due
   int8_t notice_pills = 0;
+  int8_t notice_slot = -1;      // WrongPouch: the slot of the pouch in hand
 
   // Caregiver message (sent by the app layer over LTE/Wi-Fi).
   bool notify_caregiver = false;
@@ -58,6 +60,13 @@ class DoseEngine {
   static constexpr int kPutBackWindowMin = 10;
   static constexpr float kMinCountablePillG = 0.15f;  // lighter: always confirm by knob
   static constexpr float kRefinePillG = 0.25f;        // learned (not calibrated) and heavier: keep refining
+  // Pouches: one pouch varies by ≈ 50 mg (1σ: film ±30 mg, contents ±4 %,
+  // scale ±10 mg), so it matches its slot within ±0.15 g (3σ). Two slots'
+  // pouches can be told apart when they differ by ≥ 0.3 g (2 × tolerance),
+  // i.e. one extra tablet of ≥ 300 mg or two of ≥ 150 mg. Outside every
+  // tolerance Lyra asks instead of guessing.
+  static constexpr float kPouchTolG = 0.15f;
+  static constexpr float kPouchMinG = 0.4f, kPouchMaxG = 8.0f;
 
   explicit DoseEngine(const ScheduleConfig& cfg = ScheduleConfig{}) : cfg_(cfg) {}
 
@@ -82,6 +91,10 @@ class DoseEngine {
   EngineOutput confirmDose(int32_t now_min);
   static constexpr int kConfirmWindowMin = 5;
 
+  // Unit weight the bay detector should count with (pill, stick, or the
+  // average pouch).
+  float detectorUnitG(int med) const;
+
   const std::vector<DoseRecord>& history() const { return hist_; }
   std::vector<DoseRecord>& history() { return hist_; }
   float dailyUse(int med) const;     // pills per day
@@ -97,6 +110,8 @@ class DoseEngine {
   void learnPillWeight(int med, float delta_g, int planned);
   DoseRecord* openDoseFor(int med, int32_t now_min);
   void markTaken(DoseRecord& r, int count, int32_t now_min, EngineOutput& out);
+  EngineOutput onPouchRemoved(int med, const BayEvent& e, int32_t now_min);
+  void extraDose(int med, int count, float grams, int32_t now_min, EngineOutput& out);
 
   ScheduleConfig cfg_;
   Medicine meds_[kMaxMeds];
@@ -109,11 +124,11 @@ class DoseEngine {
   int32_t last_voice_min_[kSlots] = {};
   uint8_t voice_repeats_[kSlots] = {};
   bool was_present_ = false;
-  bool present_in_window_[kSlots] = {};
 
   // Extra-pill "put back" window.
   int8_t extra_med_ = -1;
   int8_t extra_pills_ = 0;
+  float extra_g_ = 0;           // weight that left (pouches are matched by weight)
   int32_t extra_min_ = 0;
 
   // Pending "did you take it?" question.
@@ -125,6 +140,10 @@ class DoseEngine {
   uint8_t learn_n_[kMaxMeds] = {};     // samples held (≤ 5)
   uint8_t learn_next_[kMaxMeds] = {};  // ring index
   bool low_stock_sent_[kMaxMeds] = {};
+
+  // Pouch-weight learning: first three takes of each slot.
+  float pouch_learn_[kMaxMeds][kSlots][3] = {};
+  uint8_t pouch_n_[kMaxMeds][kSlots] = {};
 };
 
 }  // namespace lyra

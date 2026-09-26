@@ -257,9 +257,22 @@ void pageNotice(const Context& c) {
       snprintf(b, sizeof b, "%s: take %d more", name, o.notice_pills);
       break;
     case Notice::ConfirmDose:
-      snprintf(a, sizeof a, "Did you take it?");
-      snprintf(b, sizeof b, "%s. Press = Yes", name);
+      if (o.notice_med >= 0 && e.med(o.notice_med).form == Form::Pouch && o.notice_slot >= 0) {
+        // Pharmacy pouches have the time printed on them: let the label decide.
+        snprintf(a, sizeof a, "Check the pouch");
+        snprintf(b, sizeof b, "It says %s? Press = Yes", kSlotName[o.notice_slot]);
+      } else {
+        snprintf(a, sizeof a, "Did you take it?");
+        snprintf(b, sizeof b, "%s. Press = Yes", name);
+      }
       break;
+    case Notice::WrongPouch: {
+      mark = DoseStatus::Missed;
+      snprintf(a, sizeof a, "%s pouch", o.notice_slot >= 0 ? kSlotName[o.notice_slot] : "Other");
+      const int now_slot = c.active_slot >= 0 ? c.active_slot : 0;
+      snprintf(b, sizeof b, "Put it back. Take the %s one.", kSlotName[now_slot]);
+      break;
+    }
     case Notice::PutBackThanks:
       mark = DoseStatus::Taken;
       snprintf(a, sizeof a, "Thank you");

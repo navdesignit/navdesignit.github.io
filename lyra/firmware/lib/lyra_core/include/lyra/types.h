@@ -23,8 +23,23 @@ inline int32_t minuteOfDay(int32_t local_min) { return local_min % kMinPerDay; }
 // Pictogram-based slots, so no language is needed to read the plan.
 enum class Slot : uint8_t { Morning = 0, Noon = 1, Evening = 2, Night = 3 };
 
+// What sits on the bay. The unit is what the person takes out.
+enum class Form : uint8_t {
+  Pill,     // bottle or blister box; unit = one tablet or capsule
+  Pouch,    // pharmacy dose-pouch strip (Korea: 약봉투); unit = one pouch holding
+            // every pill for one dose time; each slot's pouch has its own weight
+  Stick,    // single-serve stick or sachet (e.g. red ginseng 홍삼스틱); unit = one stick
+};
+
 struct Medicine {
-  char name[24] = {};
+  char name[24] = {};                // UTF-8; non-Latin names are drawn from cloud-rendered bitmaps
+  Form form = Form::Pill;
+  // Supplements (vitamins, red ginseng): glow and one chime only, no voice
+  // escalation, no caregiver alert when missed.
+  bool supplement = false;
+  // Pouch only: weight of one pouch per slot (morning pouch ≠ evening pouch).
+  // Learned from the first takes of each slot; 0 = still learning.
+  float slot_unit_g[kSlots] = {};
   bool active = false;
   uint8_t bay = 0;                 // 0..kBays-1
   uint8_t per_slot[kSlots] = {};   // pills per slot, 0 = not taken at that time

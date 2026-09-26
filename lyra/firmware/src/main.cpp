@@ -37,6 +37,11 @@ hal::Speaker speaker;
 DoseEngine engine;
 BayDetector detector[kBays];
 
+// Logical bay -> load cells it spans (bitmask). Default: one cell each.
+// Korean layout: a double-width tray for the pharmacy pouch strip spans cells
+// 1+2 as bay 0, and bay 1 is unused: {0b000011, 0, 0b000100, 0b001000, 0b010000, 0b100000}.
+uint8_t bay_cells[kBays] = {0b000001, 0b000010, 0b000100, 0b001000, 0b010000, 0b100000};
+
 struct BayMsg {
   uint8_t bay;
   BayEvent event;
@@ -82,14 +87,35 @@ void updateDateLabel() {
 
 // ---- sensing task ------------------------------------------------------------
 
+uint8_t cellsOf(uint8_t logical_mask) {
+  uint8_t cells = 0;
+  for (int b = 0; b < kBays; ++b)
+    if (logical_mask & (1u << b)) cells |= bay_cells[b];
+  return cells;
+}
+
 void sensorTask(void*) {
   uint32_t last_radar = 0;
+  float cell_g[kBays] = {};
+  uint8_t have = 0;
   for (;;) {
     const uint32_t now = millis();
+    uint8_t fresh = 0;
+    for (int c = 0; c < kBays; ++c) {
+      if (scales.read(c, cell_g[c])) {
+        fresh |= 1u << c;
+        have |= 1u << c;
+      }
+    }
     uint8_t lifted = 0;
     for (int b = 0; b < kBays; ++b) {
-      float g;
-      if (scales.read(b, g)) {
+      const uint8_t cells = bay_cells[b];
+      // Feed a logical bay when one of its cells has a new reading and all
+      // of its cells have read at least once; a merged bay reads their sum.
+      if (cells && (fresh & cells) && (have & cells) == cells) {
+        float g = 0;
+        for (int c = 0; c < kBays; ++c)
+          if (cells & (1u << c)) g += cell_g[c];
         const BayEvent e = detector[b].push(g, now);
         if (e.kind != BayEventKind::None) {
           BayMsg m{static_cast<uint8_t>(b), e};
@@ -103,7 +129,7 @@ void sensorTask(void*) {
       last_radar = now;
       person_present = presence.present();
     }
-    lights.render(glow_mask, lifted_mask, now);
+    lights.render(cellsOf(glow_mask), cellsOf(lifted_mask), now);  // a merged tray lights all its cups
     vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
@@ -150,6 +176,7 @@ void handle(const EngineOutput& o, bool from_tick) {
     if (o.notice == Notice::ExtraPills) speaker.say("extra_pills");
     if (o.notice == Notice::TooEarly) speaker.say("too_early");
     if (o.notice == Notice::ConfirmDose) speaker.say("did_you_take");
+    if (o.notice == Notice::WrongPouch) speaker.say("wrong_pouch");
   }
   if (o.notify_caregiver) cloud::alert(engine, o, nowLocalMin(), person_present);
 }
@@ -217,13 +244,14 @@ void setup() {
   const String tz = p.getString("tz", "UTC0");  // POSIX TZ, set during setup
   const String dev = p.getString("id", "lyra-dev");
   no_activity_min = p.getInt("noact_min", 10 * 60);
+  if (p.getBytesLength("baymap") == sizeof bay_cells) p.getBytes("baymap", bay_cells, sizeof bay_cells);
   p.end();
   configTzTime(tz.c_str(), "pool.ntp.org", "time.google.com");
 
   if (!storage::loadState(engine, day0)) day0 = localEpochMinutes() / kMinPerDay;
   ctx.day0_weekday = ((day0 + 3) % 7 + 7) % 7;
   for (int i = 0; i < kMaxMeds; ++i)
-    if (engine.med(i).active) detector[engine.med(i).bay].setPillWeight(engine.med(i).pill_g);
+    if (engine.med(i).active) detector[engine.med(i).bay].setPillWeight(engine.detectorUnitG(i));
 
   scales.begin();
   presence.begin();
@@ -257,7 +285,7 @@ void loop() {
     const int32_t now = nowLocalMin();
     handle(engine.onBayEvent(m.bay, m.event, now), false);
     const int med = engine.medAtBay(m.bay);
-    if (med >= 0) detector[m.bay].setPillWeight(engine.med(med).pill_g);  // pill weight may have just been learned
+    if (med >= 0) detector[m.bay].setPillWeight(engine.detectorUnitG(med));  // pill weight may have just been learned
   }
 
   const hal::KnobEvent k = knob.poll();
