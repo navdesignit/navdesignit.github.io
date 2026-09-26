@@ -55,3 +55,9 @@ Panel note: 3-colour e-ink panels need a full refresh of about 15 seconds and ca
 - The button's only job for the user is to quiet an alarm. Holding it for 3 s (refill mode) is for the carer.
 
 Each of the 9 states is in `en/` and `ko/` as SVG (live and outlined) and PNG. There are boards and 8 mockups in the renders.
+
+## Concept 2 · Calm (ultra-minimal)
+
+`concept2-calm/`: one sentence per screen, black and white only (the fast panel, so tiles flip instantly), with no labels or codes. The part of the day is written in words ("Saturday afternoon"). At the alarm the whole screen turns black, so it can be seen from across the room. There are 10 states in `en/` and `ko/` (SVG live and outlined, PNG), two boards, and 8 mockups.
+
+Why: dementia-friendly clocks work because they give one unambiguous message and name the part of the day. Older eyes read black on white best, with heavy weights and large text. Grey should never carry information.

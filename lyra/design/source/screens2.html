@@ -771,6 +771,49 @@ window.oneBoard = () => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
 };
 
+// ---------------------------------------------------------------- Concept 2 · Calm (ultra-minimal)
+// One sentence per screen. Black and white only (fast panel, instant tile flips).
+// No labels, no codes, no grey for information. Part of day in words.
+function cTile(i, st, x, y, s, ink, paper) {
+  if (st === 'due') { ctx.fillStyle = ink; rr(x, y, s, s, 10); ctx.fill(); icon(i, x + s / 2, y + s / 2, s * .54, paper); }
+  else if (st === 'done') { check(x + s / 2, y + s / 2, s * .34, ink); }
+  else if (st === 'missed') { pen(ink, 3); rr(x + 1.5, y + 1.5, s - 3, s - 3, 10); ctx.stroke(); icon(i, x + s / 2, y + s / 2, s * .46, ink); pen(ink, 6); ln(x + 12, y + s - 12, x + s - 12, y + 12); }
+  else if (st === 'ghost') { pen(ink, 4); ctx.setLineDash([10, 7]); rr(x + 2, y + 2, s - 4, s - 4, 10); ctx.stroke(); ctx.setLineDash([]); arrow(x + s / 2, y + s * .2, x + s / 2, y + s * .8, ink, 6); }
+  else { pen(ink, 1.5); ctx.setLineDash([2, 6]); rr(x + 1, y + 1, s - 2, s - 2, 10); ctx.stroke(); ctx.setLineDash([]); }
+}
+function cGrid(st, x, y, s, gap = 10, ink = INK, paper = PAPER) { for (let i = 0; i < 4; i++) cTile(i, st[i], x + (i % 2) * (s + gap), y + Math.floor(i / 2) * (s + gap), s, ink, paper); }
+function cSay(lines, x, y, size = 30, col = INK, lh = 1.3) { lines.forEach((t, k) => txt(t, x, y + k * size * lh, size, 900, 'left', col)); }
+const cMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+function cClock({ dayL, time, next, extra }) {
+  txt(dayL, 24, 52, 22, 700);
+  num(time[0], 20, 170, 112, 800); if (time[1]) txt(time[1], 24 + time[0].length * 62, 170, 26, 900);
+  if (extra) { txt(extra, 24, 214, 20, 900); }
+  pen(INK, 1.5); ln(24, 238, 376, 238);
+  txt(next, 24, 276, 22, 700);
+}
+SCREENS['M01-resting'] = () => cClock({ dayL: L('토요일 오후', 'Saturday afternoon'), time: ['2:20'], next: L('다음 약 · 저녁 6시 30분', 'Next medicine · evening 6:30') });
+SCREENS['M02-bad-air'] = () => cClock({ dayL: L('토요일 아침', 'Saturday morning'), time: ['7:10'], extra: L('공기가 매우 나빠요 · 마스크 쓰세요', 'Very bad air · wear a mask'), next: L('다음 약 · 아침 8시 30분', 'Next medicine · morning 8:30') });
+SCREENS['M03-due'] = () => { cGrid(cMap(0), 22, 50, 96); cSay(L('아침 약,드세요', 'Morning,medicine').split(','), 236, 140, 26); };
+SCREENS['M04-ringing'] = () => { ctx.fillStyle = INK; ctx.fillRect(0, 0, 400, 300); cGrid(cMap(0), 22, 50, 96, 10, PAPER, INK); cSay(L('약 드실,시간이에요', 'Time for,medicine').split(','), 236, 140, 26, PAPER); };
+SCREENS['M05-partial'] = () => { cGrid(cMap(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), 22, 50, 96); cSay([L('두 칸 더', '2 more')], 236, 130, 36); };
+SCREENS['M06-done'] = () => { check(90, 150, 130); cSay([L('아침 끝', 'Morning done')], 180, 146, 28); txt(L('다음 · 낮 12시 30분', 'Next · 12:30 lunch'), 180, 186, 18, 700); };
+SCREENS['M07-missed'] = () => { cGrid(cMap(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [posOf(1)]: 'missed' }), 22, 50, 96); cSay(L('한 칸을,못 여셨어요', 'One was,not opened').split(','), 236, 110, 26); txt(L('지은님께 알렸어요', 'Ji-eun knows'), 236, 190, 16, 700); };
+SCREENS['M08-put-back'] = () => { cGrid([0, 1, 2, 3].map((i) => (i === posOf(3) ? 'ghost' : 'none')), 22, 50, 96); cSay(L('병을,여기에,놓아 주세요', 'Put the,bottle,back here').split(','), 236, 96, 26); };
+SCREENS['M09-supply'] = () => { sachet(90, 130, 110, INK); num('3', 200, 170, 120, 800); cSay(L('일분,남았어요', 'days,left').split(','), 282, 136, 24); pen(INK, 1.5); ln(24, 238, 376, 238); txt(L('월요일에 약국에 가세요', 'Visit the pharmacy on Monday'), 24, 276, 22, 700); };
+SCREENS['M10-night'] = () => { txt(L('토요일 밤', 'Saturday night'), 24, 52, 22, 700); num('11:20', 20, 170, 112, 800); pen(INK, 1.5); ln(24, 238, 376, 238); check(40, 268, 26); txt(L('오늘 약 모두 끝 · 내일 아침 8시 30분', 'All done · tomorrow 8:30 am'), 66, 276, 20, 700); };
+
+window.calmBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('M'));
+  const caps = { 'M01-resting': 'Resting: part of day, time, next', 'M02-bad-air': 'Bad air: one extra line', 'M03-due': 'Dose time: black = open', 'M04-ringing': 'Alarm: whole screen turns black', 'M05-partial': 'Opened tiles become checks', 'M06-done': 'Done', 'M07-missed': 'Missed, family knows', 'M08-put-back': 'Put it back here', 'M09-supply': 'Sachets running out', 'M10-night': 'Night, all done' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 3 * 390;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 콘셉트 2 · 고요', 'Lyra · Concept 2 · Calm'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('한 화면에 한 문장 · 흑백만 · 라벨 없음 · 약 시간엔 화면 전체가 검게', 'One sentence per screen · black and white only · no labels · the whole screen turns black at alarm'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 4) * 424, 170 + Math.floor(i / 4) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
 window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
 window.names = Object.keys(SCREENS);
 </script>
