@@ -62,6 +62,7 @@ class DoseEngine {
   explicit DoseEngine(const ScheduleConfig& cfg = ScheduleConfig{}) : cfg_(cfg) {}
 
   ScheduleConfig& config() { return cfg_; }
+  const ScheduleConfig& config() const { return cfg_; }
   Medicine& med(int i) { return meds_[i]; }
   const Medicine& med(int i) const { return meds_[i]; }
   int medAtBay(int bay) const;

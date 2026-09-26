@@ -1,0 +1,35 @@
+// Lyra EVT board: ESP32-S3-WROOM-1 N16R8 (16 MB flash, 8 MB PSRAM).
+#pragma once
+#include <cstdint>
+
+namespace board {
+
+// 4.2" e-paper, 400x300, SSD1683 (GDEY042T81): fast partial refresh.
+constexpr int kEpdCs = 10, kEpdDc = 9, kEpdRst = 8, kEpdBusy = 7;
+constexpr int kEpdSck = 12, kEpdMosi = 11;
+
+// Six HX711 load-cell ADCs, shared clock, one data line per bay.
+// Each bay: 500 g single-point cell under a self-centring cup.
+constexpr int kScaleSck = 4;
+constexpr int kScaleDout[6] = {5, 6, 15, 16, 17, 18};
+
+// Bay light: 8 warm-white/amber LEDs under each translucent cup (48 total).
+constexpr int kLedData = 38;
+constexpr int kLedsPerBay = 8;
+
+// Rotary encoder with push (the only control).
+constexpr int kEncA = 1, kEncB = 2, kEncSw = 42;
+
+// 24 GHz presence radar (HLK-LD2410C), UART1.
+constexpr int kRadarRx = 44, kRadarTx = 43;
+
+// I2C: SHT40 (temperature/humidity), PCF8563 RTC with backup cap.
+constexpr int kSda = 39, kScl = 40;
+
+// I2S speaker amp (MAX98357A) for chime and voice prompts.
+constexpr int kI2sBclk = 13, kI2sLrc = 14, kI2sDout = 21;
+
+// Power: USB-C 5 V in, 2000 mAh Li-ion backup, fuel gauge on I2C.
+constexpr int kUsbSense = 3;
+
+}  // namespace board

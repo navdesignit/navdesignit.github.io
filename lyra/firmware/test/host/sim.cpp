@@ -326,7 +326,7 @@ static void simulate() {
   CHECK(std::fabs(eng.med(1).stock_pills - left_true) <= 1, "stock count within 1 pill");
   CHECK(low_stock_notices >= 1, "low-stock alert raised %d time(s)", low_stock_notices);
 
-  StorageReport st = storage(hours);
+  StorageReport st = storageReport(hours);
   std::printf("   storage: %d of %d hours above 30 C (peak %.1f C)\n", st.hours_hot, st.hours, st.peak_c);
   CHECK(st.hours_hot > 0, "storage heat exposure detected");
 

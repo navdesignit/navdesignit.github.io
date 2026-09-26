@@ -132,7 +132,7 @@ MissPattern missPattern(const std::vector<DoseRecord>& h, int32_t today, int day
   return best;
 }
 
-StorageReport storage(const std::vector<HourSample>& s, float max_c, float max_rh) {
+StorageReport storageReport(const std::vector<HourSample>& s, float max_c, float max_rh) {
   StorageReport r;
   for (const auto& x : s) {
     ++r.hours;

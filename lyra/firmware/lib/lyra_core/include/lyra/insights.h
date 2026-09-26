@@ -69,7 +69,7 @@ struct StorageReport {
   int hours_humid = 0;    // above max_rh
   float peak_c = 0;
 };
-StorageReport storage(const std::vector<HourSample>& s, float max_c = 30.0f, float max_rh = 75.0f);
+StorageReport storageReport(const std::vector<HourSample>& s, float max_c = 30.0f, float max_rh = 75.0f);
 
 // ---- 6. Daily activity check (living-alone safety) ---------------------------
 // Minute of day someone was first seen near Lyra; -1 if not yet.
