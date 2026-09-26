@@ -240,7 +240,9 @@ TrackerResult CompartmentTracker::returned(DoseEngine& eng, float w, int32_t now
       const float unit = eng.detectorUnitG(m);
       if (unit <= 0) continue;
       const int n = static_cast<int>(std::lround(w / unit));
-      if (n >= 1 && n <= 4 && countPosterior(w, n, unit, sigma_, kCv) >= kSure) {
+      // Must fit in absolute terms (≤ 3σ), not just be the least-bad count:
+      // a returned 1.3 g capsule is not "one 1.1 g tablet".
+      if (n >= 1 && n <= 4 && std::fabs(w - n * unit) <= 3 * unitSigma(unit, n) && countPosterior(w, n, unit, sigma_, kCv) >= kSure) {
         r.kind = TrackerResult::Kind::ToEngine;
         r.med = static_cast<int8_t>(m);
         r.event.kind = BayEventKind::Added;

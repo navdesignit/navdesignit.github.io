@@ -8,12 +8,15 @@ namespace board {
 constexpr int kEpdCs = 10, kEpdDc = 9, kEpdRst = 8, kEpdBusy = 7;
 constexpr int kEpdSck = 12, kEpdMosi = 11;
 
-// Six HX711 load-cell ADCs, shared clock, one data line per bay.
-// Each bay: 500 g single-point cell under a self-centring cup.
+// Four HX711 load-cell ADCs, shared clock, one data line per compartment.
+// Cells sized for what each compartment holds:
+//   1 sachets 500 g · 2 blisters 300 g · 3 sticks/tubes/drops 1 kg · 4 bottles 1 kg
 constexpr int kScaleSck = 4;
-constexpr int kScaleDout[6] = {5, 6, 15, 16, 17, 18};
+constexpr int kScaleDout[4] = {5, 6, 15, 16};
+constexpr float kCellNoiseG[4] = {0.02f, 0.015f, 0.04f, 0.04f};   // per-sample 1σ, EVT to confirm
+constexpr float kPlaceG[4] = {0.02f, 0.02f, 0.03f, 0.03f};        // put-down repeatability
 
-// Bay light: 8 warm-white/amber LEDs under each translucent cup (48 total).
+// Compartment light: 8 warm LEDs under each translucent compartment floor.
 constexpr int kLedData = 38;
 constexpr int kLedsPerBay = 8;
 

@@ -27,6 +27,8 @@ constexpr int kMinPerDay = 24 * 60;
 inline int32_t dayOf(int32_t local_min) { return local_min / kMinPerDay; }
 inline int32_t minuteOfDay(int32_t local_min) { return local_min % kMinPerDay; }
 
+enum class Sound : uint8_t { None, Chime, Voice };
+
 // Pictogram-based slots, so no language is needed to read the plan.
 enum class Slot : uint8_t { Morning = 0, Noon = 1, Evening = 2, Night = 3 };
 

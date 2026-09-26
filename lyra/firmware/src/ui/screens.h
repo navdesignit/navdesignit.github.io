@@ -24,6 +24,7 @@ enum class Page : uint8_t {
   Week,       // 7 x 4 grid of ticks
   Medicines,  // each medicine: pills left, run-out date
   Messages,   // notes from family
+  InHand,     // an item has been lifted: name it and say how many to take
 };
 
 struct Context {
@@ -38,6 +39,9 @@ struct Context {
   bool online = true;
   uint8_t battery_pct = 100;
   bool on_battery = false;
+  int8_t in_hand = -1;        // medicine lifted from a compartment; -2 = look-alike, checking
+  int8_t in_hand_comp = -1;
+  uint8_t which_cursor = 0;   // "which one?" list position
 };
 
 void begin();

@@ -18,6 +18,7 @@
 #include "hal/io.h"
 #include "hal/sensors.h"
 #include "lyra/bay_detector.h"
+#include "lyra/compartment.h"
 #include "lyra/dose_engine.h"
 #include "lyra/insights.h"
 #include "storage.h"
@@ -35,12 +36,10 @@ hal::BayLights lights;
 hal::Speaker speaker;
 
 DoseEngine engine;
-BayDetector detector[kBays];
-
-// Logical bay -> load cells it spans (bitmask). Default: one cell each.
-// Korean layout: a double-width tray for the pharmacy pouch strip spans cells
-// 1+2 as bay 0, and bay 1 is unused: {0b000011, 0, 0b000100, 0b001000, 0b010000, 0b100000}.
-uint8_t bay_cells[kBays] = {0b000001, 0b000010, 0b000100, 0b001000, 0b010000, 0b100000};
+// One load cell per compartment, in step mode; the tracker decides which
+// item each step belongs to.
+BayDetector detector[kCompartments];
+CompartmentTracker tracker[kCompartments] = {CompartmentTracker(0), CompartmentTracker(1), CompartmentTracker(2), CompartmentTracker(3)};
 
 struct BayMsg {
   uint8_t bay;
@@ -87,49 +86,24 @@ void updateDateLabel() {
 
 // ---- sensing task ------------------------------------------------------------
 
-uint8_t cellsOf(uint8_t logical_mask) {
-  uint8_t cells = 0;
-  for (int b = 0; b < kBays; ++b)
-    if (logical_mask & (1u << b)) cells |= bay_cells[b];
-  return cells;
-}
-
 void sensorTask(void*) {
   uint32_t last_radar = 0;
-  float cell_g[kBays] = {};
-  uint8_t have = 0;
   for (;;) {
     const uint32_t now = millis();
-    uint8_t fresh = 0;
-    for (int c = 0; c < kBays; ++c) {
-      if (scales.read(c, cell_g[c])) {
-        fresh |= 1u << c;
-        have |= 1u << c;
+    for (int c = 0; c < kCompartments; ++c) {
+      float g;
+      if (!scales.read(c, g)) continue;
+      const BayEvent e = detector[c].push(g, now);
+      if (e.kind != BayEventKind::None) {
+        BayMsg m{static_cast<uint8_t>(c), e};
+        xQueueSend(bay_queue, &m, 0);
       }
     }
-    uint8_t lifted = 0;
-    for (int b = 0; b < kBays; ++b) {
-      const uint8_t cells = bay_cells[b];
-      // Feed a logical bay when one of its cells has a new reading and all
-      // of its cells have read at least once; a merged bay reads their sum.
-      if (cells && (fresh & cells) && (have & cells) == cells) {
-        float g = 0;
-        for (int c = 0; c < kBays; ++c)
-          if (cells & (1u << c)) g += cell_g[c];
-        const BayEvent e = detector[b].push(g, now);
-        if (e.kind != BayEventKind::None) {
-          BayMsg m{static_cast<uint8_t>(b), e};
-          xQueueSend(bay_queue, &m, 0);
-        }
-      }
-      if (detector[b].isLifted()) lifted |= 1u << b;
-    }
-    lifted_mask = lifted;
     if (now - last_radar >= 200) {
       last_radar = now;
       person_present = presence.present();
     }
-    lights.render(cellsOf(glow_mask), cellsOf(lifted_mask), now);  // a merged tray lights all its cups
+    lights.render(glow_mask, lifted_mask, now);
     vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
@@ -169,7 +143,9 @@ void handle(const EngineOutput& o, bool from_tick) {
   if (o.notice != Notice::None) {
     ctx.notice = o;
     page = ui::Page::Notice;
-    notice_until_ms = millis() + (o.notice == Notice::ConfirmDose || o.notice == Notice::NewContainer ? 5 * 60000 : 60000);
+    const bool question = o.notice == Notice::ConfirmDose || o.notice == Notice::NewContainer || o.notice == Notice::WhichItem ||
+                          o.notice == Notice::WrongPouch;
+    notice_until_ms = millis() + (question ? 5 * 60000 : 60000);
     render(false);
     // Safety notices are also spoken: people often don't look at the screen.
     if (o.notice == Notice::AlreadyTaken) speaker.say("already_taken");
@@ -177,11 +153,62 @@ void handle(const EngineOutput& o, bool from_tick) {
     if (o.notice == Notice::TooEarly) speaker.say("too_early");
     if (o.notice == Notice::ConfirmDose) speaker.say("did_you_take");
     if (o.notice == Notice::WrongPouch) speaker.say("wrong_pouch");
+    if (o.notice == Notice::WhichItem) speaker.say("which_one");
   }
   if (o.notify_caregiver) cloud::alert(engine, o, nowLocalMin(), person_present);
 }
 
+// Route a tracker decision: in-hand screen, engine event, or a question.
+void handleStep(int comp, const TrackerResult& r) {
+  const int32_t now = nowLocalMin();
+  switch (r.kind) {
+    case TrackerResult::Kind::Lifted:
+      lifted_mask = lifted_mask | (1u << comp);
+      ctx.in_hand = r.provisional ? -2 : r.med;  // -2: "checking…"
+      ctx.in_hand_comp = static_cast<int8_t>(comp);
+      page = ui::Page::InHand;
+      render(false);
+      break;
+    case TrackerResult::Kind::ToEngine:
+      lifted_mask = tracker[comp].inHand() ? lifted_mask | (1u << comp) : lifted_mask & ~(1u << comp);
+      ctx.in_hand = -1;
+      handle(engine.onMedEvent(r.med, r.event, now), false);
+      break;
+    case TrackerResult::Kind::Ask:
+      ctx.which_cursor = 0;
+      handle(engine.askWhich(r.candidates, r.delta_g, now), false);
+      break;
+    case TrackerResult::Kind::LeftOff:
+      handle(engine.onLeftOff(r.med), false);
+      break;
+    default:
+      break;
+  }
+}
+
+int whichAt(uint16_t mask, int cursor) {  // cursor-th set bit
+  for (int i = 0, n = 0; i < kMaxMeds; ++i)
+    if (mask & (1u << i)) {
+      if (n == cursor) return i;
+      ++n;
+    }
+  return -1;
+}
+
 void onKnob(hal::KnobEvent k) {
+  // "Which one?" is answered with the knob: turn to choose, press to confirm.
+  if (page == ui::Page::Notice && ctx.notice.notice == Notice::WhichItem) {
+    const int n = __builtin_popcount(ctx.notice.notice_candidates);
+    if (k == hal::KnobEvent::Right || k == hal::KnobEvent::Left) {
+      ctx.which_cursor = (ctx.which_cursor + (k == hal::KnobEvent::Right ? 1 : n - 1)) % n;
+      render(true);
+      return;
+    }
+    if (k == hal::KnobEvent::Press) {
+      handle(engine.resolveWhich(whichAt(ctx.notice.notice_candidates, ctx.which_cursor), nowLocalMin()), false);
+      return;
+    }
+  }
   static const ui::Page kCycle[] = {ui::Page::Today, ui::Page::Week, ui::Page::Medicines, ui::Page::Messages};
   static int idx = 0;
   switch (k) {
@@ -193,7 +220,7 @@ void onKnob(hal::KnobEvent k) {
       render(false);
       break;
     case hal::KnobEvent::Press:
-      if (page == ui::Page::Notice && ctx.notice.notice == Notice::ConfirmDose) {
+      if (page == ui::Page::Notice && (ctx.notice.notice == Notice::ConfirmDose || ctx.notice.notice == Notice::WrongPouch)) {
         handle(engine.confirmDose(nowLocalMin()), false);
       } else if (page == ui::Page::Notice && ctx.notice.notice == Notice::NewContainer) {
         // Confirmed: same medicine, new box. Count comes from the pack
@@ -244,23 +271,19 @@ void setup() {
   const String tz = p.getString("tz", "UTC0");  // POSIX TZ, set during setup
   const String dev = p.getString("id", "lyra-dev");
   no_activity_min = p.getInt("noact_min", 10 * 60);
-  if (p.getBytesLength("baymap") == sizeof bay_cells) p.getBytes("baymap", bay_cells, sizeof bay_cells);
-  // Merged bays hold a flat pouch tray that is never lifted: its "empty" line
-  // sits under one pouch, and the two summed cells add √2 noise.
-  for (int b = 0; b < kBays; ++b) {
-    if (__builtin_popcount(bay_cells[b]) < 2) continue;
-    BayDetector::Config tray;
-    tray.empty_g = 0.3f;
-    tray.noise_g = 0.028f;
-    detector[b] = BayDetector(tray);
-  }
   p.end();
   configTzTime(tz.c_str(), "pool.ntp.org", "time.google.com");
 
   if (!storage::loadState(engine, day0)) day0 = localEpochMinutes() / kMinPerDay;
+  for (int c = 0; c < kCompartments; ++c) {
+    BayDetector::Config cfg;
+    cfg.steps = true;
+    cfg.noise_g = board::kCellNoiseG[c];
+    cfg.place_g = board::kPlaceG[c];
+    detector[c] = BayDetector(cfg);
+    tracker[c].setSigma(detector[c].diffSigma());
+  }
   ctx.day0_weekday = ((day0 + 3) % 7 + 7) % 7;
-  for (int i = 0; i < kMaxMeds; ++i)
-    if (engine.med(i).active) detector[engine.med(i).bay].setPillWeight(engine.detectorUnitG(i));
 
   scales.begin();
   presence.begin();
@@ -289,13 +312,9 @@ void loop() {
   static int32_t last_hour = -1;
 
   // Bay events first: they are what the person just did.
+  // Weight steps first: they are what the person just did.
   BayMsg m;
-  while (xQueueReceive(bay_queue, &m, 0) == pdTRUE) {
-    const int32_t now = nowLocalMin();
-    handle(engine.onBayEvent(m.bay, m.event, now), false);
-    const int med = engine.medAtBay(m.bay);
-    if (med >= 0) detector[m.bay].setPillWeight(engine.detectorUnitG(med));  // pill weight may have just been learned
-  }
+  while (xQueueReceive(bay_queue, &m, 0) == pdTRUE) handleStep(m.bay, tracker[m.bay].onStep(engine, m.event, nowLocalMin()));
 
   const hal::KnobEvent k = knob.poll();
   if (k != hal::KnobEvent::None) onKnob(k);
@@ -321,6 +340,7 @@ void loop() {
       rh_sum += rh;
       ++climate_n;
     }
+    for (int c = 0; c < kCompartments; ++c) handleStep(c, tracker[c].tick(engine, now));
     handle(engine.tick(now, person_present), true);
     if (millis() > notice_until_ms && page == ui::Page::Notice) {
       page = ctx.active_slot >= 0 ? ui::Page::DueNow : ui::Page::Today;

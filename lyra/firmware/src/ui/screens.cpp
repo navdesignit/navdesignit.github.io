@@ -297,6 +297,28 @@ void pageNotice(const Context& c) {
       snprintf(a, sizeof a, "New box?");
       snprintf(b, sizeof b, "%s. Press = Yes", name);
       break;
+    case Notice::WhichItem: {
+      // List the candidates; the knob moves the bar.
+      text(16, 78, "Which one did you take?", &FreeSansBold18pt7b);
+      int y = 118, n = 0;
+      for (int i = 0; i < kMaxMeds && y < H - 10; ++i) {
+        if (!(o.notice_candidates & (1u << i))) continue;
+        char row[40];
+        snprintf(row, sizeof row, "%d  %s", e.med(i).bay + 1, e.med(i).name);
+        if (n == c.which_cursor) {
+          epd.fillRect(12, y - 24, W - 24, 32, INK);
+          epd.setTextColor(PAPER);
+          epd.setFont(&FreeSansBold12pt7b);
+          epd.setCursor(24, y);
+          epd.print(row);
+        } else {
+          text(24, y, row, &FreeSans12pt7b);
+        }
+        y += 36;
+        ++n;
+      }
+      return;
+    }
     case Notice::DoseMissed:
       mark = DoseStatus::Missed;
       snprintf(a, sizeof a, "Missed");
@@ -357,6 +379,35 @@ void pageMedicines(const Context& c) {
   }
 }
 
+// The screen follows the hand: lifting an item names it before a pill leaves.
+void pageInHand(const Context& c) {
+  header(c);
+  const DoseEngine& e = *c.engine;
+  if (c.in_hand == -2) {
+    text(16, 130, "Checking...", &FreeSansBold24pt7b);
+    text(16, 175, "Lyra will know when it comes back", &FreeSans12pt7b);
+    return;
+  }
+  if (c.in_hand < 0) return;
+  const Medicine& m = e.med(c.in_hand);
+  text(16, 72, "In your hand", &FreeSans12pt7b);
+  text(16, 118, m.name, &FreeSansBold24pt7b);
+  char line[40];
+  const int left = e.remainingDue(c.in_hand, c.now_min);
+  if (m.form == Form::Topical) snprintf(line, sizeof line, left ? "Use it, then put it back" : "Not time for this one");
+  else if (left) snprintf(line, sizeof line, "Take %d", left);
+  else snprintf(line, sizeof line, "Not time for this one");
+  text(16, 164, line, &FreeSansBold18pt7b);
+  text(16, 200, "Put it back in compartment", &FreeSans12pt7b);
+  char b[4];
+  snprintf(b, sizeof b, "%d", m.bay + 1);
+  epd.fillCircle(W - 50, 190, 24, INK);
+  epd.setTextColor(PAPER);
+  epd.setFont(&FreeSansBold18pt7b);
+  epd.setCursor(W - 60, 202);
+  epd.print(b);
+}
+
 void pageMessages(const Context& c) {
   header(c);
   if (!c.family_note) {
@@ -391,6 +442,7 @@ void show(Page page, const Context& ctx, bool partial) {
       case Page::Week: pageWeek(ctx); break;
       case Page::Medicines: pageMedicines(ctx); break;
       case Page::Messages: pageMessages(ctx); break;
+      case Page::InHand: pageInHand(ctx); break;
     }
   } while (epd.nextPage());
   epd.hibernate();  // zero power: the image stays

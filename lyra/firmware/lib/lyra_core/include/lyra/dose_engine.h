@@ -16,8 +16,6 @@
 
 namespace lyra {
 
-enum class Sound : uint8_t { None, Chime, Voice };
-
 enum class Notice : uint8_t {
   None,
   DoseTaken,        // ✓ recorded
