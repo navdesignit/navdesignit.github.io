@@ -12,9 +12,16 @@
 
 namespace lyra {
 
-constexpr int kBays = 6;       // weighing bays on the tray
+// Lyra has four compartments, one per kind of package, each on its own load
+// cell. A compartment holds several items (e.g. three supplement bottles).
+//   0 · sachets   dose pouches from the pharmacy (roll or loose), printed with the time
+//   1 · blisters  blister cards from the pharmacy or hospital
+//   2 · packages  sticks, sachets, ointment tubes, eye drops
+//   3 · bottles   pill and supplement bottles
+constexpr int kCompartments = 4;
+constexpr int kBays = kCompartments;  // "bay" = compartment throughout the code
 constexpr int kSlots = 4;      // dose times per day
-constexpr int kMaxMeds = kBays;
+constexpr int kMaxMeds = 12;   // items across all compartments
 constexpr int kMinPerDay = 24 * 60;
 
 inline int32_t dayOf(int32_t local_min) { return local_min / kMinPerDay; }
@@ -29,6 +36,8 @@ enum class Form : uint8_t {
   Pouch,    // pharmacy dose-pouch strip (Korea: 약봉투); unit = one pouch holding
             // every pill for one dose time; each slot's pouch has its own weight
   Stick,    // single-serve stick or sachet (e.g. red ginseng 홍삼스틱); unit = one stick
+  Topical,  // eye drops, ointment, inhaler: a dose is "opened and put back" in the
+            // dose window; the amount used is too small or too variable to count
 };
 
 struct Medicine {
@@ -41,7 +50,12 @@ struct Medicine {
   // Learned from the first takes of each slot; 0 = still learning.
   float slot_unit_g[kSlots] = {};
   bool active = false;
-  uint8_t bay = 0;                 // 0..kBays-1
+  uint8_t bay = 0;                 // compartment 0..kCompartments-1
+  // Current total weight of this item's container (bottle, box, card, tube,
+  // roll). Measured when it is placed during setup and updated every time it
+  // comes back. Lifting it off the compartment removes about this much, which
+  // is how Lyra knows which item is in the person's hand.
+  float container_g = 0;
   uint8_t per_slot[kSlots] = {};   // pills per slot, 0 = not taken at that time
   // Weight of one pill; 0 = still learning.
   // Standard setup calibrates it: "put 10 pills on the empty bay" (one
@@ -118,6 +132,7 @@ enum class DoseSource : uint8_t {
   Weighed,       // pill count measured by the scale
   Learning,      // container opened while the pill weight was still being learned
   UserConfirmed, // weight change too small to count; the person pressed "Yes, taken"
+  Opened,        // topical item lifted and put back during the dose window
 };
 
 // One planned dose of one medicine in one slot of one day.

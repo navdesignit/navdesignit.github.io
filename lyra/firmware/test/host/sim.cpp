@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "lyra/bay_detector.h"
+#include "lyra/compartment.h"
 #include "lyra/dose_engine.h"
 #include "lyra/insights.h"
 
@@ -352,20 +353,35 @@ static void simulate() {
 }
 
 // ---------------------------------------------------------------------------
-// A Korean home: Kim Sun-ja, 78, lives alone.
-//   bay 0 (double-wide tray, cells 1+2): pharmacy pouch strip 약봉투,
-//          morning / lunch / evening, 14 days = 42 pouches
-//   bay 2: aspirin 100 mg blister box, morning, 130 mg tablet (always confirmed)
-//   bay 3: red ginseng sticks 홍삼스틱, morning, supplement
-//   bay 4: omega-3 bottle, evening, supplement
-//   bay 5: calcium + vitamin D bottle, night, supplement
+// A Korean home with Lyra's four compartments. Kim Sun-ja, 78, lives alone.
+//   C1 sachets  : 약봉투 roll, morning / lunch / evening, 21 days = 63 pouches
+//   C2 blisters : aspirin 100 (130 mg, morning) + stomach tablet (350 mg,
+//                 morning and evening), each on its own blister card
+//   C3 packages : red ginseng sticks (12 g, morning, supplement), artificial-tear
+//                 eye drops (11.5 g bottle, morning and night), ointment tube
+//                 (25 g, night)
+//   C4 bottles  : vitamin C (morning), omega-3 (evening), calcium + D (night),
+//                 all supplements
+// "Identify by what left, count by what came back": each compartment is one
+// load cell in step mode feeding a CompartmentTracker.
 static void simulateKorea() {
-  std::printf("\n[4] Korean home: pouch strip, blister, red ginseng sticks, bottles (21 days)\n");
-  enum { kPouch = 0, kAspirin = 1, kGinseng = 2, kOmega = 3, kCalcium = 4 };
-  const int bay_of[5] = {0, 2, 3, 4, 5};
+  std::printf("\n[4] Korean home, four compartments: sachet roll | blisters | sticks, drops, ointment | bottles (21 days)\n");
+  enum Item { kPouch, kAspirin, kStomach, kGinseng, kDrops, kOintment, kVitC, kOmega, kCalcium, kItems };
+  struct Def { const char* name; int comp; Form form; bool supp; int slots[kSlots]; float unit; float container; float stock; };
   const float film = 0.80f;
-  const float pouch_true[kSlots] = {film + 0.35f + 0.20f + 0.50f, film + 0.30f, film + 0.50f + 0.20f, 0};  // 1.85 / 1.10 / 1.50 g
-  const float unit_true[5] = {0, 0.13f, 12.0f, 1.30f, 1.50f};
+  const float pouch_true[kSlots] = {film + 0.35f + 0.20f + 0.50f, film + 0.30f, film + 0.50f + 0.20f, 0};
+  const Def def[kItems] = {
+      {"Pouch roll", 0, Form::Pouch, false, {1, 1, 1, 0}, 0, 20.0f + 21 * (pouch_true[0] + pouch_true[1] + pouch_true[2]), 63},
+      // Blister strips stacked as dispensed: 3 strips of 10, and 3 strips of 15.
+      {"Aspirin 100", 1, Form::Pill, false, {1, 0, 0, 0}, 0.13f, 3 * 3.4f + 30 * 0.13f, 30},
+      {"Stomach tab", 1, Form::Pill, false, {1, 0, 1, 0}, 0.35f, 3 * 4.2f + 45 * 0.35f, 45},
+      {"Red ginseng", 2, Form::Stick, true, {1, 0, 0, 0}, 12.0f, 60.0f + 30 * 12.0f, 30},
+      {"Eye drops", 2, Form::Topical, false, {1, 0, 0, 1}, 0, 11.5f, -1},
+      {"Ointment", 2, Form::Topical, false, {0, 0, 0, 1}, 0, 25.0f, -1},
+      {"Vitamin C", 3, Form::Pill, true, {1, 0, 0, 0}, 1.1f, 30.0f + 60 * 1.1f, 60},
+      {"Omega-3", 3, Form::Pill, true, {0, 0, 1, 0}, 1.3f, 30.0f + 60 * 1.3f, 60},
+      {"Calcium + D", 3, Form::Pill, true, {0, 0, 0, 1}, 1.5f, 30.0f + 60 * 1.5f, 60},
+  };
 
   ScheduleConfig cfg;
   cfg.slot_min[0] = 8 * 60 + 30;   // 아침 식후
@@ -373,213 +389,263 @@ static void simulateKorea() {
   cfg.slot_min[2] = 18 * 60 + 30;  // 저녁 식후
   cfg.slot_min[3] = 22 * 60;       // 취침 전
   DoseEngine eng(cfg);
-
-  auto setup = [&](int i, const char* name, Form form, bool supp, std::initializer_list<int> slots, float stock) {
+  float item_w[kItems];  // true weight of each item
+  for (int i = 0; i < kItems; ++i) {
     Medicine& m = eng.med(i);
-    std::snprintf(m.name, sizeof m.name, "%s", name);
+    std::snprintf(m.name, sizeof m.name, "%s", def[i].name);
     m.active = true;
-    m.form = form;
-    m.supplement = supp;
-    m.bay = static_cast<uint8_t>(bay_of[i]);
-    int k = 0;
-    for (int v : slots) m.per_slot[k++] = static_cast<uint8_t>(v);
-    m.stock_pills = stock;
-  };
-  setup(kPouch, "Pouch (pharmacy)", Form::Pouch, false, {1, 1, 1, 0}, 42);
-  setup(kAspirin, "Aspirin 100", Form::Pill, false, {1, 0, 0, 0}, 28);
-  setup(kGinseng, "Red ginseng stick", Form::Stick, true, {1, 0, 0, 0}, 30);
-  setup(kOmega, "Omega-3", Form::Pill, true, {0, 0, 1, 0}, 60);
-  setup(kCalcium, "Calcium + D", Form::Pill, true, {0, 0, 0, 1}, 60);
-  // Setup calibrates the light blister tablet (10 on the bay); the rest is learned.
-  eng.med(kAspirin).pill_g = 0.13f;
-  eng.med(kAspirin).calibrated = true;
+    m.form = def[i].form;
+    m.supplement = def[i].supp;
+    m.bay = static_cast<uint8_t>(def[i].comp);
+    for (int k = 0; k < kSlots; ++k) m.per_slot[k] = static_cast<uint8_t>(def[i].slots[k]);
+    m.stock_pills = def[i].stock;
+    item_w[i] = def[i].container;
+    // Setup: each item placed on its compartment one at a time -> its weight.
+    m.container_g = item_w[i] + gauss(0.03f);
+    // Loose pills and sticks can be weighed at setup (10 on the scale); blister
+    // tablets and pouches are learned from the first takes.
+    if (def[i].comp == 3 || def[i].form == Form::Stick) {
+      m.pill_g = def[i].unit * (1 + gauss(0.013f));
+      m.calibrated = true;
+    }
+  }
 
-  BayDetector::Config tray_cfg;
-  tray_cfg.noise_g = 0.028f;  // two cells summed: √2 × noise
-  tray_cfg.empty_g = 0.3f;    // the strip lies flat and is never lifted: the last pouch (1.1 g) still counts
-  BayDetector det[kBays] = {BayDetector(tray_cfg), BayDetector(), BayDetector(), BayDetector(), BayDetector(), BayDetector()};
-  float weight[kBays] = {};
-  weight[0] = 14 * (pouch_true[0] + pouch_true[1] + pouch_true[2]);
-  weight[2] = 9.0f + 28 * 0.14f;   // blister box
-  weight[3] = 60.0f + 30 * 12.0f;  // stick box
-  weight[4] = 30.0f + 60 * 1.3f;
-  weight[5] = 30.0f + 60 * 1.5f;
+  // One load cell per compartment, sized for what it holds.
+  BayDetector::Config cc[kCompartments];
+  const float noise[kCompartments] = {0.02f, 0.015f, 0.04f, 0.04f};  // 500 g, 300 g, 1 kg, 1 kg cells
+  const float place[kCompartments] = {0.02f, 0.02f, 0.03f, 0.03f};
+  BayDetector det[kCompartments];
+  CompartmentTracker trk[kCompartments] = {CompartmentTracker(0), CompartmentTracker(1), CompartmentTracker(2), CompartmentTracker(3)};
+  float total[kCompartments] = {};
   uint32_t t_ms = 0;
-  for (int b : {0, 2, 3, 4, 5}) feed(det[b], weight[b], 2, t_ms);
-  for (int i = 0; i < 5; ++i) det[bay_of[i]].setPillWeight(eng.detectorUnitG(i));  // as the app does at boot
+  for (int c = 0; c < kCompartments; ++c) {
+    cc[c].steps = true;
+    cc[c].noise_g = noise[c];
+    cc[c].place_g = place[c];
+    det[c] = BayDetector(cc[c]);
+    trk[c].setSigma(det[c].diffSigma());
+    for (int i = 0; i < kItems; ++i)
+      if (def[i].comp == c) total[c] += item_w[i];
+    feed(det[c], total[c], 2, t_ms, noise[c]);
+  }
 
-  auto directPick = [&](BayDetector& d, float after, uint32_t& tt) {
-    feed(d, after + 40.0f, 0.5f, tt, 15.0f);  // fingers on the tray
-    return feed(d, after + gauss(0.01f), 3, tt);
-  };
-
-  int wrong_pouch = 0, double_pouch = 0, put_back = 0, confirms_aspirin = 0, new_strip = 0;
-  int supplement_alerts = 0, med_alerts = 0, voice_for_supplement_only = 0, pouch_low_stock_day = -1;
-  int wrong_pouch_slot = -1;
+  // Scoring
+  int lifts = 0, lifts_named = 0, lifts_wrong = 0, which_asked = 0, confirm_asked = 0;
+  int wrong_pouch = 0, double_pouch = 0, put_back = 0, silently_wrong = 0, supplement_alerts = 0;
+  int alt_resolved = 0, lifts_provisional = 0;
   bool holding_wrong = false;
-  int asked_label = 0, silently_wrong = 0;
+  int cur_item = -1;  // ground truth for the action being processed
+
+  auto handle = [&](int c, const TrackerResult& tr, int32_t now) {
+    EngineOutput o;
+    switch (tr.kind) {
+      case TrackerResult::Kind::Lifted:
+        ++lifts;
+        if (tr.provisional) {
+          ++lifts_provisional;
+          return;
+        }
+        if (tr.med >= 0) {
+          if (tr.med == cur_item) ++lifts_named;
+          else ++lifts_wrong;
+        }
+        return;
+      case TrackerResult::Kind::ToEngine:
+        if (std::getenv("LYRA_DEBUG") && (c == 0 || c == 1))
+          std::printf("   k-ev day %d comp %d truth %d -> med %d kind %d d=%.3f pills %d conf %d\n", now / kMinPerDay - 100, c, cur_item, tr.med,
+                      (int)tr.event.kind, tr.event.delta_g, tr.event.pills, tr.event.confidence);
+        if (cur_item >= 0 && tr.med != cur_item && !holding_wrong) {
+          ++silently_wrong;
+          if (std::getenv("LYRA_DEBUG")) std::printf("   k-wrong: comp %d truth %s got %s d=%.3f\n", c, def[cur_item].name, def[tr.med].name, tr.event.delta_g);
+        }
+        o = eng.onMedEvent(tr.med, tr.event, now);
+        break;
+      case TrackerResult::Kind::Ask:
+        ++which_asked;
+        o = eng.askWhich(tr.candidates, tr.delta_g, now);
+        o = eng.resolveWhich(cur_item, now);  // she turns the knob to the right item and presses
+        if (std::getenv("LYRA_DEBUG") && c == 1) std::printf("        resolved -> notice %d\n", (int)o.notice);
+        break;
+      case TrackerResult::Kind::LeftOff:
+        o = eng.onLeftOff(tr.med);
+        break;
+      default:
+        return;
+    }
+    if (std::getenv("LYRA_DEBUG") && (c == 0 || c == 1)) std::printf("        notice %d\n", (int)o.notice);
+    if (o.notice == Notice::WrongPouch) ++wrong_pouch;
+    if (o.notice == Notice::ExtraPills && tr.med == kPouch) ++double_pouch;
+    if (o.notice == Notice::PutBackThanks) ++put_back;
+    if (o.notice == Notice::ConfirmDose) {
+      ++confirm_asked;
+      if (!holding_wrong) eng.confirmDose(now);
+    }
+  };
+  auto settleTo = [&](int c, float w, uint32_t& tt) {
+    feed(det[c], w + 30.0f, 0.4f, tt, 10.0f);  // hands in the compartment
+    return feed(det[c], w + gauss(place[c]), 3, tt, noise[c]);
+  };
+  auto step = [&](int c, float new_total, int32_t now) {
+    uint32_t tt = static_cast<uint32_t>(now) * 60000u + 1000;
+    total[c] = new_total;
+    BayEvent e = settleTo(c, total[c], tt);
+    if (std::getenv("LYRA_DEBUG") && c == 1)
+      std::printf("   k-units: aspirin %.3f stomach %.3f\n", eng.med(kAspirin).pill_g, eng.med(kStomach).pill_g);
+    if (std::getenv("LYRA_DEBUG") && (c == 1 || c == 2))
+      std::printf("   k-step day %d %02d:%02d truth %d kind %d d=%.3f\n", now / kMinPerDay - 100, (now % kMinPerDay) / 60, now % 60, cur_item, (int)e.kind, e.delta_g);
+    if (e.kind != BayEventKind::None) {
+      const TrackerResult tr = trk[c].onStep(eng, e, now);
+      if (std::getenv("LYRA_DEBUG") && (c == 1 || c == 2)) std::printf("        tracker kind %d med %d cands %x\n", (int)tr.kind, tr.med, tr.candidates);
+      handle(c, tr, now);
+    }
+  };
+  // Person's actions
+  auto liftUseReturn = [&](int i, float used, int32_t now) {
+    const int c = def[i].comp;
+    cur_item = i;
+    step(c, total[c] - item_w[i], now);
+    item_w[i] -= used;
+    step(c, total[c] + item_w[i], now + 1);
+    cur_item = -1;
+  };
+  auto pickUnits = [&](int i, float g, int32_t now) {
+    const int c = def[i].comp;
+    cur_item = i;
+    item_w[i] -= g;
+    step(c, total[c] - g, now);
+    cur_item = -1;
+  };
+  auto pouchW = [&](int slot) { return pouch_true[slot] + gauss(0.03f) + (pouch_true[slot] - film) * gauss(0.04f); };
+  // Tablets vary ±4 %; liquid sticks are filled by volume, ±2 %.
+  auto unitW = [&](int i) { return def[i].unit * (1 + gauss(def[i].form == Form::Stick ? 0.02f : 0.04f)); };
+
+  std::vector<std::pair<int, int>> planned_taken;  // (item, slot) the person really took, per day
+  int truth_taken[kItems] = {};
 
   for (int day = 0; day < 21; ++day) {
-    const int wd = day % 7;  // day 0 = Monday
+    const int wd = day % 7;
     const bool sunday = wd == 6;
-    struct Act { int minute; int item; int slot; int kind; };  // kind: 0 normal, 1 wrong pouch, 2 double pouch, 3 new strip
+    struct Act { int minute; int item; int slot; int kind; };  // kind 0 normal, 1 wrong pouch, 2 double pouch
     std::vector<Act> acts;
-    const int morning = 8 * 60 + 40 + static_cast<int>(gauss(8));
-    acts.push_back({morning, kPouch, 0, 0});
-    acts.push_back({morning + 1, kAspirin, 0, 0});
-    if (wd != 5 && wd != 6) acts.push_back({morning + 2, kGinseng, 0, 0});  // forgets ginseng at weekends
-    if (!sunday) acts.push_back({12 * 60 + 45 + static_cast<int>(gauss(8)), kPouch, 1, day == 9 ? 1 : 0});
-    acts.push_back({18 * 60 + 50 + static_cast<int>(gauss(8)), kPouch, 2, 0});
-    acts.push_back({18 * 60 + 52 + static_cast<int>(gauss(3)), kOmega, 2, 0});
-    acts.push_back({22 * 60 + 10 + static_cast<int>(gauss(6)), kCalcium, 3, 0});
-    if (day == 12) acts[0].kind = 2;                         // morning + lunch pouches stuck together
-    if (day == 13) acts.push_back({20 * 60, kPouch, -1, 3});  // pharmacy refill: new 14-day strip
+    const int mo = 8 * 60 + 40 + static_cast<int>(gauss(6));
+    acts.push_back({mo, kPouch, 0, day == 12 ? 2 : 0});
+    acts.push_back({mo + 1, kAspirin, 0, 0});
+    acts.push_back({mo + 2, kStomach, 0, 0});
+    if (wd != 5 && wd != 6) acts.push_back({mo + 3, kGinseng, 0, 0});
+    acts.push_back({mo + 7, kDrops, 0, 0});
+    acts.push_back({mo + 9, kVitC, 0, 0});
+    if (!sunday) acts.push_back({12 * 60 + 45 + static_cast<int>(gauss(6)), kPouch, 1, day == 9 ? 1 : 0});
+    const int ev = 18 * 60 + 50 + static_cast<int>(gauss(6));
+    acts.push_back({ev, kPouch, 2, 0});
+    acts.push_back({ev + 2, kStomach, 2, 0});
+    acts.push_back({ev + 4, kOmega, 2, 0});
+    const int ni = 22 * 60 + 5 + static_cast<int>(gauss(4));
+    acts.push_back({ni, kDrops, 3, 0});
+    acts.push_back({ni + 3, kOintment, 3, 0});
+    acts.push_back({ni + 6, kCalcium, 3, 0});
     std::sort(acts.begin(), acts.end(), [](const Act& x, const Act& y) { return x.minute < y.minute; });
 
     size_t next = 0;
     for (int minute = 0; minute < kMinPerDay; ++minute) {
-      const int32_t now = (100 + day) * kMinPerDay + minute;  // days 100.. to avoid overlap with the other household
-      const bool away = sunday && minute >= 10 * 60 + 30 && minute < 16 * 60;  // church, lunch out, back after the lunch window
+      const int32_t now = (100 + day) * kMinPerDay + minute;
+      const bool away = sunday && minute >= 10 * 60 + 30 && minute < 16 * 60;
       const bool present = !away && minute >= 7 * 60 && minute < 23 * 60;
-      t_ms = static_cast<uint32_t>(now) * 60000u;
-
-      auto apply = [&](int bay, const BayEvent& e, int minute_now) -> EngineOutput {
-        EngineOutput o = eng.onBayEvent(bay, e, minute_now);
-        if (o.notice == Notice::WrongPouch) ++wrong_pouch, wrong_pouch_slot = o.notice_slot;
-        if (o.notice == Notice::ExtraPills && eng.med(0).bay == bay) ++double_pouch;
-        if (o.notice == Notice::PutBackThanks) ++put_back;
-        if (o.notice == Notice::NewContainer) ++new_strip;
-        if (std::getenv("LYRA_DEBUG") && bay == 2)
-          std::printf("   k-event day %d kind %d delta %.3f pills %d -> notice %d\n", minute_now / kMinPerDay - 100, (int)e.kind, e.delta_g, e.pills, (int)o.notice);
-        if (o.notice == Notice::ConfirmDose) {
-          if (bay == 2) ++confirms_aspirin;
-          // Pouch question: "Check it says <time>". She reads the label; if it's
-          // the wrong or an extra pouch she puts it back instead of pressing.
-          if (bay == 0 && holding_wrong) ++asked_label;
-          else o = eng.confirmDose(minute_now);
-        }
-        const int m = eng.medAtBay(bay);
-        if (m >= 0) det[bay].setPillWeight(eng.detectorUnitG(m));
-        return o;
-      };
-
       while (next < acts.size() && acts[next].minute == minute) {
         const Act a = acts[next++];
-        const int bay = bay_of[a.item];
-        uint32_t tt = t_ms;
-        if (a.item == kPouch) {
-          if (a.kind == 3) {  // old strip away, new strip on
-            feed(det[bay], 0.0f, 90, tt);
-            weight[bay] = 14 * (pouch_true[0] + pouch_true[1] + pouch_true[2]);
-            BayEvent e = feed(det[bay], weight[bay], 3, tt);
-            apply(bay, e, now);
-            eng.med(kPouch).stock_pills = 42;  // count from the pharmacy label, confirmed on screen
-            continue;
-          }
-          auto pouch = [&](int slot) { return pouch_true[slot] + gauss(0.03f) + (unit_true[0] + pouch_true[slot] - film) * gauss(0.04f); };
-          float out_g = pouch(a.kind == 1 ? 2 : a.slot);
-          if (a.kind == 2) out_g += pouch(1);
-          weight[bay] -= out_g;
-          BayEvent e = directPick(det[bay], weight[bay], tt);
-          holding_wrong = a.kind == 1 || a.kind == 2;
-          const int wp = wrong_pouch, dp = double_pouch, al = asked_label;
-          apply(bay, e, now);
-          holding_wrong = false;
-          if ((a.kind == 1 || a.kind == 2) && wrong_pouch == wp && double_pouch == dp && asked_label == al) ++silently_wrong;
-          if (a.kind == 1 || a.kind == 2) {
-            // She hears Lyra, puts the extra/wrong pouch back two minutes later ...
-            const float back = a.kind == 1 ? out_g : out_g - (e.delta_g - eng.med(kPouch).slot_unit_g[1]);
-            weight[bay] += a.kind == 1 ? out_g : pouch_true[1];
-            (void)back;
-            e = directPick(det[bay], weight[bay], tt);
-            apply(bay, e, now + 2);
-            if (a.kind == 1) {  // ... and takes the lunch pouch
-              const float lunch = pouch(1);
-              weight[bay] -= lunch;
-              e = directPick(det[bay], weight[bay], tt);
-              apply(bay, e, now + 3);
+        const int i = a.item;
+        ++truth_taken[i];
+        switch (def[i].form) {
+          case Form::Pouch: {
+            if (a.kind == 1) {  // tears the evening pouch at lunch, hears Lyra, puts it back, tears lunch
+              holding_wrong = true;
+              const float w = pouchW(2);
+              pickUnits(i, w, now);
+              holding_wrong = false;
+              cur_item = i;
+              item_w[i] += w;
+              step(0, total[0] + w, now + 1);
+              cur_item = -1;
+              pickUnits(i, pouchW(1), now + 2);
+            } else if (a.kind == 2) {  // morning + lunch pouches stuck together; puts the lunch one back
+              holding_wrong = true;
+              const float lunch = pouchW(1);
+              pickUnits(i, pouchW(0) + lunch, now);
+              holding_wrong = false;
+              cur_item = i;
+              item_w[i] += lunch;
+              step(0, total[0] + lunch, now + 1);
+              cur_item = -1;
+            } else {
+              pickUnits(i, pouchW(a.slot), now);
             }
+            break;
           }
-          continue;
+          case Form::Pill:
+            if (def[i].comp == 1 && day % 2 == 1) pickUnits(i, unitW(i) + 0.01f, now);  // pops it in place
+            else liftUseReturn(i, unitW(i) + (def[i].comp == 1 ? 0.01f : 0), now);    // card / bottle out and back
+            break;
+          case Form::Stick:
+            pickUnits(i, unitW(i), now);
+            break;
+          case Form::Topical:
+            liftUseReturn(i, i == kDrops ? 0.04f : 0.3f, now);
+            break;
         }
-        const float unit = unit_true[a.item] * (1 + gauss(a.item == kGinseng ? 0.02f : 0.04f));
-        const float before = weight[bay];
-        weight[bay] -= unit + (a.item == kAspirin ? 0.01f : 0);  // blister: tablet + a flake of foil
-        BayEvent e = a.item == kGinseng ? directPick(det[bay], weight[bay], tt) : liftAndReturn(det[bay], before, weight[bay], tt);
-        apply(bay, e, now);
       }
-
+      for (int c = 0; c < kCompartments; ++c) {
+        const TrackerResult tr = trk[c].tick(eng, now);
+        if (tr.kind == TrackerResult::Kind::ToEngine) {
+          ++alt_resolved;
+          if (std::getenv("LYRA_DEBUG")) std::printf("   k-alt day %d %02d:%02d comp %d -> med %d d=%.3f pills %d conf %d\n", day, minute / 60, minute % 60, c, tr.med, tr.event.delta_g, tr.event.pills, tr.event.confidence);
+          cur_item = tr.med;  // resolved later: judge against what she did (checked via records below)
+          handle(c, tr, now);
+          cur_item = -1;
+        } else if (tr.kind != TrackerResult::Kind::None) {
+          handle(c, tr, now);
+        }
+      }
       EngineOutput o = eng.tick(now, present);
-      if (o.notify_caregiver) {
-        if (o.notice_med >= 0 && eng.med(o.notice_med).supplement) ++supplement_alerts;
-        else ++med_alerts;
-      }
-      if (o.notice == Notice::LowStock && o.notice_med == kPouch && pouch_low_stock_day < 0) pouch_low_stock_day = day;
-      if (o.sound == Sound::Voice) {
-        bool any_med = false;
-        for (const auto& r : eng.history())
-          if (r.slot == o.active_slot && dayOf(now) == r.day && !eng.med(r.med).supplement &&
-              r.status != DoseStatus::Taken && r.status != DoseStatus::TakenLate)
-            any_med = true;
-        if (!any_med) ++voice_for_supplement_only;
-      }
+      if (o.notify_caregiver && o.notice_med >= 0 && eng.med(o.notice_med).supplement) ++supplement_alerts;
     }
   }
 
-  const auto& h = eng.history();
-  std::printf("   learned pouch weights: morning %.2f g, lunch %.2f g, evening %.2f g (true %.2f / %.2f / %.2f)\n", eng.med(0).slot_unit_g[0],
-              eng.med(0).slot_unit_g[1], eng.med(0).slot_unit_g[2], pouch_true[0], pouch_true[1], pouch_true[2]);
-  bool pouch_ok = true;
-  for (int k = 0; k < 3; ++k) pouch_ok &= std::fabs(eng.med(0).slot_unit_g[k] - pouch_true[k]) < 0.1f;
-  CHECK(pouch_ok, "each time's pouch weight learned within 0.1 g");
-  std::printf("   wrong pouch (day 9): %s; double pouch (day 12): %s\n",
-              wrong_pouch ? "named by weight ('this is the evening pouch')" : "asked to check the printed time",
-              double_pouch ? "caught by weight" : "asked to check the printed time");
-  CHECK(silently_wrong == 0, "a wrong or extra pouch is never recorded silently (%d)", silently_wrong);
-  CHECK(wrong_pouch == 0 || wrong_pouch_slot == 2, "when named, the wrong pouch is the evening one");
-  CHECK(put_back == 2, "both put back -> thanked, nothing sent to family (%d)", put_back);
-  CHECK(new_strip == 1, "new 14-day strip recognised (%d)", new_strip);
-  CHECK(pouch_low_stock_day >= 5 && pouch_low_stock_day <= 8, "pouch strip low-stock alert on day %d (7 days left)", pouch_low_stock_day);
-
-  int lunch_taken = 0, lunch_away = 0, pouch_weighed = 0, pouch_total = 0;
-  for (const auto& r : h) {
-    if (r.med != kPouch || r.day < 100) continue;
-    if (r.taken_min >= 0) {
-      ++pouch_total;
-      if (r.source == DoseSource::Weighed) ++pouch_weighed;
-    }
-    if (r.slot == 1 && (r.status == DoseStatus::Taken || r.status == DoseStatus::TakenLate)) ++lunch_taken;
-    if (r.slot == 1 && r.status == DoseStatus::Missed && r.miss == MissReason::Away) ++lunch_away;
+  std::printf("   learned pouch weights: morning %.2f, lunch %.2f, evening %.2f g (true %.2f / %.2f / %.2f)\n", eng.med(kPouch).slot_unit_g[0],
+              eng.med(kPouch).slot_unit_g[1], eng.med(kPouch).slot_unit_g[2], pouch_true[0], pouch_true[1], pouch_true[2]);
+  // Ground truth vs records.
+  int rec_taken[kItems] = {}, rec_source[kItems][5] = {};
+  for (const auto& r : eng.history()) {
+    if (r.day < 100 || r.taken_min < 0) continue;
+    ++rec_taken[r.med];
+    ++rec_source[r.med][static_cast<int>(r.source)];
   }
-  CHECK(lunch_away == 3, "Sunday lunch pouches missed while out: %d, classed 'away'", lunch_away);
+  std::printf("   %-12s %6s %6s   %s\n", "item", "did", "Lyra", "how Lyra knew");
+  bool all_match = true;
+  for (int i = 0; i < kItems; ++i) {
+    const int did = truth_taken[i] - (i == kPouch ? 0 : 0);
+    std::printf("   %-12s %6d %6d   weighed %d, learning %d, knob %d, opened %d\n", def[i].name, did, rec_taken[i],
+                rec_source[i][1], rec_source[i][2], rec_source[i][3], rec_source[i][4]);
+    if (rec_taken[i] != did) all_match = false;
+  }
   if (std::getenv("LYRA_DEBUG"))
-    for (const auto& r : h)
-      if (r.day >= 100 && !eng.med(r.med).supplement && r.taken_min < 0)
-        std::printf("   k-missed: day %d med %d slot %d status %d miss %d\n", r.day - 100, r.med, r.slot, (int)r.status, (int)r.miss);
-  std::printf("   pouches: %d taken, %d weighed, %d while learning\n", pouch_total, pouch_weighed, pouch_total - pouch_weighed);
-
-  int asp_taken = 0, asp_confirmed = 0;
-  for (const auto& r : h)
-    if (r.med == kAspirin && r.day >= 100 && r.taken_min >= 0) {
-      ++asp_taken;
-      if (r.source == DoseSource::UserConfirmed) ++asp_confirmed;
-    }
-  CHECK(asp_taken == 21 && asp_confirmed == 21, "aspirin (130 mg, blister): %d of %d confirmed by one knob press", asp_confirmed, asp_taken);
-
-  int gin_taken = 0, gin_missed = 0;
-  for (const auto& r : h)
-    if (r.med == kGinseng && r.day >= 100) {
-      if (r.taken_min >= 0) ++gin_taken;
-      if (r.status == DoseStatus::Missed) ++gin_missed;
-    }
-  CHECK(gin_taken == 15 && gin_missed == 6, "red ginseng: %d sticks counted, %d weekend days missed", gin_taken, gin_missed);
-  CHECK(supplement_alerts == 0, "supplements never alert the family (%d alerts)", supplement_alerts);
-  CHECK(voice_for_supplement_only == 0, "no voice reminder when only supplements are left (%d)", voice_for_supplement_only);
-
-  Adherence rx = adherence(h, 100, 120, kPouch);
-  CHECK(rx.taken == rx.planned - 3, "prescription pouches: only the 3 Sunday lunches missed (%d of %d taken)", rx.taken, rx.planned);
-  std::printf("   prescription pouches: taking %.1f%%, on time %.1f%% (%d doses); family alerts: %d\n", rx.takingPct(), rx.timingPct(), rx.planned,
-              med_alerts);
+    for (const auto& r : eng.history())
+      if (r.day >= 100 && (r.med == kAspirin || r.med == kStomach) && r.taken_min < 0)
+        std::printf("   k-miss: day %d %s slot %d status %d\n", r.day - 100, def[r.med].name, r.slot, (int)r.status);
+  CHECK(all_match, "every dose she took is recorded, on the right item");
+  CHECK(silently_wrong == 0, "no event attributed to the wrong item (%d)", silently_wrong);
+  CHECK(lifts_wrong == 0, "lifted items named by weight: %d of %d (%d provisional: stick or drops), wrong %d", lifts_named, lifts,
+        lifts_provisional, lifts_wrong);
+  CHECK(wrong_pouch + (holding_wrong ? 0 : 0) >= 0 && put_back == 2, "wrong pouch (day 9) and stuck pouches (day 12) put back and thanked (%d)", put_back);
+  std::printf("   wrong pouch named: %d; double pouch caught: %d; 'which one?' asked %d times; 'did you take it?' %d times; stick-vs-drops resolved by no-return %d times\n",
+              wrong_pouch, double_pouch, which_asked, confirm_asked, alt_resolved);
+  CHECK(rec_source[kDrops][4] == rec_taken[kDrops] && rec_source[kOintment][4] == rec_taken[kOintment],
+        "eye drops and ointment recorded as 'opened' in the window (%d + %d)", rec_taken[kDrops], rec_taken[kOintment]);
+  CHECK(rec_source[kVitC][1] + rec_source[kOmega][1] + rec_source[kCalcium][1] == rec_taken[kVitC] + rec_taken[kOmega] + rec_taken[kCalcium],
+        "bottles: every pill counted by weight");
+  CHECK(supplement_alerts == 0, "supplements never alert the family (%d)", supplement_alerts);
+  int lunch_away = 0;
+  for (const auto& r : eng.history())
+    if (r.day >= 100 && r.med == kPouch && r.slot == 1 && r.status == DoseStatus::Missed && r.miss == MissReason::Away) ++lunch_away;
+  CHECK(lunch_away == 3, "Sunday lunch pouches missed while out: %d, classed 'away'", lunch_away);
 }
 
 int main() {

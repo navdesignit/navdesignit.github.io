@@ -13,22 +13,23 @@ float BayDetector::diffSigma() const {
 
 float BayDetector::threshold() const { return std::fmax(0.05f, 4.0f * diffSigma()); }
 
-float BayDetector::countConfidence(float delta, int n) const {
-  if (pill_g_ <= 0 || n <= 0) return 0;
-  // Posterior probability that exactly n pills left the container, against
-  // every other count k = 0 .. n+3 (flat prior). Each hypothesis k predicts
-  // k·pill ± (measurement error ⊕ pill-to-pill spread of k pills).
-  const float m = diffSigma();
+float countPosterior(float delta, int n, float unit_g, float sigma_meas, float cv) {
+  if (unit_g <= 0 || n <= 0) return 0;
+  // Each hypothesis k predicts k·unit ± (measurement ⊕ spread of k units).
   float num = 0, den = 0;
   for (int k = 0; k <= n + 3; ++k) {
-    const float spread = cfg_.pill_cv * pill_g_ * std::sqrt(static_cast<float>(k));
-    const float sigma = std::sqrt(m * m + spread * spread);
-    const float z = (delta - k * pill_g_) / sigma;
+    const float spread = cv * unit_g * std::sqrt(static_cast<float>(k));
+    const float sigma = std::sqrt(sigma_meas * sigma_meas + spread * spread);
+    const float z = (delta - k * unit_g) / sigma;
     const float like = std::exp(-0.5f * z * z) / sigma;
     den += like;
     if (k == n) num = like;
   }
   return den > 0 ? num / den : 0;
+}
+
+float BayDetector::countConfidence(float delta, int n) const {
+  return countPosterior(delta, n, pill_g_, diffSigma(), cfg_.pill_cv);
 }
 
 BayEvent BayDetector::classify(float before, float after, uint32_t t_ms) const {
@@ -42,6 +43,11 @@ BayEvent BayDetector::classify(float before, float after, uint32_t t_ms) const {
   if (std::fabs(d) < threshold()) {
     e.kind = BayEventKind::NoChange;
     e.confidence = 100;
+    return e;
+  }
+
+  if (cfg_.steps) {
+    e.kind = d > 0 ? BayEventKind::Removed : BayEventKind::Added;
     return e;
   }
 
@@ -79,7 +85,7 @@ BayEvent BayDetector::push(float g, uint32_t t) {
   if (n_ < kWin) ++n_;
 
   // --- nothing (or almost nothing) on the bay -------------------------------
-  if (g < cfg_.empty_g) {
+  if (!cfg_.steps && g < cfg_.empty_g) {
     if (state_ == State::Stable || state_ == State::Moving) {
       state_ = State::Lifted;
       lift_ms_ = t;
@@ -133,6 +139,7 @@ BayEvent BayDetector::push(float g, uint32_t t) {
     case State::Empty: {
       state_ = State::Stable;
       ref_g_ = mean;
+      if (cfg_.steps) return none;  // first reading of the compartment: just the baseline
       BayEvent e = none;
       e.kind = BayEventKind::Placed;
       e.after_g = mean;

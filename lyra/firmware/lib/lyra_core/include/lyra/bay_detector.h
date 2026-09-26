@@ -16,6 +16,11 @@
 
 namespace lyra {
 
+// Posterior probability that a weight change `delta` is exactly n units,
+// against every other count 0..n+3 (flat prior). `sigma` is the 1σ error of
+// a settled before/after pair; `cv` the unit-to-unit spread.
+float countPosterior(float delta, int n, float unit_g, float sigma, float cv);
+
 class BayDetector {
  public:
   struct Config {
@@ -28,6 +33,11 @@ class BayDetector {
     float pill_cv = 0.04f;         // pill-to-pill weight spread (4 % typical for tablets)
     uint32_t left_off_ms = 10 * 60 * 1000;
     uint32_t emptied_ms = 60 * 60 * 1000;
+    // Step mode (compartments holding several items): report every settled
+    // change as Removed (lighter) or Added (heavier) with its delta and leave
+    // the meaning (bottle lifted, pill taken, tube returned) to the
+    // CompartmentTracker. No lift/empty/swap interpretation here.
+    bool steps = false;
   };
 
   BayDetector() = default;
@@ -35,6 +45,7 @@ class BayDetector {
 
   // Smallest weight change accepted as real (4σ of a settled before/after pair).
   float threshold() const;
+  float diffSigma() const;  // 1σ of a settled before/after difference
 
   void setPillWeight(float g) { pill_g_ = g; }
   float pillWeight() const { return pill_g_; }
@@ -56,8 +67,6 @@ class BayDetector {
  private:
   enum class State : uint8_t { Empty, Stable, Moving, Lifted };
   static constexpr int kWin = 10;  // 1 s at 10 Hz
-
-  float diffSigma() const;  // 1σ of a settled before/after difference
 
   Config cfg_;
   State state_ = State::Empty;

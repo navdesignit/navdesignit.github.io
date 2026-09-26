@@ -33,6 +33,8 @@ enum class Notice : uint8_t {
   UnknownBay,       // pills taken from a bay with no medicine assigned
   ConfirmDose,      // container opened but the change was too small to count: ask
   WrongPouch,       // pouch for another time was taken (notice_slot says which)
+  WhichItem,        // weight can't tell which item it was: turn the knob to pick
+                    // (notice_candidates), press to confirm
   DoseMissed,
 };
 
@@ -49,6 +51,7 @@ struct EngineOutput {
   int32_t notice_min = -1;      // e.g. when it was already taken / next due
   int8_t notice_pills = 0;
   int8_t notice_slot = -1;      // WrongPouch: the slot of the pouch in hand
+  uint16_t notice_candidates = 0;  // WhichItem: bit per medicine
 
   // Caregiver message (sent by the app layer over LTE/Wi-Fi).
   bool notify_caregiver = false;
@@ -85,7 +88,20 @@ class DoseEngine {
   void beginDay(int32_t day);
 
   EngineOutput tick(int32_t now_min, bool present);
+  // Single-item bay: the event belongs to the bay's only medicine.
   EngineOutput onBayEvent(int bay, const BayEvent& e, int32_t now_min);
+  // Compartment with several items: the CompartmentTracker has already
+  // decided which medicine the event belongs to.
+  EngineOutput onMedEvent(int med, const BayEvent& e, int32_t now_min);
+  // Tracker couldn't tell which item: ask on screen.
+  EngineOutput askWhich(uint16_t candidates, float delta_g, int32_t now_min);
+  // The person picked `med` with the knob.
+  EngineOutput resolveWhich(int med, int32_t now_min);
+  // An item has been out of its compartment for too long.
+  EngineOutput onLeftOff(int med);
+  bool hasOpenDose(int med, int32_t now_min) const;
+  int openSlot(int med, int32_t now_min) const;  // slot of the open dose, -1 if none
+  int remainingDue(int med, int32_t now_min) const;  // units still to take for the open dose, 0 if none
 
   // The person answered "Yes, taken" to a ConfirmDose question (knob press).
   EngineOutput confirmDose(int32_t now_min);
@@ -134,6 +150,11 @@ class DoseEngine {
   // Pending "did you take it?" question.
   int8_t confirm_med_ = -1;
   int32_t confirm_min_ = 0;
+
+  // Pending "which one?" question.
+  uint16_t which_mask_ = 0;
+  float which_g_ = 0;
+  int32_t which_min_ = 0;
 
   // Pill-weight learning.
   float learn_[kMaxMeds][5] = {};

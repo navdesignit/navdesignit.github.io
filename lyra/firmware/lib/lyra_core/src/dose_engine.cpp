@@ -293,7 +293,21 @@ EngineOutput DoseEngine::onPouchRemoved(int m, const BayEvent& e, int32_t now) {
   const float w = md.slot_unit_g[open->slot];
 
   if (w <= 0) {
-    // Still learning this slot's pouch: accept one plausible pouch and learn it.
+    // Still learning this slot's pouch. If it clearly matches another time's
+    // known pouch, it's the wrong pouch; otherwise accept and learn it.
+    for (int k = 0; k < kSlots; ++k) {
+      const float wk = md.slot_unit_g[k];
+      if (k == open->slot || !md.per_slot[k] || wk <= 0 || !near(d, wk)) continue;
+      confirm_med_ = static_cast<int8_t>(m);
+      confirm_min_ = now;
+      extra_med_ = static_cast<int8_t>(m);
+      extra_pills_ = 1;
+      extra_g_ = d;
+      extra_min_ = now;
+      out.notice = Notice::ConfirmDose;  // "check the pouch says <time>"
+      out.notice_slot = static_cast<int8_t>(open->slot);
+      return out;
+    }
     if (d > kPouchMaxG) {
       confirm_med_ = static_cast<int8_t>(m);
       confirm_min_ = now;
@@ -375,15 +389,81 @@ EngineOutput DoseEngine::onPouchRemoved(int m, const BayEvent& e, int32_t now) {
   return out;
 }
 
-EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
+bool DoseEngine::hasOpenDose(int m, int32_t now) const {
+  return const_cast<DoseEngine*>(this)->openDoseFor(m, now) != nullptr;
+}
+
+int DoseEngine::openSlot(int m, int32_t now) const {
+  const DoseRecord* r = const_cast<DoseEngine*>(this)->openDoseFor(m, now);
+  return r ? r->slot : -1;
+}
+
+int DoseEngine::remainingDue(int m, int32_t now) const {
+  const DoseRecord* r = const_cast<DoseEngine*>(this)->openDoseFor(m, now);
+  return r ? r->planned - r->taken : 0;
+}
+
+EngineOutput DoseEngine::askWhich(uint16_t candidates, float delta_g, int32_t now) {
   EngineOutput out;
+  which_mask_ = candidates;
+  which_g_ = delta_g;
+  which_min_ = now;
+  out.notice = Notice::WhichItem;
+  out.notice_candidates = candidates;
+  return out;
+}
+
+EngineOutput DoseEngine::resolveWhich(int m, int32_t now) {
+  EngineOutput out;
+  if (m < 0 || !(which_mask_ & (1u << m)) || now - which_min_ > kConfirmWindowMin) return out;
+  which_mask_ = 0;
+  DoseRecord* r = openDoseFor(m, now);
+  if (!r) {  // picked an item that isn't due: treat like any extra dose
+    extraDose(m, 1, which_g_, now, out);
+    return out;
+  }
+  r->source = meds_[m].form == Form::Topical ? DoseSource::Opened : DoseSource::UserConfirmed;
+  r->confidence = 0;
+  markTaken(*r, r->planned - r->taken, now, out);
+  return out;
+}
+
+EngineOutput DoseEngine::onLeftOff(int m) {
+  EngineOutput out;
+  out.notice = Notice::LeftOff;
+  out.notice_med = static_cast<int8_t>(m);
+  return out;
+}
+
+EngineOutput DoseEngine::onBayEvent(int bay, const BayEvent& e, int32_t now) {
   const int m = medAtBay(bay);
   if (m < 0) {
+    EngineOutput out;
     if (e.kind == BayEventKind::Removed) out.notice = Notice::UnknownBay;
     return out;
   }
+  return onMedEvent(m, e, now);
+}
+
+EngineOutput DoseEngine::onMedEvent(int m, const BayEvent& e, int32_t now) {
+  EngineOutput out;
   Medicine& md = meds_[m];
   out.notice_med = static_cast<int8_t>(m);
+
+  // Eye drops, ointment, inhaler: opened and put back during the window is
+  // the dose. Outside a window it's just logged.
+  if (md.form == Form::Topical &&
+      (e.kind == BayEventKind::Removed || e.kind == BayEventKind::NoChange)) {
+    DoseRecord* r = openDoseFor(m, now);
+    if (!r) {
+      out.notice_med = -1;
+      return out;
+    }
+    r->source = DoseSource::Opened;
+    r->confidence = 0;
+    markTaken(*r, r->planned - r->taken, now, out);
+    return out;
+  }
 
   switch (e.kind) {
     case BayEventKind::Removed: break;  // handled below
