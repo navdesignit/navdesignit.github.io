@@ -1,10 +1,10 @@
 // Alquida Landu — screens, controls and effects. Game rules live in engine.js.
 
 import {
-  createRoom, reduce, current, canKaboom, kaboomTokens, blastTargets, botAction, cleanName,
+  createRoom, reduce, current, canKaboom, kaboomTokens, blastTargets, botAction, cleanName, moveVictims, playerByColor,
   BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn,
 } from './engine.js';
-import { CHARACTERS, CHAR_IDS, charForName, avatar } from './characters.js';
+import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
 import { Board, TEAM, squareCenter } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
 import { sfx, buzz, unlock, isMuted, setMuted } from './sound.js';
@@ -439,6 +439,10 @@ async function playFx(st, prev, intro) {
         sfx('pop');
         await Promise.all([board.walkFly(f.c, f.t, f.to), board.walkFly(f.c2, f.t2, f.to2)]);
         break;
+      case 'betrayal':
+        sfx('sad'); buzz([60, 40, 60]);
+        await banner(`<span class="big-emoji">💔</span><b>BETRAYAL!</b><small>${nameOf(f.uid, st)} killed bestie ${nameOf(f.victim, st)}</small>`, 'box', 1600);
+        break;
       case 'fizzle':
         toast('💨 …but nothing happened');
         break;
@@ -649,12 +653,29 @@ function onKaboomBtn() {
   renderControls(st);
 }
 
-function onTokenTap({ t }) {
+async function onTokenTap({ t }) {
   const st = S.state;
   const me = controls(st);
   if (!me || S.pumping) return;
   if (S.aiming) return act({ type: 'kaboom', uid: me.uid, token: t });
-  if (st.phase === 'move' && st.movable.includes(t)) act({ type: 'move', uid: me.uid, token: t });
+  if (st.phase !== 'move' || !st.movable.includes(t)) return;
+  const bestie = moveVictims(st, t).map(v => playerByColor(st, v.c)).find(v => v && areBesties(me.char, v.char));
+  if (bestie && !(await confirmBox(
+    `<div class="confirm-face">${face(bestie, 72)}</div><h3>Kill your bestie ${esc(bestie.name)}? 🥺</h3><p>Besties don't kill each other…</p>`,
+    'Yes, betray 😈', 'No, spare 🥺'))) return;
+  act({ type: 'move', uid: me.uid, token: t });
+}
+
+function confirmBox(html, yes, no) {
+  return new Promise(resolve => {
+    $('#confirm-body').innerHTML = html;
+    $('#confirm-yes').textContent = yes;
+    $('#confirm-no').textContent = no;
+    const done = v => { closeModal('modal-confirm'); $('#confirm-yes').onclick = $('#confirm-no').onclick = null; resolve(v); };
+    $('#confirm-yes').onclick = () => done(true);
+    $('#confirm-no').onclick = () => done(false);
+    openModal('modal-confirm');
+  });
 }
 
 // Bots, and the turn timer for people who wander off.
@@ -698,6 +719,7 @@ function showResults(st) {
     ['🤡', 'Biggest Landu', 'killed the most', top('deaths')],
     ['💣', 'Kaboom King', 'most bomb kills', top('boomKills')],
     ['😴', 'Sleepyhead', 'fell asleep the most', top('afk')],
+    ['💔', 'Backstabber', 'killed their bestie', top('betrayals')],
   ].filter(a => a[3]);
   const host = S.mode === 'local' || st.host === S.me;
   $('#results').innerHTML = `
@@ -795,7 +817,7 @@ $('#form-code').onsubmit = e => {
 $('#btn-rules').onclick = $('#btn-menu-rules').onclick = () => { closeModal('modal-menu'); openModal('modal-rules'); };
 $$('[data-home]').forEach(b => { b.onclick = goHome; });
 $$('.modal').forEach(m => m.addEventListener('click', e => {
-  if (e.target === m && m.id !== 'modal-results') m.hidden = true;
+  if (e.target === m && m.id !== 'modal-results' && m.id !== 'modal-confirm') m.hidden = true;
   if (e.target.closest('[data-close]')) m.hidden = true;
 }));
 

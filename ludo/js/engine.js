@@ -4,7 +4,7 @@
 // A token's position is counted in steps from its own start square:
 //   -1 = in the yard, 0–50 = on the shared track, 51–55 = own home lane, 56 = home.
 
-import { CHARACTERS, CHAR_IDS, charForName } from './characters.js';
+import { CHARACTERS, CHAR_IDS, charForName, pickLine, areBesties } from './characters.js';
 
 export const COLORS = ['red', 'green', 'yellow', 'blue'];
 export const SEATS = { 2: ['red', 'yellow'], 3: ['red', 'green', 'yellow'], 4: ['red', 'green', 'yellow', 'blue'] };
@@ -110,7 +110,7 @@ export function blastTargets(s, c, t) {
   const pos = s.tokens[c] && s.tokens[c][t];
   if (pos == null || !onTrack(pos)) return [];
   const sq = square(c, pos);
-  return tokensOnTrack(s).filter(h => h.c !== c && ring(h.sq, sq) <= BLAST && !shielded(s, h.c, h.t))
+  return tokensOnTrack(s).filter(h => h.c !== c && ring(h.sq, sq) <= BLAST && !shielded(s, h.c, h.t) && !besties(s, c, h.c))
     .map(h => ({ c: h.c, t: h.t, from: h.p }));
 }
 
@@ -129,9 +129,50 @@ function log(s, text) {
   if (s.log.length > 20) s.log.splice(0, s.log.length - 20);
 }
 
-function say(s, fx, p, kind, rng) {
-  const lines = (CHARACTERS[p.char] || CHARACTERS.nav).lines[kind];
-  if (lines && lines.length) fx.push({ k: 'say', uid: p.uid, text: pick(lines, rng) });
+// Player p says a `kind` line, aimed at player `to` when given.
+function say(s, fx, p, kind, rng, to, vars) {
+  const text = pickLine(p.char, kind, to && to.char, rng, vars);
+  if (text) fx.push({ k: 'say', uid: p.uid, text });
+}
+
+const besties = (s, c1, c2) => {
+  const a = playerByColor(s, c1);
+  const b = playerByColor(s, c2);
+  return !!(a && b && areBesties(a.char, b.char));
+};
+
+// Enemy tokens that token t would knock out by moving to step `to`.
+export function victimsAt(s, c, to) {
+  if (!onTrack(to)) return [];
+  const sq = square(c, to);
+  if (isSafe(sq)) return [];
+  return tokensOnTrack(s).filter(h => h.sq === sq && h.c !== c && !shielded(s, h.c, h.t));
+}
+
+// Who the current player's token t would kill with the dice they just rolled.
+export function moveVictims(s, t) {
+  const p = current(s);
+  if (!p || s.dice == null) return [];
+  const from = s.tokens[p.color][t];
+  return victimsAt(s, p.color, from === YARD ? 0 : from + s.dice);
+}
+
+// At the start of a turn, a player who is one exact roll away from being
+// killed taunts the hunter ("4 ni ayega 😌").
+function threatTalk(s, fx, rng) {
+  const hunter = current(s);
+  if (!hunter || !hunter.color) return;
+  let best = null;
+  for (const h of tokensOnTrack(s)) {
+    if (h.c === hunter.color || isSafe(h.sq) || shielded(s, h.c, h.t)) continue;
+    const at = rel(hunter.color, h.sq);
+    if (at > LAST_TRACK) continue;
+    for (const mine of s.tokens[hunter.color]) {
+      if (!onTrack(mine) || at <= mine || at - mine > 6) continue;
+      if (!best || at - mine < best.n) best = { n: at - mine, victim: playerByColor(s, h.c) };
+    }
+  }
+  if (best) say(s, fx, best.victim, 'threat', rng, hunter, { n: best.n });
 }
 
 function setDeadline(s, at) {
@@ -218,10 +259,14 @@ function land(s, p, t, fx, rng, allowBox) {
       victim.deaths += 1; p.kills += 1;
       fx.push({ k: 'kill', c: h.c, t: h.t, from: h.p, by: c, sq });
       log(s, `⚔️ ${p.name} sent ${victim.name} home`);
+      if (areBesties(p.char, victim.char)) {
+        p.betrayals = (p.betrayals || 0) + 1;
+        fx.push({ k: 'betrayal', uid: p.uid, victim: victim.uid });
+      }
       firstVictim = firstVictim || victim;
       extra = true;
     }
-    if (firstVictim) { say(s, fx, p, 'kill', rng); say(s, fx, firstVictim, 'die', rng); }
+    if (firstVictim) { say(s, fx, p, 'kill', rng, firstVictim); say(s, fx, firstVictim, 'die', rng, p); }
   }
   if (allowBox && s.boxes.includes(sq)) {
     s.boxes = s.boxes.filter(b => b !== sq);
@@ -430,6 +475,7 @@ export function reduce(state, a, rng = Math.random) {
   s.log = s.log || [];
   const fx = [];
   if (HANDLERS[a.type](s, a, fx, rng) === false) return null;
+  if (s.phase === 'roll' && s.turnNo !== state.turnNo && rng() < 0.7) threatTalk(s, fx, rng);
   s.seq += 1;
   s.fx = { seq: s.seq, type: a.type, by: a.uid || null, items: fx };
   return s;
@@ -456,8 +502,9 @@ export function bestMove(s) {
     if (from === YARD) score += 45;
     if (onTrack(to)) {
       const sq = square(c, to);
-      const victims = isSafe(sq) ? [] : tokensOnTrack(s).filter(h => h.sq === sq && h.c !== c && !shielded(s, h.c, h.t));
+      const victims = victimsAt(s, c, to);
       if (victims.length) score += 80 + victims.reduce((n, h) => n + h.p, 0);
+      if (victims.some(h => besties(s, c, h.c))) score -= 200; // besties don't kill each other
       if (isSafe(sq)) score += 12;
       if (s.boxes.includes(sq)) score += 8;
       if (!victims.length && danger(s, c, sq)) score -= 25 + to / 4;

@@ -2,10 +2,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createRoom, reduce, botAction, blastTargets, kaboomTokens, square, current,
+  createRoom, reduce, botAction, blastTargets, kaboomTokens, square, current, bestMove, moveVictims,
   YARD, HOME, SAFE,
 } from '../js/engine.js';
-import { charForName } from '../js/characters.js';
+import { charForName, pickLine, CHARACTERS } from '../js/characters.js';
 
 // Deterministic dice: feeds the given values (1–6) to the engine, then 0.5 forever.
 const dice = (...vals) => {
@@ -38,7 +38,7 @@ test('names pick characters, impostors get bumped', () => {
   assert.equal(charForName('  ajay kumar '), 'ajay');
   assert.equal(charForName('NAV!!'), 'nav');
   assert.equal(charForName('Naveen'), null);
-  assert.equal(charForName('Chechi'), 'chechu');
+  assert.equal(charForName('Chechu bhiya'), 'chechu');
 
   let s = createRoom('TEST', 1);
   s = reduce(s, { type: 'join', uid: 'a', name: 'Rahul', char: 'nav' });
@@ -243,6 +243,50 @@ test('rematch goes back to the lobby with the same crew', () => {
   s = reduce(s, { type: 'start', uid: 'u0', at: 1 }, () => 0);
   assert.deepEqual(s.tokens.red, [YARD, YARD, YARD, YARD]);
   assert.equal(s.players[0].kills, 0);
+});
+
+test('trash talk depends on who you talk to', () => {
+  const all = (id, kind, to) => new Set(Array.from({ length: 60 }, (_, i) => pickLine(id, kind, to, () => i / 60)));
+  const liuToVanshika = all('liu', 'kill', 'vanshika');
+  for (const line of liuToVanshika) assert.ok(CHARACTERS.liu.to.vanshika.kill.includes(line), line);
+  for (const line of all('liu', 'kill', 'ajay')) assert.ok(CHARACTERS.liu.lines.kill.includes(line));
+  assert.ok([...all('ajay', 'kill', 'nav')].some(l => l.includes('dalle')), 'Indore boys roast each other');
+  assert.equal(pickLine('vanshika', 'threat', 'ajay', () => 0, { n: 4 }), '4 ni ayega 😌');
+});
+
+test('besties: KABOOM spares them, bots avoid killing them, betrayal is noticed', () => {
+  // Liu = red (start 0), Vanshika = green (start 13), Ajay = yellow (start 26).
+  let s = setup(started(['Liu', 'Vanshika', 'Ajay']), {
+    red: [9, YARD, YARD, YARD],
+    green: [49, YARD, YARD, YARD],  // square (13+49)%52 = 10, next to Liu
+    yellow: [37, YARD, YARD, YARD], // square 11
+  });
+  assert.deepEqual(blastTargets(s, 'red', 0).map(v => v.c), ['yellow'], 'bomb spares the bestie');
+
+  // Liu rolls 1: token 0 would land on Vanshika (square 10); a 6 is not rolled so only that token moves.
+  let n = reduce(s, { type: 'roll', uid: 'u0' }, dice(1));
+  assert.equal(n.tokens.green[0], YARD, 'humans can still betray');
+  assert.ok(n.fx.items.some(f => f.k === 'betrayal'));
+  assert.ok(n.fx.items.some(f => f.k === 'say' && CHARACTERS.liu.to.vanshika.kill.includes(f.text)));
+
+  // Bot Liu with two choices: kill Vanshika, or walk another token. It walks.
+  s = setup(s, { red: [9, 20, YARD, YARD] });
+  s.phase = 'move'; s.dice = 1; s.movable = [0, 1];
+  assert.equal(moveVictims(s, 0).length, 1);
+  assert.equal(bestMove(s), 1);
+});
+
+test('threat taunt: the player one exact roll from death says the number', () => {
+  // Ajay = red is about to play; Vanshika = yellow sits 4 squares ahead of Ajay's token.
+  // yellow step 40 = square (26+40)%52 = 14; Ajay token at step 10 = square 10 → needs a 4.
+  let s = setup(started(['Ajay', 'Vanshika']), { red: [10, YARD, YARD, YARD], yellow: [40, YARD, YARD, YARD] }, 'yellow');
+  s.tokens.yellow = [40, 30, YARD, YARD];
+  // Vanshika rolls 2 with her other token (1 → 2 options, she moves token 1), then it's Ajay's turn.
+  s = reduce(s, { type: 'roll', uid: 'u1' }, dice(2));
+  s = reduce(s, { type: 'move', uid: 'u1', token: 1 }, () => 0);
+  assert.equal(current(s).uid, 'u0');
+  const taunt = s.fx.items.find(f => f.k === 'say' && f.uid === 'u1');
+  assert.ok(taunt && taunt.text.includes('4'), JSON.stringify(s.fx.items));
 });
 
 // Plays thousands of full bot games and checks nothing ever breaks.

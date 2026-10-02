@@ -318,6 +318,10 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .rules p, .rules li { line-height: 1.4; font-size: 0.95rem; }
 .rules .effects { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.88rem; }
 
+.confirm { text-align: center; align-items: center; }
+.confirm .row { justify-content: center; width: 100%; }
+.confirm .row .btn { flex: 1; }
+.confirm-face .avatar { width: 72px; height: 72px; border-radius: 50%; }
 .results { text-align: center; }
 .winner { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .winner .avatar { width: 96px; height: 96px; border-radius: 50%; box-shadow: 0 0 0 5px var(--c), 0 8px 0 5px rgba(0, 0, 0, 0.2); animation: bounce 1s ease-in-out infinite; }
