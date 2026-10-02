@@ -206,11 +206,11 @@ async function profileGo() {
   if (S.profileMode === 'create') {
     loading('Creating room…');
     try {
-      const room = await OnlineRoom.create(S.me, name, S.resolvedChar);
+      const room = await withTimeout(OnlineRoom.create(S.me, name, S.resolvedChar));
       setUrl(room.code);
       attachRoom(room, 'online');
     } catch (e) {
-      info(`<h3>😕 Couldn't create a room</h3><p>${esc(e.message || e)}</p><p>Check your internet and the Firebase setup in <code>ludo/README.md</code>.</p>`);
+      info(explain(e, "Couldn't create a room"));
     }
     loading(null);
   } else {
@@ -734,15 +734,32 @@ async function openRoom(code) {
   }
   loading(`Opening room ${code}…`);
   try {
-    const room = await OnlineRoom.open(code, S.me);
+    const room = await withTimeout(OnlineRoom.open(code, S.me));
     if (!room) { loading(null); toast(`😕 Room ${esc(code)} not found`); return goHome(); }
     setUrl(code);
     attachRoom(room, 'online');
   } catch (e) {
-    toast('😕 Could not connect. Check your internet.');
+    info(explain(e, `Couldn't open room ${esc(code)}`));
     goHome();
   }
   loading(null);
+}
+
+function withTimeout(promise, ms = 15000) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+}
+
+// Turn Firebase errors into something a player can act on.
+function explain(e, title) {
+  const msg = String((e && (e.code || e.message)) || e);
+  let help = `<p>Something went wrong: <code>${esc(msg)}</code></p><p>Try again in a moment. If it keeps happening, send a screenshot of this to whoever set up the game.</p>`;
+  if (/permission[_ ]denied/i.test(msg)) {
+    help = `<p>🔒 The game's database is still <b>locked</b>.</p>
+      <p>Whoever set up the game needs to open <b>Firebase → Realtime Database → Rules</b>, paste the Alquida Landu rules (from <code>ludo/database.rules.json</code>) and tap <b>Publish</b>.</p>`;
+  } else if (/timeout|network|disconnect|offline/i.test(msg)) {
+    help = '<p>📶 Couldn\'t reach the game server. Check your internet (or turn off any VPN / data saver) and try again.</p>';
+  }
+  return `<h3>😕 ${title}</h3>${help}`;
 }
 
 function setupNeeded() {
