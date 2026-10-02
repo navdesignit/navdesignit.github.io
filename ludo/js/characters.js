@@ -1,19 +1,55 @@
 // The five Alquida Landu characters. Type one of these names when you join
 // and you become that character. Faces are hand-drawn SVG (viewBox 0 0 100 100)
-// so they stay crisp on every phone. Edit looks or trash-talk lines here.
+// so they stay crisp on every phone.
+//
+// Trash talk: `lines` are said to anyone; `to.<id>` replaces them when talking
+// to that particular person. {n} in a threat line becomes the number the other
+// player needs to roll to kill you.
+//
+// The gang: Ajay, Nav and Chechu are childhood friends from Indore. Vanshika is
+// a lawyer in Delhi and Ajay's wife. Liu is Nav's girlfriend, an artist from
+// China who learned all her Hindi from Nav. Liu and Vanshika are besties and
+// try not to kill each other.
+
+// Indori banter the three boys throw at each other.
+const INDORI_KILL = [
+  'Chal be dalle, jaldi chal! 🏃',
+  'Lavde lage hai tere 😂',
+  'Dalle ki dukan hai kya? 😂',
+  'Chor aadmi! Ghar ja 🫵',
+  'Jeeravan chatwa ke hi manega kya? 🌶️',
+  'Bas jhuk jao… dheere se 😏',
+  'Thoda sa le lo 😂',
+];
+const INDORI_DIE = [
+  'Bhara baitha hai kya? 😤',
+  'Sex game hai ye 😤',
+  'Chor aadmi! 😤',
+  'Dalle ki dukan hai ye game 😤',
+  'Lavde lag gaye 😭',
+];
 
 export const CHARACTERS = {
   ajay: {
     name: 'Ajay',
-    title: 'The Boss',
+    title: 'Indore ka Boss',
     emoji: '😎',
     accent: '#FF8A3D',
     aliases: [],
     lines: {
-      kill: ['Ghar ja! 🏠', 'Too easy 😎', 'Next!', 'Boss move. 😎'],
-      die: ['Arre yaar! 😤', 'Revenge loading… ⏳', 'You will pay for this'],
-      kaboom: ['If I go, you go! 💥', 'Boss exit. 💣'],
-      home: ['Boss is home 😎'],
+      kill: ['Ghar ja! 🏠', 'Boss move 😎', 'Chal be, jaldi chal 🏃', 'Chor aadmi! Ghar ja 🫵'],
+      die: ['Arre yaar! 😤', 'Bhara baitha hai kya? 😤', 'Revenge loading… ⏳'],
+      kaboom: ['Chal be dalle, sab saath chalo! 💣', 'Boss exit 😎💥'],
+      home: ['Boss ghar pahunch gaya 😎'],
+      threat: ['Aaja {n} laake dikha 😏', '{n}? Sapne dekh 😎'],
+    },
+    to: {
+      nav: { kill: INDORI_KILL, die: INDORI_DIE },
+      chechu: { kill: INDORI_KILL, die: INDORI_DIE },
+      vanshika: {
+        kill: ['Sorry jaan… game hai 🙈', 'Aaj khana main bana dunga 🙏', 'Wakeel saab, ghar jao 😂'],
+        die: ['Jaan?! 😳 Theek hai…', 'Ghar pe baat karte hain 😶'],
+      },
     },
   },
   nav: {
@@ -23,36 +59,61 @@ export const CHARACTERS = {
     accent: '#4DA3FF',
     aliases: ['navendu', 'navu'],
     lines: {
-      kill: ['All according to plan 🧠', 'Bye bye 👋', 'Ghar jao beta!'],
-      die: ['This game is rigged!', 'Who coded this?! 😭', 'Bug hai, bug!'],
-      kaboom: ['Plan B: KABOOM! 💣', 'Calculated explosion 🧠'],
+      kill: ['All according to plan 🧠', 'Ghar jao beta! 👋', 'Calculated 🧠'],
+      die: ['This game is rigged! 😭', 'Who coded this?! Oh wait… me 😭', 'Bhara baitha hai kya? 😤'],
+      kaboom: ['Plan B: KABOOM! 💣', 'Dheere se… BOOM 💥'],
       home: ['Calculated. 🧠'],
+      threat: ['Aaja {n}, dekhte hain 😏', '{n} chahiye? Best of luck 😂'],
+    },
+    to: {
+      ajay: { kill: INDORI_KILL, die: INDORI_DIE },
+      chechu: { kill: INDORI_KILL, die: INDORI_DIE },
+      liu: {
+        kill: ['Sorry baby 🙈 game hai', 'This is why I taught you "dalle" 😂', 'Love you, but ghar jao ❤️'],
+        die: ['Liu?! Maine hi sikhaya tha tujhe 😭', 'Kuttaaaa bolke maar diya 😭', 'Baby, no dinner for you 😤'],
+      },
     },
   },
   chechu: {
     name: 'Chechu',
-    title: 'Big Sister Energy',
-    emoji: '👑',
+    title: 'Indori Bhiya',
+    emoji: '🍛',
     accent: '#B67CFF',
-    aliases: ['chechi'],
+    aliases: [],
     lines: {
-      kill: ['Respect your Chechu! 👑', 'Go home, kid', 'Aiyyo, sorry! 😇'],
-      die: ['Aiyyo! 😱', 'I will remember this…', 'Amma!! 😭'],
-      kaboom: ['Chechu is ANGRY! 💥', 'Nobody touches Chechu 💣'],
-      home: ['Chechu reached safely 👑'],
+      kill: ['Bhiya ghar jao 😎', 'Indore se hu bhiya 😎', 'Chor aadmi! 🫵'],
+      die: ['Bhara baitha hai! 😤', 'Chor aadmi 😤', 'Sex game hai ye 😤'],
+      kaboom: ['Bhiya sab saath chalenge 💣', 'Jeeravan blast! 🌶️💥'],
+      home: ['Poha-jalebi time 😎🍛'],
+      threat: ['{n} laa ke dikha bhiya 😏', '{n}? Na ho payega bhiya 😂'],
+    },
+    to: {
+      ajay: { kill: INDORI_KILL, die: INDORI_DIE },
+      nav: { kill: INDORI_KILL, die: INDORI_DIE },
     },
   },
   vanshika: {
     name: 'Vanshika',
-    title: 'The Sniper',
-    emoji: '🎯',
+    title: 'The Lawyer',
+    emoji: '⚖️',
     accent: '#FF4FA3',
     aliases: ['vanshi'],
     lines: {
-      kill: ['Headshot 🎯', 'Oops, did that hurt? 💅', 'Bye bye!'],
-      die: ['How DARE you 😡', 'Excuse me?!', 'Not cool. NOT COOL.'],
-      kaboom: ['Boom, baby! 💣', 'Taking you with me 💅'],
-      home: ['Nailed it 🎯'],
+      kill: ['Case closed ⚖️', 'Judgement passed: ghar jao 👩‍⚖️', 'Bail rejected 😌', 'Order order! Out 🔨'],
+      die: ['Toh maar do… haha 😂', 'Toh maar do na 😂', 'Objection! 👩‍⚖️', 'See you in court ⚖️'],
+      kaboom: ['Final verdict: KABOOM ⚖️💥', 'Sabko saath le jaungi 💣'],
+      home: ['Case won ⚖️'],
+      threat: ['{n} ni ayega 😌', 'Ni ayenge {n}. Likh ke le lo ⚖️', '{n}? 1 in 6 chance. Relax 😌', 'Objection! {n} ni ayega 👩‍⚖️'],
+    },
+    to: {
+      liu: {
+        kill: ['Sorry Liu! 🥺 Rules are rules', 'Liu, I didn\'t want to 😭'],
+        die: ['Liu?! Hum dost the 🥺', 'Liu… et tu? 💔'],
+      },
+      ajay: {
+        kill: ['Ghar pe baat karte hain, Ajay 😌', 'Pati ho toh kya, rules are rules ⚖️'],
+        die: ['Ajay. Ghar aao aaj 😤', 'Divorce papers ready hain ⚖️😂'],
+      },
     },
   },
   liu: {
@@ -62,13 +123,37 @@ export const CHARACTERS = {
     accent: '#33CA7F',
     aliases: ['ehan'],
     lines: {
-      kill: ['Erased. 🎨', 'Ctrl+Z your life 😂', 'Nice composition. Gone.'],
-      die: ['My masterpiece! 😭', 'Undo! UNDO!', 'Art is suffering'],
-      kaboom: ['Art is an explosion! 💥', 'Abstract expressionism 💣'],
-      home: ['Signed and framed 🎨'],
+      kill: ['Yeeeeeee! Kuttaaaaaa! 🎨', 'Lend ho kya? 😂', 'Chal dalleeeee 💅', 'Bhavda sala! 🤣', 'Chutai! 🤣', 'Yeeeeee ghar jaooooo 👋'],
+      die: ['Kuttaaaaaaaa! 😭', 'Yeeeeee no no no 😭', 'Bhavda sala… my masterpiece 😭', 'Chutaiiii 😤'],
+      kaboom: ['Yeeeeeeee KABOOM! 🎨💥', 'Art is explosion! Chal dalleeeee 💣'],
+      home: ['Yeeeeeeee! Masterpiece home 🎨'],
+      threat: ['Yeeeee don\'t come {n}! 🙏', '{n}? No no no. Kuttaaaa 😤'],
+    },
+    to: {
+      vanshika: {
+        kill: ['Sorry Vanshikaaaaa 😭 my hand slip!', 'Noooo not Vanshika! 🥺 Still friends?'],
+        die: ['Vanshikaaaa?! 🥺 Whyyyy', 'Okay okay… only you can do this 🥺'],
+      },
+      nav: {
+        kill: ['Sorry babyyy 😘 Chal dalleeee!', 'You teach me "dalle", now you go home 😂'],
+        die: ['Naaaaav! Kuttaaaaa! 😤', 'Baby?! Bhavda sala! 😤'],
+      },
     },
   },
 };
+
+// Besties never hurt each other with a KABOOM, and bots avoid killing each other.
+export const BESTIES = [['liu', 'vanshika']];
+export const areBesties = (a, b) => BESTIES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+
+// A line for `id` to say. `targetId` (who they're talking to) can switch to special lines.
+export function pickLine(id, kind, targetId, rng = Math.random, vars = {}) {
+  const c = CHARACTERS[id] || CHARACTERS.nav;
+  const special = targetId && c.to && c.to[targetId] && c.to[targetId][kind];
+  const list = special && special.length ? special : c.lines[kind];
+  if (!list || !list.length) return null;
+  return list[Math.floor(rng() * list.length) % list.length].replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+}
 
 export const CHAR_IDS = Object.keys(CHARACTERS);
 
@@ -131,17 +216,18 @@ const FACES = {
   },
   chechu: () => {
     const skin = '#B5754A';
-    return '<path d="M20 58 C18 34 32 22 50 22 C68 22 82 34 80 58 C80 72 82 82 86 92 L14 92 C18 82 20 72 20 58Z" fill="#1a0f0a"/>' +
-      '<circle cx="50" cy="19" r="11" fill="#1a0f0a"/>' +
-      '<g fill="#fff" stroke="#e8e3d0" stroke-width=".6"><circle cx="40.5" cy="14" r="2.8"/><circle cx="45" cy="9.5" r="2.8"/><circle cx="51" cy="8" r="2.8"/><circle cx="57" cy="10" r="2.8"/><circle cx="61" cy="15" r="2.8"/></g>' +
-      head(skin) +
-      '<path d="M23 55 C24 36 36 28 50 30 C64 28 76 36 77 55 C72 44 62 38 52 36 L50 33 L48 36 C38 38 28 44 23 55Z" fill="#1a0f0a"/>' +
-      '<circle cx="50" cy="46" r="2.3" fill="#d6204f"/>' +
+    return head(skin) +
+      // short side-parted hair
+      '<path d="M23 53 C21 33 34 21 51 21 C68 21 80 31 77 51 C74 42 68 37 61 35 C53 40 39 38 30 42 C27 45 25 49 23 53Z" fill="#1a0f0a"/>' +
+      '<path d="M61 35 C56 30 50 26 43 25" fill="none" stroke="#4a3328" stroke-width="1.6" stroke-linecap="round"/>' +
+      brow('M33 47.5 Q39 44.5 45 46.5') + brow('M55 46.5 Q61 44.5 67 47.5') +
       eye(40) + eye(60) +
-      '<path d="M36 52.5 l-3 -2.2 M64 52.5 l3 -2.2" stroke="' + DARK + '" stroke-width="1.6" stroke-linecap="round"/>' +
-      cheeks +
-      '<path d="M41 68 Q50 77 59 68" fill="none" stroke="#7a2e2e" stroke-width="2.8" stroke-linecap="round"/>' +
-      '<circle cx="23" cy="66" r="2.8" fill="#f5b400"/><circle cx="77" cy="66" r="2.8" fill="#f5b400"/>';
+      // big Indori mustache
+      '<path d="M35 66.5 C39 60.5 46 60.5 50 64 C54 60.5 61 60.5 65 66.5 C60 65 55 66.5 50 68 C45 66.5 40 65 35 66.5Z" fill="#1a0f0a"/>' +
+      '<path d="M42 71 Q50 78 58 71" fill="none" stroke="#5a2a14" stroke-width="2.6" stroke-linecap="round"/>' +
+      // gold chain
+      '<path d="M33 85 Q50 97 67 85" fill="none" stroke="#f5b400" stroke-width="2.6"/>' +
+      '<circle cx="50" cy="91" r="2.6" fill="#f5b400"/>';
   },
   vanshika: () => {
     const skin = '#E0AC69';
