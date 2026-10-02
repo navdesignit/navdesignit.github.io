@@ -12,4 +12,6 @@
 //   appId: '1:123:web:abc',
 // };
 
-export const firebaseConfig = null;
+export const firebaseConfig = {
+  databaseURL: 'https://ludo-d689b-default-rtdb.asia-southeast1.firebasedatabase.app',
+};
