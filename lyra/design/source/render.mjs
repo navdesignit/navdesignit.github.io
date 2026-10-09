@@ -1,0 +1,40 @@
+// Renders every Lyra screen to SVG (vector) and PNG (2x), plus a contact sheet.
+import pw from '/opt/node22/lib/node_modules/playwright/index.js';
+import fs from 'fs';
+const out = process.argv[2] || 'out';
+fs.mkdirSync(`${out}/svg`, { recursive: true });
+fs.mkdirSync(`${out}/png`, { recursive: true });
+const b = await pw.chromium.launch();
+const p = await b.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 2 });
+await p.goto('file://' + process.cwd() + '/screens2.html');
+await p.evaluate(() => document.fonts.ready);
+await p.waitForTimeout(1500);
+const names = await p.evaluate(() => window.names);
+for (const n of names) {
+  const svg = await p.evaluate((n) => window.render(n), n);
+  fs.writeFileSync(`${out}/svg/lyra-${n}.svg`, '<?xml version="1.0" encoding="UTF-8"?>\n' + svg);
+  await p.evaluate((svg) => { document.body.innerHTML = `<div id="w" style="display:inline-block">${svg}</div>`; }, svg);
+  await p.evaluate(() => document.fonts.ready);
+  await p.waitForTimeout(120);
+  await (await p.$('#w svg')).screenshot({ path: `${out}/png/lyra-${n}.png` });
+}
+const kit = await p.evaluate(() => window.kit());
+fs.writeFileSync(`${out}/Lyra-UI-Kit.svg`, '<?xml version="1.0" encoding="UTF-8"?>\n' + kit);
+await p.setViewportSize({ width: 1800, height: 1000 });
+await p.evaluate((svg) => { document.body.innerHTML = `<div id="w" style="display:inline-block">${svg}</div>`; }, kit);
+await p.evaluate(() => document.fonts.ready);
+await p.waitForTimeout(300);
+await (await p.$('#w svg')).screenshot({ path: `${out}/Lyra-UI-Kit.png` });
+const mapSvg = await p.evaluate(() => window.mapFig());
+fs.writeFileSync(`${out}/Lyra-Map.svg`, '<?xml version="1.0" encoding="UTF-8"?>\n' + mapSvg);
+await p.evaluate((svg) => { document.body.innerHTML = `<div id="w" style="display:inline-block">${svg}</div>`; }, mapSvg);
+await p.waitForTimeout(200);
+await (await p.$('#w svg')).screenshot({ path: `${out}/Lyra-Map.png` });
+const sheet = names.map((n) => `<figure style="margin:0"><img src="${out}/png/lyra-${n}.png" width="400"><figcaption style="color:#ddd;font:12px monospace">${n}</figcaption></figure>`).join('');
+fs.writeFileSync('sheet2.html', `<body style="margin:0;background:#2a2c2f;display:grid;grid-template-columns:repeat(4,400px);gap:10px;padding:10px">${sheet}</body>`);
+const q = await b.newPage({ viewport: { width: 1650, height: 1000 } });
+await q.goto('file://' + process.cwd() + '/sheet2.html');
+await q.waitForTimeout(400);
+await q.screenshot({ path: 'sheet2.png', fullPage: true });
+await b.close();
+console.log(names.length, 'screens');

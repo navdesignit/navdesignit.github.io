@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lyra Medication Station</title>
+<meta name="description" content="Design spec for Lyra: logic, firmware, data and results with simulated confidence.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f5f3;
+  --surface: #ffffff;
+  --ink: #16191e;
+  --muted: #59606b;
+  --line: #d9dcd8;
+  --amber: #b86a0c;
+  --amber-soft: #fbead3;
+  --ok: #1f7a4d;
+  --ok-soft: #dcf0e4;
+  --warn: #9a5b00;
+  --bad: #b3261e;
+  --bad-soft: #f8e0de;
+  --code-bg: #eceee9;
+  /* The e-ink panel is a physical object: same paper in both themes. */
+  --paper: #e8e7e1;
+  --paper-ink: #1b1b1b;
+  --display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", Roboto, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111316;
+    --surface: #191c20;
+    --ink: #e8eaec;
+    --muted: #a2a9b3;
+    --line: #2d3238;
+    --amber: #f0a33a;
+    --amber-soft: #3a2a14;
+    --ok: #5cc98f;
+    --ok-soft: #173325;
+    --warn: #f0b457;
+    --bad: #ff8a80;
+    --bad-soft: #3b1d1b;
+    --code-bg: #20242a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111316;
+  --surface: #191c20;
+  --ink: #e8eaec;
+  --muted: #a2a9b3;
+  --line: #2d3238;
+  --amber: #f0a33a;
+  --amber-soft: #3a2a14;
+  --ok: #5cc98f;
+  --ok-soft: #173325;
+  --warn: #f0b457;
+  --bad: #ff8a80;
+  --bad-soft: #3b1d1b;
+  --code-bg: #20242a;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 var(--body);
+  padding-inline: 16px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 48px 96px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(44px, 8vw, 84px); font-weight: 800; letter-spacing: -0.03em; }
+h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 20px; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--amber); }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+section { display: flex; flex-direction: column; gap: 20px; padding-block: 44px; border-top: 1px solid var(--line); }
+section > header { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- hero ---- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 40px; align-items: center; padding-bottom: 44px; }
+.hero .lede { font-size: 21px; line-height: 1.5; max-width: 34ch; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fact { font: 500 13px/1 var(--mono); padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.correction { font-size: 15px; background: var(--amber-soft); border-radius: 8px; padding: 12px 14px; max-width: 60ch; }
+
+/* ---- product sketch ---- */
+.device { width: 100%; height: auto; max-width: 100%; }
+.device .body { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.device .cup { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; }
+.device .glow { fill: var(--amber); opacity: 0.85; }
+.device .lbl { font: 500 11px var(--mono); fill: var(--muted); }
+.device .num { font: 700 12px var(--body); fill: var(--ink); }
+.device .lead { stroke: var(--muted); stroke-width: 1; fill: none; }
+
+/* ---- lists and tables ---- */
+.problems { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.problem { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.problem q { font-family: var(--display); font-size: 20px; font-weight: 700; quotes: "“" "”"; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font: 500 12px/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.ask { background: var(--amber-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+td .pill + .pill { margin-left: 4px; }
+
+/* ---- day timeline ---- */
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.timeline li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-bottom: 1px dashed var(--line); }
+.timeline li:last-child { border-bottom: 0; }
+.timeline time { font: 500 15px var(--mono); color: var(--amber); padding-top: 2px; }
+.timeline b { font-family: var(--display); }
+
+/* ---- e-ink screens ---- */
+.screens { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.screen { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.bezel { background: #2a2c2f; border-radius: 12px; padding: 10px; }
+.eink { display: block; width: 100%; height: auto; background: var(--paper); border-radius: 3px; }
+.eink text { fill: var(--paper-ink); font-family: "Atkinson Hyperlegible", Arial, sans-serif; }
+.eink .ink { fill: var(--paper-ink); }
+.eink .paper { fill: var(--paper); }
+.eink .stroke { stroke: var(--paper-ink); fill: none; }
+.screen figcaption { font-size: 15px; color: var(--muted); }
+.screen figcaption b { color: var(--ink); font-family: var(--display); }
+
+/* ---- rule cards ---- */
+.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.rule { border-left: 3px solid var(--amber); padding: 4px 0 4px 16px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---- messages ---- */
+.msgs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.msg { background: var(--surface); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 14px 16px; font-size: 15px; display: flex; flex-direction: column; gap: 8px; }
+.msg .from { font: 500 12px var(--mono); color: var(--muted); }
+
+/* ---- architecture ---- */
+.arch { display: flex; flex-direction: column; gap: 10px; }
+.layer { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.layer > .name { font: 500 12px/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 12px; }
+.layer > .boxes { display: flex; flex-wrap: wrap; gap: 8px; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; flex: 1 1 150px; }
+.box b { display: block; font-family: var(--display); font-size: 15px; }
+.box.core { border-color: var(--amber); }
+.note { font-size: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.note.warn { border-color: var(--amber); background: var(--amber-soft); }
+
+@media (max-width: 820px) {
+  .hero, .problems, .rules, .msgs { grid-template-columns: minmax(0, 1fr); }
+  .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .layer { grid-template-columns: minmax(0, 1fr); }
+  .layer > .name { padding-top: 0; }
+}
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  .screens { grid-template-columns: minmax(0, 1fr); }
+  .timeline li { grid-template-columns: 60px minmax(0, 1fr); }
+}
+</style>
+</head>
+<body><div style="background:#1b1b1b;color:#e8e7e1;font:600 14px/1.5 sans-serif;padding:10px 16px">Earlier draft. It describes an item-level model that Lyra no longer claims, and a row of compartments. The current design (2 &times; 2 compartments, opening + time + weight change only) is in <a style="color:#e8e7e1" href="design/Lyra-Brief.pdf">design/Lyra-Brief.pdf</a>.</div>
+<!-- Pictograms shared by every e-ink mockup (the firmware draws the same shapes). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="p-morning" viewBox="-20 -20 40 40">
+      <path fill="#1b1b1b" d="M-10 6 A10 10 0 0 1 10 6 Z"/>
+      <line fill="none" stroke="#1b1b1b" x1="-19" y1="6" x2="19" y2="6" stroke-width="2"/>
+      <g fill="none" stroke="#1b1b1b" stroke-width="2.4" stroke-linecap="round">
+        <line x1="0" y1="-7" x2="0" y2="-14"/><line x1="-11" y1="-3" x2="-16" y2="-8"/><line x1="11" y1="-3" x2="16" y2="-8"/>
+      </g>
+    </symbol>
+    <symbol id="p-noon" viewBox="-20 -20 40 40">
+      <circle fill="#1b1b1b" r="9"/>
+      <g fill="none" stroke="#1b1b1b" stroke-width="2.4" stroke-linecap="round">
+        <line x1="0" y1="-13" x2="0" y2="-19"/><line x1="0" y1="13" x2="0" y2="19"/><line x1="-13" y1="0" x2="-19" y2="0"/><line x1="13" y1="0" x2="19" y2="0"/>
+        <line x1="-9" y1="-9" x2="-13.5" y2="-13.5"/><line x1="9" y1="9" x2="13.5" y2="13.5"/><line x1="9" y1="-9" x2="13.5" y2="-13.5"/><line x1="-9" y1="9" x2="-13.5" y2="13.5"/>
+      </g>
+    </symbol>
+    <symbol id="p-evening" viewBox="-20 -20 40 40">
+      <path fill="#1b1b1b" d="M-11 8 A11 11 0 0 1 11 8 Z"/>
+      <line fill="none" stroke="#1b1b1b" x1="-19" y1="8" x2="19" y2="8" stroke-width="2"/>
+      <line fill="none" stroke="#1b1b1b" x1="-13" y1="13" x2="13" y2="13" stroke-width="2"/>
+    </symbol>
+    <symbol id="p-night" viewBox="-20 -20 40 40">
+      <path fill="#1b1b1b" d="M4 -13 A13 13 0 1 0 13 6 A11 11 0 0 1 4 -13 Z"/>
+    </symbol>
+    <symbol id="m-done" viewBox="-20 -20 40 40">
+      <circle fill="#1b1b1b" r="18"/>
+      <path d="M-9 0 L-3 7 L10 -7" stroke="#e8e7e1" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="m-todo" viewBox="-20 -20 40 40">
+      <circle fill="none" stroke="#1b1b1b" r="16.5" stroke-width="3"/>
+    </symbol>
+    <symbol id="m-miss" viewBox="-20 -20 40 40">
+      <circle fill="none" stroke="#1b1b1b" r="16.5" stroke-width="2"/>
+      <path fill="none" stroke="#1b1b1b" d="M-8 -8 L8 8 M8 -8 L-8 8" stroke-width="3.2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="m-half" viewBox="-20 -20 40 40">
+      <path fill="#1b1b1b" d="M-18 0 A18 18 0 0 0 18 0 Z"/>
+      <circle fill="none" stroke="#1b1b1b" r="17" stroke-width="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="stack">
+      <span class="eyebrow">Design spec · Lyra OS 0.1 · Sep 2026</span>
+      <h1>Lyra</h1>
+      <p class="lede">Put your medicines on it. Lyra shows what to take, knows what you took, and tells your family only when something is wrong.</p>
+      <div class="facts">
+        <span class="fact">4 weighing compartments</span>
+        <span class="fact">4.2″ e-ink, 400×300</span>
+        <span class="fact">one knob</span>
+        <span class="fact">no app</span>
+        <span class="fact">any packaging</span>
+      </div>
+      <p class="correction">Try it: the <a href="lab.html">Lyra Screen Lab</a> lets you act on the four compartments and watch the screen and the firmware's reasoning change. Korean home edition: <a href="korea.html">Lyra for a Korean home</a>.</p>
+    </div>
+    <svg class="device" viewBox="0 0 440 300" role="img" aria-label="Sketch of Lyra: an e-ink screen and knob behind four compartments; compartments 1 and 4 glow">
+      <rect class="body" x="20" y="120" width="400" height="160" rx="22"/>
+      <rect class="body" x="120" y="22" width="200" height="118" rx="12"/>
+      <rect x="132" y="32" width="176" height="98" rx="3" fill="var(--paper)" stroke="var(--ink)" stroke-width="1"/>
+      <text x="144" y="56" style="font:700 15px var(--body);fill:#1b1b1b">Evening</text>
+      <text x="144" y="80" style="font:400 13px var(--body);fill:#1b1b1b">Take 2 items</text>
+      <circle cx="152" cy="104" r="8" fill="#1b1b1b"/><text x="148" y="108" style="font:700 10px var(--body);fill:var(--paper)">1</text>
+      <circle cx="192" cy="104" r="8" fill="#1b1b1b"/><text x="188" y="108" style="font:700 10px var(--body);fill:var(--paper)">4</text>
+      <circle class="body" cx="344" cy="78" r="17"/>
+      <rect class="glow" x="32" y="146" width="96" height="124" rx="12"/>
+      <rect class="cup" x="36" y="150" width="88" height="116" rx="10"/>
+      <rect class="cup" x="134" y="150" width="88" height="116" rx="10"/>
+      <rect class="cup" x="232" y="150" width="88" height="116" rx="10"/>
+      <rect class="glow" x="326" y="146" width="92" height="124" rx="12"/>
+      <rect class="cup" x="330" y="150" width="84" height="116" rx="10"/>
+      <text class="num" x="44" y="170">1</text><text class="num" x="142" y="170">2</text><text class="num" x="240" y="170">3</text><text class="num" x="338" y="170">4</text>
+      <text class="lbl" x="80" y="228" text-anchor="middle">sachets</text><text class="lbl" x="178" y="228" text-anchor="middle">blisters</text>
+      <text class="lbl" x="276" y="222" text-anchor="middle">sticks, tubes,</text><text class="lbl" x="276" y="236" text-anchor="middle">drops</text><text class="lbl" x="372" y="228" text-anchor="middle">bottles</text>
+      <path class="lead" d="M362 78 H410"/><text class="lbl" x="372" y="70">knob</text>
+      <text class="lbl" x="104" y="296">glowing compartment = take from here</text>
+    </svg>
+  </div>
+
+  <section id="problem">
+    <header>
+      <span class="eyebrow">01 · The problem</span>
+      <h2>Four questions people on daily medicines ask every day</h2>
+    </header>
+    <p>Lyra is for anyone taking three or more medicines a day, and it is built first for older adults living alone. The WHO's 2003 report on long-term therapies estimates that about half of patients in developed countries don't take their medicines as prescribed. Lyra removes four everyday reasons for that.</p>
+    <div class="problems">
+      <div class="problem"><q>Did I already take it?</q><p class="muted">Doubt leads to double doses or skipped doses. Lyra's home screen always answers it, and it blocks a second dose out loud.</p></div>
+      <div class="problem"><q>What do I take now?</q><p class="muted">The compartments to take from glow, and lifting an item makes the screen name it and say how many. There is nothing to read from a list.</p></div>
+      <div class="problem"><q>When does this run out?</q><p class="muted">Lyra counts every pill that leaves the box and tells the family seven days before it runs out.</p></div>
+      <div class="problem"><q>Is Mum okay today?</q><p class="muted">Family get one message when something is wrong, not a daily chore of calling to ask.</p></div>
+    </div>
+    <p>Existing tools each miss something. Phone apps need the phone, which older people often don't carry around the house. Plastic pill organisers don't remind or record anything. Automatic dispensers need every pill reloaded into their own cartridges. Lyra works with the packs people already have, in any country: bottles, blister boxes and weekly organisers.</p>
+  </section>
+
+  <section id="hardware">
+    <header>
+      <span class="eyebrow">02 · What Lyra is</span>
+      <h2>Every part is there because a result needs it</h2>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Spec</th><th>Why it's there</th></tr></thead>
+        <tbody>
+          <tr><td>4 weighing compartments</td><td>One load cell each, sized for its contents (300 g blisters to 1 kg bottles), HX711 24-bit ADC: 1 sachets (roll or loose), 2 blister cards, 3 sticks, tubes and eye drops, 4 bottles</td><td>Each compartment holds several items. The weight that leaves says which item it was, and the weight that comes back says how much was used. Works with the packs people already have.</td></tr>
+          <tr><td>Compartment lights</td><td>Warm LEDs under each translucent compartment floor</td><td>Shows where to take from without reading, and glows steady while an item from that compartment is in your hand.</td></tr>
+          <tr><td>E-ink screen</td><td>4.2″, 400×300, SSD1683, fast partial refresh</td><td>Readable in sunlight, holds today's ticks with zero power, never glows at night.</td></tr>
+          <tr><td>One knob</td><td>Rotary encoder with push</td><td>Turn to see the week, medicines and messages. Press means “Yes”. Hold it to hear the screen read aloud.</td></tr>
+          <tr><td>Speaker</td><td>I2S amp, recorded voice prompts per language</td><td>Chime, spoken reminders and safety warnings in the person's language.</td></tr>
+          <tr><td>Presence radar</td><td>24 GHz (HLK-LD2410C), about 4 m range</td><td>Reminds only when someone is there. Tells “away” apart from “forgot”, and records first activity of the day.</td></tr>
+          <tr><td>Climate sensor</td><td>SHT40, ±0.2 °C typical</td><td>Records heat and humidity where the medicines are stored.</td></tr>
+          <tr><td>Brain + links</td><td>ESP32-S3, 16 MB flash, Wi-Fi; LTE-M/NB-IoT variant</td><td>Everything runs on the device. The network is only used for family messages and updates.</td></tr>
+          <tr><td>Power</td><td>USB-C 5 V, 2000 mAh backup cell, RTC</td><td>Keeps reminding through power cuts; the clock survives.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Lyra has no camera and no microphone. It uses the radar only as a yes or no: is someone near.</p>
+  </section>
+
+  <section id="day">
+    <header>
+      <span class="eyebrow">03 · A day with Lyra</span>
+      <h2>The person never presses anything to be reminded or to record a dose</h2>
+    </header>
+    <ol class="timeline">
+      <li><time>07:12</time><div><b>First movement seen.</b> The radar notes the first time someone passes today. If no one has been seen by the family's chosen time (say 10:00), they get a message.</div></li>
+      <li><time>08:00</time><div><b>The morning compartments glow; the screen says “Morning · take 2 items”.</b> No sound yet. Most people take their pills within 15 minutes and never hear Lyra.</div></li>
+      <li><time>08:12</time><div><b>They lift the Metformin bottle from compartment 4.</b> The screen changes to “In your hand: Metformin · take 1”. The bottle comes back 620 mg lighter, so Lyra records “Metformin, 1 pill, 08:12” and ticks Morning. No button is needed.</div></li>
+      <li><time>19:15</time><div><b>They're home and the evening dose is 15 minutes late.</b> Lyra chimes. At +30 minutes it says “Time for your evening pills” in their language. If nobody is home, it waits quietly and reminds them when they walk back in.</div></li>
+      <li><time>21:00</time><div><b>Unsure, they lift the Metformin bottle again.</b> Lyra says “Already taken at 19:12. Please put it back.” If the extra pill goes back in the box within 10 minutes, nothing else happens. If not, the family is told.</div></li>
+      <li><time>22:05</time><div><b>Night pill: Levothyroxine, 100 mg.</b> One pill is too light to count reliably by weight, so the screen asks “Did you take it?” and one press answers it.</div></li>
+      <li><time>01:00</time><div><b>The night dose's window closes.</b> Any dose not taken by its window's end (01:00 for the night dose) is marked missed. The family gets one message with context: “home and reminded 3 times” or “away all evening”.</div></li>
+    </ol>
+  </section>
+
+  <section id="screens">
+    <header>
+      <span class="eyebrow">04 · Screens</span>
+      <h2>One question per screen, readable from across the kitchen</h2>
+    </header>
+    <p>The screens use pictograms for times of day, so they work before any translation. State is shown by shape, not colour: a filled tick means taken, an empty ring means still to take, a cross means missed. The largest type is 40 px or more. The mockups use Atkinson Hyperlegible, a typeface designed for low vision.</p>
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Home screen: morning taken at 08:12, evening due with 2 pills, night 1 pill to take">
+            <text x="16" y="30" style="font-size:20px;font-weight:700">Thu 26 Sep</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">19:08</text>
+            <rect class="ink" x="16" y="42" width="368" height="2"/>
+            <use href="#p-morning" x="22" y="64" width="44" height="44"/>
+            <text x="80" y="86" style="font-size:28px;font-weight:700">Morning</text>
+            <text x="82" y="108" style="font-size:16px">08:00</text>
+            <text x="324" y="94" text-anchor="end" style="font-size:20px;font-weight:700">08:12</text>
+            <use href="#m-done" x="336" y="66" width="40" height="40"/>
+            <rect class="ink" x="8" y="126" width="384" height="80" rx="10"/>
+            <rect class="paper" x="12" y="130" width="376" height="72" rx="8"/>
+            <use href="#p-evening" x="22" y="144" width="44" height="44"/>
+            <text x="80" y="166" style="font-size:28px;font-weight:700">Evening</text>
+            <text x="82" y="188" style="font-size:16px">19:00</text>
+            <text x="324" y="174" text-anchor="end" style="font-size:20px;font-weight:700">2 pills</text>
+            <use href="#m-todo" x="336" y="146" width="40" height="40"/>
+            <use href="#p-night" x="22" y="224" width="44" height="44"/>
+            <text x="80" y="246" style="font-size:28px;font-weight:700">Night</text>
+            <text x="82" y="268" style="font-size:16px">22:00</text>
+            <text x="324" y="254" text-anchor="end" style="font-size:20px;font-weight:700">1 pill</text>
+            <use href="#m-todo" x="336" y="226" width="40" height="40"/>
+          </svg>
+        </div>
+        <figcaption><b>Home.</b> Always shows whether each dose is taken. It holds with zero power, and the slot due now gets a heavy frame.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Due screen: Evening, take 2 pills, compartment 4 Metformin times 1, compartment 4 Vitamin D times 1">
+            <text x="16" y="30" style="font-size:20px;font-weight:700">Thu 26 Sep</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">19:08</text>
+            <rect class="ink" x="16" y="42" width="368" height="2"/>
+            <use href="#p-evening" x="18" y="58" width="64" height="64"/>
+            <text x="96" y="100" style="font-size:44px;font-weight:700">Evening</text>
+            <text x="98" y="140" style="font-size:28px;font-weight:700">Take 2 pills</text>
+            <circle class="ink" cx="34" cy="190" r="16"/><text x="34" y="197" text-anchor="middle" style="font-size:20px;font-weight:700;fill:var(--paper)">4</text>
+            <text x="62" y="198" style="font-size:22px">Metformin 500 ×1</text>
+            <circle class="ink" cx="34" cy="238" r="16"/><text x="34" y="245" text-anchor="middle" style="font-size:20px;font-weight:700;fill:var(--paper)">4</text>
+            <text x="62" y="246" style="font-size:22px">Vitamin D ×1</text>
+          </svg>
+        </div>
+        <figcaption><b>Due now.</b> Each line carries its compartment number, moulded next to the compartment, which also glows.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Warning screen: Already taken, Metformin at 19:12 today, put it back">
+            <text x="16" y="30" style="font-size:20px;font-weight:700">Thu 26 Sep</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">21:00</text>
+            <rect class="ink" x="16" y="42" width="368" height="2"/>
+            <use href="#m-miss" x="160" y="66" width="80" height="80"/>
+            <text x="200" y="200" text-anchor="middle" style="font-size:40px;font-weight:700">Already taken</text>
+            <text x="200" y="238" text-anchor="middle" style="font-size:20px">Metformin at 19:12 today.</text>
+            <text x="200" y="266" text-anchor="middle" style="font-size:20px;font-weight:700">Please put it back.</text>
+          </svg>
+        </div>
+        <figcaption><b>Double-dose block.</b> It is also spoken aloud. If the pill isn't back within 10 minutes, the family is told.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Question screen: Did you take it? Levothyroxine. Press means yes">
+            <text x="16" y="30" style="font-size:20px;font-weight:700">Thu 26 Sep</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">22:05</text>
+            <rect class="ink" x="16" y="42" width="368" height="2"/>
+            <use href="#m-todo" x="160" y="66" width="80" height="80"/>
+            <text x="200" y="200" text-anchor="middle" style="font-size:40px;font-weight:700">Did you take it?</text>
+            <text x="200" y="238" text-anchor="middle" style="font-size:20px">Levothyroxine 50</text>
+            <text x="200" y="266" text-anchor="middle" style="font-size:20px;font-weight:700">Press the knob = Yes</text>
+          </svg>
+        </div>
+        <figcaption><b>Only asked when unsure.</b> This appears for pills lighter than 150 mg, or when the count is below 90% confidence.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Week screen: seven days by three slots, one Saturday evening missed">
+            <text x="16" y="30" style="font-size:20px;font-weight:700">This week</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">19:08</text>
+            <rect class="ink" x="16" y="42" width="368" height="2"/>
+            <g style="font-size:15px;font-weight:700">
+              <text x="92" y="70" text-anchor="middle">Fri</text><text x="138" y="70" text-anchor="middle">Sat</text><text x="184" y="70" text-anchor="middle">Sun</text><text x="230" y="70" text-anchor="middle">Mon</text><text x="276" y="70" text-anchor="middle">Tue</text><text x="322" y="70" text-anchor="middle">Wed</text><text x="368" y="70" text-anchor="middle">Thu</text>
+            </g>
+            <use href="#p-morning" x="18" y="86" width="36" height="36"/>
+            <use href="#p-evening" x="18" y="156" width="36" height="36"/>
+            <use href="#p-night" x="18" y="226" width="36" height="36"/>
+            <g>
+              <use href="#m-done" x="78" y="90" width="28" height="28"/><use href="#m-done" x="124" y="90" width="28" height="28"/><use href="#m-done" x="170" y="90" width="28" height="28"/><use href="#m-done" x="216" y="90" width="28" height="28"/><use href="#m-done" x="262" y="90" width="28" height="28"/><use href="#m-done" x="308" y="90" width="28" height="28"/><use href="#m-done" x="354" y="90" width="28" height="28"/>
+              <use href="#m-done" x="78" y="160" width="28" height="28"/><use href="#m-miss" x="124" y="160" width="28" height="28"/><use href="#m-done" x="170" y="160" width="28" height="28"/><use href="#m-done" x="216" y="160" width="28" height="28"/><use href="#m-half" x="262" y="160" width="28" height="28"/><use href="#m-done" x="308" y="160" width="28" height="28"/><use href="#m-todo" x="354" y="160" width="28" height="28"/>
+              <use href="#m-done" x="78" y="230" width="28" height="28"/><use href="#m-done" x="124" y="230" width="28" height="28"/><use href="#m-done" x="170" y="230" width="28" height="28"/><use href="#m-done" x="216" y="230" width="28" height="28"/><use href="#m-done" x="262" y="230" width="28" height="28"/><use href="#m-done" x="308" y="230" width="28" height="28"/><use href="#m-todo" x="354" y="230" width="28" height="28"/>
+            </g>
+          </svg>
+        </div>
+        <figcaption><b>Week.</b> Turn the knob once. A half-filled mark means some pills were taken, but not all.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="bezel">
+          <svg class="eink" viewBox="0 0 400 300" role="img" aria-label="Done screen with a family note: Proud of you, Maa, from Priya">
+            <text x="16" y="30" style="font-size:20px;font-weight:700">Thu 26 Sep</text>
+            <text x="384" y="30" text-anchor="end" style="font-size:20px;font-weight:700">19:12</text>
+            <rect class="ink" x="16" y="42" width="368" height="2"/>
+            <use href="#m-done" x="160" y="60" width="80" height="80"/>
+            <text x="200" y="190" text-anchor="middle" style="font-size:44px;font-weight:700">Done</text>
+            <text x="200" y="224" text-anchor="middle" style="font-size:20px">Metformin 500 · 19:12</text>
+            <rect class="stroke" x="40" y="242" width="320" height="40" rx="8" stroke-width="1.5"/>
+            <text x="200" y="268" text-anchor="middle" style="font-size:18px">“Proud of you, Maa!” — Priya</text>
+          </svg>
+        </div>
+        <figcaption><b>Done, with a family note.</b> Notes arrive from WhatsApp or SMS and show only after a dose, as a small reward.</figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <section id="logic">
+    <header>
+      <span class="eyebrow">05 · The logic</span>
+      <h2>Rules the firmware follows, with the numbers in the code</h2>
+    </header>
+    <div class="rules">
+      <div class="rule"><h3>Only settled weights count</h3><p>A reading is used only after the weight has held steady for one second: 10 samples at 10 Hz that agree within 6σ. The detector compares the settled weight before and after, so hands, knocks and a box being carried around never count as a dose. In the test, 20 knocks on the tray produced 0 dose events.</p></div>
+      <div class="rule"><h3>One scale, several items</h3><p>Each compartment holds several items on one load cell. A step down the size of a container means that item was lifted, and the screen names it at once. A step back up says how much was used. A small step is units taken straight out. Look-alikes wait for evidence, and light or unknown units never name an item silently; Lyra asks “which one?” instead. The code is <code>CompartmentTracker</code>.</p></div>
+      <div class="rule"><h3>Counting pills is a probability</h3><p>For each possible count (0, 1, 2, …) Lyra computes the chance that the change came from that many pills. It combines load-cell noise, put-down error and 4% pill-to-pill spread. The count is recorded silently only at ≥90% confidence. Otherwise it asks once.</p></div>
+      <div class="rule"><h3>Dose windows</h3><p>A dose may be taken from 60 minutes early. It is on time within ±60 minutes. It can still be taken until <code>min(180 min, half the gap to the next dose)</code>, the usual “skip it if it's almost time for the next one” rule. A pharmacist can override that window for each medicine.</p></div>
+      <div class="rule"><h3>Extra pills</h3><p>If pills come out with no dose open, Lyra says why: already taken (with the time) or not yet (with the opening time). There is a 10-minute put-back window, and the family is told only if the pill isn't returned.</p></div>
+      <div class="rule"><h3>Reminder ladder</h3><p>At the due time the compartments glow, silently. At +15 minutes it chimes, and at +30 minutes it speaks, up to three more times 10 minutes apart. It escalates only while someone is near Lyra. When they come back after being out, it reminds them at once.</p></div>
+      <div class="rule"><h3>Personal timing</h3><p>After 7 days, if someone reliably takes a dose at the same time (spread ≤ 60 minutes), the reminder moves to their time, between 30 minutes earlier and 45 minutes later. Lyra stays quiet when they are on track.</p></div>
+      <div class="rule"><h3>Pill weight</h3><p>Setup weighs 10 pills on an emptied compartment: one reading gives the pill weight to about ±3 mg. If setup skips that step, Lyra learns the weight from the first doses. Learning is accurate only for pills of 250 mg or more: for light pills the lightest readings fall under the detection threshold, which biases the estimate upward. So the setup page requires the 10-pill step for anything lighter.</p></div>
+      <div class="rule"><h3>Honest records</h3><p>Every dose stores how it was confirmed: <em>weighed</em>, <em>learning</em> (weight not yet known) or <em>user-confirmed</em> (knob press). Reports keep these apart, so nobody mistakes a button press for a weighed count.</p></div>
+    </div>
+  </section>
+
+  <section id="data">
+    <header>
+      <span class="eyebrow">06 · Data</span>
+      <h2>What Lyra collects, and where it goes</h2>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>When</th><th class="num">Size</th><th>Stays on Lyra</th><th>Goes to family / cloud</th></tr></thead>
+        <tbody>
+          <tr><td>Dose record: medicine, slot, planned, taken, time, confidence, how confirmed, reminders reached, miss reason</td><td>Every planned dose</td><td class="num">24 B</td><td>400 days</td><td>Only alerts and the weekly summary</td></tr>
+          <tr><td>Medicine: name, compartment, container weight, schedule, pill weight, pills left</td><td>Updated after each dose or refill</td><td class="num">48 B</td><td>Current value</td><td>Low-stock alert with run-out date</td></tr>
+          <tr><td>Hourly sample: presence minutes, mean temperature and humidity</td><td>Hourly</td><td class="num">16 B</td><td>400 days</td><td>“No one seen by 10:00” alert; hot or humid hours in the weekly summary</td></tr>
+          <tr><td>Raw weights, weight steps, knob presses</td><td>Live</td><td class="num">–</td><td>Not stored: used at once, then folded into the dose record</td><td>No</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">A full year fits in about 210 KB of Lyra's 16 MB flash. Lyra records no audio, no images and no raw radar data. All reminders, counting and analysis run on the device, and it keeps working with no network.</p>
+  </section>
+
+  <section id="results">
+    <header>
+      <span class="eyebrow">07 · Results and confidence</span>
+      <h2>What Lyra can say for certain, and how certain</h2>
+    </header>
+    <p>The numbers come from the firmware's own core code, run in <code>test/host/sim.cpp</code> with modelled sensor noise: 20 mg per sample, 20 mg per put-down and 4% pill spread. The five-week household simulation passes on all 61 random seeds tried.</p>
+
+    <h3>A · Every dose, from day one</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Result</th><th>Seen as</th><th>Confidence</th></tr></thead>
+        <tbody>
+          <tr><td>Dose taken, count and time (pills ≥ 200 mg)</td><td>✓ 19:12 on the home screen</td><td><span class="pill ok">100.0% counted</span> <span class="pill ok">0.0% wrong</span><br><span class="muted">2,000 simulated doses each, for 1 and 2 pills</span></td></tr>
+          <tr><td>Dose taken (150–199 mg)</td><td>✓, or one question</td><td><span class="pill ok">91% silent</span> <span class="pill ask">9% one press</span> <span class="pill ok">0.0% wrong</span></td></tr>
+          <tr><td>Dose taken (under 150 mg)</td><td>“Did you take it?”</td><td><span class="pill ask">always one press</span> The weight proves the box was opened; the person confirms the rest.</td></tr>
+          <tr><td>Double dose blocked</td><td>“Already taken at 19:12”, spoken</td><td><span class="pill ok">61 of 61 runs</span> Deterministic once the first dose is recorded.</td></tr>
+          <tr><td>Pills left and run-out date</td><td>“12 left · 6 days”</td><td><span class="pill ok">±1 pill after 5 weeks</span></td></tr>
+          <tr><td>Missed dose, home or away</td><td>Family message with context</td><td><span class="pill ok">4/4 away</span> <span class="pill ok">5/5 at home</span> in every run</td></tr>
+          <tr><td>Storage too hot or humid</td><td>Weekly summary line</td><td><span class="pill ok">±0.2 °C sensor</span> Hours above 30 °C or 75% RH.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>B · Patterns, only when there's enough evidence</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Result</th><th>Shown when</th><th>Simulation</th></tr></thead>
+        <tbody>
+          <tr><td>Adherence: taking %, timing %, correct-days %</td><td>After 7 days</td><td>93.6% taking, 82.9% on time, 82.9% correct days (140 doses)</td></tr>
+          <tr><td>Weekday habit: “Saturday evenings are often missed”</td><td>≥ 3 misses on the same weekday and slot in 4 weeks</td><td>Found Saturday evening, 4 of 4; no false pattern</td></tr>
+          <tr><td>Routine drift: “Morning pills are moving later”</td><td>≥ 45 min shift and more than 1.5× normal spread; 10 baseline days, 5 recent</td><td>Found 08:12 → 09:35; no false flag on a stable slot</td></tr>
+          <tr><td>Reminder moved to the person's own time</td><td>≥ 7 days, spread ≤ 60 min</td><td>Evening reminder moved +33 min</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>How pill weight decides what Lyra can count</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pill weight</th><th class="num">1 pill counted</th><th class="num">asked</th><th class="num">2 pills counted</th><th class="num">asked</th><th class="num">1 pill counted at 30 mg put-down error</th></tr></thead>
+        <tbody>
+          <tr><td>100 mg</td><td class="num">12.4%</td><td class="num">87.4%</td><td class="num">84.1%</td><td class="num">15.8%</td><td class="num">0.0%</td></tr>
+          <tr><td>120 mg</td><td class="num">49.5%</td><td class="num">50.5%</td><td class="num">95.5%</td><td class="num">4.5%</td><td class="num">0.0%</td></tr>
+          <tr><td>150 mg</td><td class="num">91.0%</td><td class="num">9.1%</td><td class="num">99.4%</td><td class="num">0.6%</td><td class="num">15.9%</td></tr>
+          <tr><td>200 mg</td><td class="num">100.0%</td><td class="num">0.1%</td><td class="num">100.0%</td><td class="num">0.1%</td><td class="num">80.2%</td></tr>
+          <tr><td>250 mg +</td><td class="num">100.0%</td><td class="num">0.0%</td><td class="num">100.0%</td><td class="num">0.0%</td><td class="num">98.8%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note warn"><b>The one number hardware must hit:</b> put-down repeatability of about 20 mg. At 30 mg, the counting line moves from 150 mg to 250 mg and Lyra asks more often. The self-centring cup and the 500 g cell exist to hit 20 mg, and the first bench test (EVT) measures it.</p>
+
+    <h3>What Lyra does not claim</h3>
+    <p>Lyra knows pills left the box, not that they were swallowed. Every pill monitor has this limit, including the electronic caps used in clinical trials. Routine drift is “a change worth a phone call”, not a diagnosis. Lyra makes no dosing decisions: the schedule comes from the prescription, entered by a person.</p>
+  </section>
+
+  <section id="connect">
+    <header>
+      <span class="eyebrow">08 · Family, pharmacy, home</span>
+      <h2>No app for the person; ordinary messages for everyone else</h2>
+    </header>
+    <p class="muted">Lyra sends each alert as a small JSON event; that part is in the firmware. Turning events into WhatsApp, SMS or e-mail, the setup page and the doctor PDF belong to the cloud service, which is designed but not built yet. The messages below are examples of its output.</p>
+    <div class="msgs">
+      <div class="msg"><span class="from">WhatsApp · Lyra for Maa · 22:00</span>Maa missed her evening Metformin. She was home and was reminded 3 times.</div>
+      <div class="msg"><span class="from">SMS · Lyra for Maa · 09:10</span>Amlodipine runs out on Tue 8 Oct (6 left). Reply 1 to send the refill to Apollo Pharmacy.</div>
+      <div class="msg"><span class="from">WhatsApp · Sunday summary</span>26 of 28 doses taken, 24 on time. Saturday evenings were missed twice. Morning pills moved from about 08:10 to 09:30 this week.</div>
+    </div>
+    <div class="rules">
+      <div class="rule"><h3>Setup: a web page, not an app</h3><p>Lyra shows a QR code. The caregiver or pharmacist opens it in any phone browser, joins the home Wi-Fi, scans each pack's barcode with the browser camera (GS1 DataMatrix or QR), sets the times and puts 10 pills on the bay.</p></div>
+      <div class="rule"><h3>Family replies show on Lyra</h3><p>A short WhatsApp or SMS reply to Lyra's number appears after the next dose. Scripts the device font can't draw are pre-rendered in the cloud.</p></div>
+      <div class="rule"><h3>Doctor report</h3><p>A monthly PDF lists taking, timing and correct-day percentages for each medicine, with how each dose was confirmed.</p></div>
+      <div class="rule"><h3>Agvika OS, later</h3><p>Lyra already publishes presence and dose events as small JSON messages. Agvika can subscribe to the same stream to learn daily routines across the home. Nothing in Lyra has to change.</p></div>
+    </div>
+  </section>
+
+  <section id="export">
+    <header>
+      <span class="eyebrow">09 · Any country</span>
+      <h2>Built to ship anywhere without a redesign</h2>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Need</th><th>How Lyra meets it</th></tr></thead>
+        <tbody>
+          <tr><td>Korea</td><td>Pharmacy pouch strips (약봉투), red ginseng sticks, KakaoTalk and polite Korean voice: see <a href="korea.html">Lyra for a Korean home</a>, with a flowchart of one day.</td></tr>
+          <tr><td>Different medicine packaging</td><td>Weight works with bottles, blister boxes and organisers. No refill cartridges, no pharmacy lock-in.</td></tr>
+          <tr><td>Any language or script</td><td>Pictograms first. UI phrases are pre-rendered bitmaps shaped on the build machine (Devanagari, Arabic, Thai, CJK). Voice prompts are recorded by native speakers. Holding the knob reads the screen aloud.</td></tr>
+          <tr><td>Homes without Wi-Fi</td><td>LTE-M/NB-IoT variant with an eSIM. Lyra works fully offline; only messages need a network.</td></tr>
+          <tr><td>Power cuts</td><td>2000 mAh backup cell and an RTC. The e-ink keeps showing the day at 0 W.</td></tr>
+          <tr><td>Hot, humid climates</td><td>Storage monitoring flags hours above 30 °C or 75% RH.</td></tr>
+          <tr><td>Regulation</td><td>Positioned as a reminder and record that makes no dosing decisions. Classification still needs review in each market (EU MDR, FDA, CDSCO) before launch.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="firmware">
+    <header>
+      <span class="eyebrow">10 · Lyra OS firmware</span>
+      <h2>A hardware-free core, tested on a PC, under a thin device layer</h2>
+    </header>
+    <div class="arch">
+      <div class="layer"><div class="name">People</div><div class="boxes"><div class="box"><b>Person</b>Lifts boxes, presses the knob</div><div class="box"><b>Family</b>WhatsApp, SMS, e-mail</div><div class="box"><b>Pharmacist</b>Setup web page, refills</div></div></div>
+      <div class="layer"><div class="name">Device layer · src/</div><div class="boxes"><div class="box"><b>sensorTask · 10 Hz</b>4 scales, radar, compartment lights</div><div class="box"><b>loop · 1 min</b>Engine tick, screens, speaker</div><div class="box"><b>storage</b>LittleFS state and hourly log, CRC</div><div class="box"><b>cloud</b>MQTT/TLS, offline outbox</div></div></div>
+      <div class="layer"><div class="name">Core · lib/lyra_core</div><div class="boxes"><div class="box core"><b>BayDetector</b>Settled weights → steps with a count and posterior</div><div class="box core"><b>CompartmentTracker</b>Which item a step belongs to; what came back</div><div class="box core"><b>DoseEngine</b>Plan, reminder ladder, matching, safety rules, stock</div><div class="box core"><b>Insights</b>Adherence, rhythm, drift, weekday habit, storage</div></div></div>
+      <div class="layer"><div class="name">Proof · test/host</div><div class="boxes"><div class="box"><b>sim.cpp</b>Detector tests, Monte-Carlo pill table, five-week household run; <code>make -C test/host run</code></div></div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Core: detector, engine, insights</td><td><span class="pill ok">built and tested</span> The host simulation passes on 61 seeds.</td></tr>
+          <tr><td>Device layer: drivers, screens, storage, MQTT</td><td><span class="pill ask">written, not yet compiled</span> Needs a PlatformIO build and bench bring-up.</td></tr>
+          <tr><td>Cloud: WhatsApp/SMS relay, setup page, doctor PDF</td><td><span class="pill ask">designed</span> Event format fixed by the firmware.</td></tr>
+          <tr><td>Voice prompts, phrase bitmaps per language</td><td><span class="pill ask">designed</span> File layout fixed: <code>/voice/&lt;lang&gt;/&lt;id&gt;.wav</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Code: <code>lyra/firmware/</code> in this repository. The ESP32-S3 target builds with PlatformIO (<code>pio run -e lyra</code>).</p>
+  </section>
+
+  <section id="next">
+    <header>
+      <span class="eyebrow">11 · Next</span>
+      <h2>What to measure before any claim goes on a box</h2>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Test</th><th>Pass line</th></tr></thead>
+        <tbody>
+          <tr><td>Put-down repeatability, 5 container types × 200 put-downs per compartment</td><td>≤ 20 mg (1σ)</td></tr>
+          <tr><td>Load-cell creep and temperature drift over 24 h, 15–40 °C</td><td>Tracked by the drift follower; no false events</td></tr>
+          <tr><td>Radar presence, kitchen and living room, 0.5–4 m, sitting still</td><td>≥ 95% of occupied minutes</td></tr>
+          <tr><td>Home pilot: 10 people aged 65+, 4 weeks, weighed doses against a diary</td><td>Setup under 15 min; “Did you take it?” on ≤ 10% of doses for pills ≥ 150 mg</td></tr>
+          <tr><td>Backup battery during reminders</td><td>≥ 48 h</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>After EVT, the measured noise and put-down numbers go back into the simulator, and the tables in section 07 are regenerated from real hardware values.</p>
+  </section>
+
+</div>
+
+</body>
+</html>

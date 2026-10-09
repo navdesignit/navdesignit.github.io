@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lyra Screen Lab</title>
+<meta name="description" content="Interactive Lyra e-ink simulator: act on the four compartments, change time and presence, and watch the screen and the firmware's reasoning change.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;700;900&family=Schibsted+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f5f3; --surface: #ffffff; --ink: #16191e; --muted: #59606b; --line: #d9dcd8; --soft: #eceee9;
+  --amber: #b86a0c; --amber-soft: #fbead3; --ok: #1f7a4d; --ok-soft: #dcf0e4; --bad: #b3261e; --bad-soft: #f8e0de;
+  --kakao: #fee500; --kakao-ink: #191919;
+  --display: "Schibsted Grotesk", "Noto Sans KR", Arial, sans-serif;
+  --body: "Atkinson Hyperlegible", "Noto Sans KR", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111316; --surface: #191c20; --ink: #e8eaec; --muted: #a2a9b3; --line: #2d3238; --soft: #20242a;
+    --amber: #f0a33a; --amber-soft: #3a2a14; --ok: #5cc98f; --ok-soft: #173325; --bad: #ff8a80; --bad-soft: #3b1d1b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111316; --surface: #191c20; --ink: #e8eaec; --muted: #a2a9b3; --line: #2d3238; --soft: #20242a;
+  --amber: #f0a33a; --amber-soft: #3a2a14; --ok: #5cc98f; --ok-soft: #173325; --bad: #ff8a80; --bad-soft: #3b1d1b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--body); padding-inline: 16px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 28px 80px; display: flex; flex-direction: column; gap: 22px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 26px; }
+h3 { font-size: 15px; font-weight: 700; }
+p { margin: 0; max-width: 72ch; }
+a { color: var(--amber); }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; color: var(--ink); font: 500 13px var(--mono); padding: 8px 14px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+.lab { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel > header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+
+/* device */
+.device { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.shell { width: 100%; max-width: 520px; background: #d9d6ce; border-radius: 26px; padding: 18px 18px 14px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.08); }
+.bezel { background: #2a2c2f; border-radius: 12px; padding: 10px; }
+#eink { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; background: #e8e7e1; border-radius: 3px; image-rendering: auto; }
+.leds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.led { height: 10px; border-radius: 6px; background: #bdb8ad; transition: background .3s, box-shadow .3s; position: relative; }
+.led.on { background: #f4a340; box-shadow: 0 0 12px 3px rgba(244,163,64,.55); animation: breathe 4s ease-in-out infinite; }
+.led.hold { background: #f4a340; box-shadow: 0 0 10px 2px rgba(244,163,64,.8); animation: none; }
+@keyframes breathe { 50% { opacity: .45; box-shadow: 0 0 4px 1px rgba(244,163,64,.3); } }
+@media (prefers-reduced-motion: reduce) { .led.on { animation: none; } }
+.ledlbl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font: 500 11px var(--mono); color: #5b574f; text-align: center; margin-top: 4px; }
+.knob { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.knob button { font: 700 14px var(--body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.knob .press { width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(145deg, #c9a064, #9c7436); color: #1b1b1b; border: 0; font-size: 12px; }
+.say { font-size: 14px; min-height: 22px; text-align: center; color: var(--muted); }
+.say b { color: var(--amber); }
+
+/* tray */
+.clock { display: flex; flex-direction: column; gap: 8px; }
+.clock .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.clock output { font: 700 22px var(--mono); min-width: 5ch; }
+input[type=range] { width: 100%; accent-color: var(--amber); }
+.btn { font: 500 13px var(--body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 10px; cursor: pointer; text-align: left; }
+.btn:hover { border-color: var(--ink); }
+.btn:focus-visible, .seg button:focus-visible, .knob button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.btn.small { padding: 5px 8px; font-size: 12px; }
+.btn.warn { border-color: var(--amber); }
+.toggle { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+.comp { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.comp.glow { border-color: #f4a340; box-shadow: 0 0 0 2px rgba(244,163,64,.35); }
+.comp h3 { display: flex; justify-content: space-between; gap: 8px; }
+.comp h3 span { font: 500 11px var(--mono); color: var(--muted); }
+.item { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.item .nm { font-size: 13px; flex: 1 1 110px; min-width: 0; }
+.item .nm small { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+.scen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+
+/* thinking */
+.log { font: 12.5px/1.45 var(--mono); max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.log div { border-left: 3px solid var(--line); padding: 2px 0 2px 8px; }
+.log .w { border-color: #8a877f; }
+.log .d { border-color: var(--amber); }
+.log .s { border-color: var(--ok); }
+.log .f { border-color: #c9b400; }
+.log time { color: var(--muted); margin-right: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.pill { display: inline-block; font: 500 11px/1 var(--mono); padding: 4px 6px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.due { background: var(--amber-soft); color: var(--amber); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.up { background: var(--soft); color: var(--muted); }
+.kakao { display: flex; flex-direction: column; gap: 8px; }
+.bubble { background: var(--kakao); color: var(--kakao-ink); border-radius: 14px 14px 14px 4px; padding: 9px 12px; font: 14px/1.45 "Noto Sans KR", var(--body); max-width: 95%; }
+.bubble small { display: block; font: 500 11px var(--mono); opacity: .65; }
+
+/* below */
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 8px; }
+.card b.big { font-family: var(--display); font-size: 19px; }
+.twrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.twrap table { font-size: 14px; }
+.twrap th, .twrap td { padding: 9px 12px; }
+section { display: flex; flex-direction: column; gap: 14px; padding-top: 28px; border-top: 1px solid var(--line); }
+
+@media (max-width: 1100px) {
+  .lab { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .lab .device-col { grid-column: 1 / -1; order: -1; }
+  .cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .lab { grid-template-columns: minmax(0, 1fr); }
+  .scen { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body><div style="background:#1b1b1b;color:#e8e7e1;font:600 14px/1.5 sans-serif;padding:10px 16px">Earlier draft. It describes an item-level model that Lyra no longer claims, and a row of compartments. The current design (2 &times; 2 compartments, opening + time + weight change only) is in <a style="color:#e8e7e1" href="design/Lyra-Brief.pdf">design/Lyra-Brief.pdf</a>.</div>
+<div class="wrap">
+  <div class="top">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="eyebrow">Lyra · interactive screen lab</span>
+      <h1>Lyra Screen Lab</h1>
+      <p class="muted">Act on 김순자's four compartments, move the clock, send her out of the house. The e-ink screen, the compartment lights, the voice, her daughter's KakaoTalk and Lyra's reasoning all follow the same rules as the firmware.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Screen language">
+      <button id="lang-ko" aria-pressed="true">한국어</button>
+      <button id="lang-en" aria-pressed="false">English</button>
+    </div>
+  </div>
+
+  <div class="lab">
+    <!-- LEFT: her tray -->
+    <div class="panel">
+      <header><h2>Her tray</h2><span class="eyebrow">4 compartments</span></header>
+      <div class="clock">
+        <div class="row"><output id="clockOut">08:25</output><span class="muted" id="dayOut">Sat 26 Sep</span></div>
+        <input id="clock" type="range" min="360" max="1470" step="1" value="505" aria-label="Time of day">
+        <div class="row">
+          <button class="btn small" data-adv="5">+5 min</button>
+          <button class="btn small" data-adv="15">+15 min</button>
+          <button class="btn small" data-adv="60">+1 h</button>
+          <label class="toggle"><input id="home" type="checkbox" checked> she is home</label>
+        </div>
+      </div>
+      <div id="tray" class="stack" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div class="clock">
+        <label class="muted" for="noise" style="font-size:13px">Scale noise (1σ per settled step): <b id="noiseOut">30</b> mg</label>
+        <input id="noise" type="range" min="10" max="80" step="5" value="30">
+      </div>
+    </div>
+
+    <!-- CENTER: device -->
+    <div class="device-col device">
+      <div class="shell">
+        <div class="bezel"><canvas id="eink" width="800" height="600" role="img" aria-label="Lyra e-ink screen"></canvas></div>
+        <div class="leds" aria-hidden="true"><div class="led" id="led0"></div><div class="led" id="led1"></div><div class="led" id="led2"></div><div class="led" id="led3"></div></div>
+        <div class="ledlbl"><span>1 sachets</span><span>2 blisters</span><span>3 packages</span><span>4 bottles</span></div>
+      </div>
+      <div class="knob">
+        <button id="kl" aria-label="Turn knob left">◀ turn</button>
+        <button id="kp" class="press" aria-label="Press knob">press</button>
+        <button id="kr" aria-label="Turn knob right">turn ▶</button>
+        <button id="kh" aria-label="Hold knob to hear the screen">hold</button>
+      </div>
+      <div class="say" id="say" aria-live="polite">&nbsp;</div>
+      <div class="panel" style="width:100%;max-width:520px">
+        <header><h3>Scenarios</h3><span class="eyebrow">plays step by step</span></header>
+        <div class="scen" id="scen"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: thinking -->
+    <div class="panel">
+      <header><h2>What Lyra is thinking</h2><button class="btn small" id="clearLog">clear</button></header>
+      <div class="log" id="log" aria-live="polite"></div>
+      <h3>Today</h3>
+      <div style="overflow-x:auto"><table id="doses"><thead><tr><th>Time</th><th>Item</th><th>Status</th><th>How</th></tr></thead><tbody></tbody></table></div>
+      <h3>지은's KakaoTalk</h3>
+      <div class="kakao" id="kakao"><p class="muted" style="font-size:13px">Nothing sent. Lyra writes only when something needs her.</p></div>
+    </div>
+  </div>
+
+    <section>
+    <span class="eyebrow">What is new here</span>
+    <h2>Four things her screen does that we could not find elsewhere</h2>
+    <div class="cols" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      <div class="card"><b class="big">The screen follows her hand</b><p>When she lifts the omega-3 bottle, the screen changes to “오메가3 · 1캡슐 드세요” before a capsule leaves. The lift itself identifies the item: its container weight left the compartment. There is no camera, no tag and no app. Try “The screen follows her hand”.</p></div>
+      <div class="card"><b class="big">One scale tells several items apart</b><p>Research prototypes and patents weigh one container per compartment. Lyra puts three bottles on one scale. The weight that left says which item it was, and the weight that came back says how much was used. Look-alikes, such as a 12 g stick and an 11.9 g eye-drop bottle, wait for the evidence instead of guessing.</p></div>
+      <div class="card"><b class="big">It reads Korean pharmacy sachets</b><p>Each dose time's sachet has its own weight, so Lyra knows a 1.50 g evening sachet from a 1.10 g lunch one. It says “저녁 약봉투예요” when she tears the wrong sachet, and it catches two sachets stuck together. The printed time on the sachet always has the final word.</p></div>
+      <div class="card"><b class="big">A day you can read from across the room</b><p>The home screen is a 24-hour ring: filled marks for taken doses, a hand for now, and the next dose in the middle. E-ink holds it at 0 W. The rest of the time the screen is quiet and asks only when the scale can't be sure, about 0.7 questions a day in the simulation.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">Why people would pay</span>
+    <h2>Today's options make you repack your medicines and pay every month</h2>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Product</th><th>How pills get in</th><th>Price (2026 reviews)</th><th>For a Korean home</th></tr></thead>
+        <tbody>
+          <tr><td>Hero</td><td>You load pills into its canisters</td><td>$99.99 upfront, then $29.99–44.99 a month, 12-month minimum</td><td>Can't hold pharmacy sachets as dispensed</td></tr>
+          <tr><td>MedMinder</td><td>Pharmacy presorts refill trays</td><td>About $125 a month</td><td>Needs its own pharmacy service</td></tr>
+          <tr><td>Livi</td><td>You load pills into the device</td><td>$979, or $130 plus $99 a month</td><td>Can't hold pharmacy sachets as dispensed</td></tr>
+          <tr><td><b>Lyra</b></td><td><b>Put the packs you already have in the four compartments</b></td><td>Designed to need no subscription and no app</td><td>Built around 약봉투, blister cards, sticks, eye drops and bottles</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The need is large in Korea. In a national study of older Koreans, 86.4% had polypharmacy (PLOS ONE, 2014). A Korean user-centred design study found that a medication device must fit the pharmacy sachet system. The canister-loading dispensers above are not built for that. The global automatic pill-dispenser market is estimated at USD 3.7 billion in 2025 (IMARC).</p>
+  </section>
+
+  <section>
+    <span class="eyebrow">Every screen, and what it's for</span>
+    <h2>Each screen answers one question she actually has</h2>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Screen</th><th>When it shows</th><th>What she learns</th></tr></thead>
+        <tbody>
+          <tr><td>Day ring (home)</td><td>Nothing due</td><td>What she has taken today, and the next dose</td></tr>
+          <tr><td>점심 약 (due)</td><td>A dose time arrives and she is home</td><td>What to take, and from which lit compartment</td></tr>
+          <tr><td>손에 드신 것 (in hand)</td><td>She lifts an item</td><td>What she is holding, how many to take, or that it isn't time</td></tr>
+          <tr><td>저녁 약봉투예요</td><td>The wrong time's sachet leaves the tray</td><td>Put it back and take the right one</td></tr>
+          <tr><td>드셨나요? / 어느 것?</td><td>The weight can't be sure</td><td>One press confirms it, so the record stays honest</td></tr>
+          <tr><td>이미 드셨어요</td><td>A second dose starts</td><td>When she already took it; 10 minutes to put it back</td></tr>
+          <tr><td>다녀오세요 (away)</td><td>The radar sees nobody at dose time</td><td>Lyra will remind her on return, and by when</td></tr>
+          <tr><td>N일 치 남았어요</td><td>Seven days of supply left</td><td>Her daughter has already been told</td></tr>
+          <tr><td>Lyra가 알아챈 것</td><td>Turn the knob</td><td>A pattern from her own weeks, and one thing to try</td></tr>
+          <tr><td>안녕히 주무세요 (night)</td><td>Everything is done for the day</td><td>Today's result and tomorrow morning's plan, held at 0 W</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">Evidence</span>
+    <h2>The same rules, run 201 times in the firmware simulator</h2>
+    <p>The <code>test/host/sim.cpp</code> Korean home simulation runs 21 days × 201 random households on the four compartments. Every dose she took was recorded against the right item in every run, and nothing was credited to the wrong item.</p>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Item</th><th>Doses</th><th>Weighed</th><th>One knob answer</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>약봉투 sachets</td><td>12,060</td><td>84.1%</td><td>0.9%</td><td>15% during the first 3 days while each time's sachet weight is learned</td></tr>
+          <tr><td>Stomach tablet (350 mg, blister)</td><td>8,442</td><td>89.7%</td><td>0.9%</td><td>9% during learning</td></tr>
+          <tr><td>Aspirin (130 mg, blister)</td><td>4,221</td><td>11.1%</td><td>66.0%</td><td>Too light to identify when something else is due: asks, by design</td></tr>
+          <tr><td>Red ginseng sticks</td><td>3,015</td><td>100%</td><td>0%</td><td></td></tr>
+          <tr><td>Bottles (vitamin C, omega-3, calcium)</td><td>12,663</td><td>100%</td><td>0%</td><td></td></tr>
+          <tr><td>Eye drops, ointment</td><td>12,663</td><td colspan="2">100% “opened and returned in the window”</td><td>Amount used isn't claimed</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Lifted items named by weight: 31,075 of 32,245. The other 1,170 were look-alikes held as “checking…” until they resolved, and none were named wrongly. Questions per day: 0.4 “which one?” and 0.3 “did you take it?”. These numbers assume the modelled scale noise; the bench test (EVT) will measure the real values.</p>
+  </section>
+
+  <section>
+    <span class="eyebrow">Sources</span>
+    <ul class="muted" style="margin:0;padding-left:18px;font-size:14px">
+      <li><a href="https://www.theseniorlist.com/medication/dispensers/hero/">Hero pricing, The Senior List (2026)</a> · <a href="https://elderlivinghub.com/reviews/medminder-medication-dispenser-review/">MedMinder review, Elder Living Hub (2026)</a> · <a href="https://caringvillage.com/product-reviews/automatic-pill-dispensers/">Automatic pill dispensers, Caring Village (2026)</a></li>
+      <li><a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0098043">Prevalence and predictors of polypharmacy among Korean elderly, PLOS ONE (2014)</a></li>
+      <li><a href="https://dspace.kci.go.kr/handle/kci/2363385">A user-centred smart medication dispenser design for Korean elderly users (KCI)</a></li>
+      <li><a href="https://www.imarcgroup.com/automatic-pill-dispenser-machine-market">Automatic pill dispenser machine market, IMARC</a></li>
+      <li><a href="https://www.researchsquare.com/article/rs-10434908/v1">The Pill Left Behind: passive load-cell adherence sensing (Research Square)</a> · <a href="https://www.mdpi.com/2571-5577/1/2/14">A review of medication adherence monitoring technologies (MDPI)</a></li>
+    </ul>
+  </section>
+
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+
+// ------------------------------------------------------------------ data
+const BASE = new Date(2026, 8, 26);  // Saturday 26 Sep 2026
+const SLOTS = [
+  { ko: '아침', en: 'Morning', min: 8 * 60 + 30 },
+  { ko: '점심', en: 'Lunch', min: 12 * 60 + 30 },
+  { ko: '저녁', en: 'Evening', min: 18 * 60 + 30 },
+  { ko: '취침', en: 'Bedtime', min: 22 * 60 },
+];
+const COMPS = [
+  { ko: '약봉투', en: 'Sachets' }, { ko: '블리스터', en: 'Blisters' },
+  { ko: '스틱·연고·안약', en: 'Sticks · tubes · drops' }, { ko: '병', en: 'Bottles' },
+];
+// form: pouch | pill | stick | topical. unit = grams per unit. slotW = pouch weight per time.
+const DEF = [
+  { id: 'pouch', comp: 0, ko: '약봉투', en: 'Pharmacy sachet', form: 'pouch', supp: false, slots: [1, 1, 1, 0], slotW: [1.85, 1.10, 1.50, 0], container: 20 + 14 * 4.45, stock: 42, uko: '포', uen: 'sachet' },
+  { id: 'asp', comp: 1, ko: '아스피린', en: 'Aspirin 100', form: 'pill', supp: false, slots: [1, 0, 0, 0], unit: 0.13, container: 3 * 3.4 + 30 * 0.13, stock: 30, uko: '알', uen: 'tablet' },
+  { id: 'stom', comp: 1, ko: '위장약', en: 'Stomach tablet', form: 'pill', supp: false, slots: [1, 0, 1, 0], unit: 0.35, container: 3 * 4.2 + 45 * 0.35, stock: 45, uko: '알', uen: 'tablet' },
+  { id: 'gin', comp: 2, ko: '홍삼스틱', en: 'Red ginseng stick', form: 'stick', supp: true, slots: [1, 0, 0, 0], unit: 12.0, container: 60 + 30 * 12, stock: 30, uko: '포', uen: 'stick' },
+  { id: 'drops', comp: 2, ko: '인공눈물', en: 'Eye drops', form: 'topical', supp: false, slots: [1, 0, 0, 1], container: 9.0, stock: -1, uko: '방울', uen: 'drops' },
+  { id: 'oint', comp: 2, ko: '연고', en: 'Ointment', form: 'topical', supp: false, slots: [0, 0, 0, 1], container: 25, stock: -1, uko: '', uen: '' },
+  { id: 'vitc', comp: 3, ko: '비타민C', en: 'Vitamin C', form: 'pill', supp: true, slots: [1, 0, 0, 0], unit: 1.1, container: 30 + 60 * 1.1, stock: 60, uko: '알', uen: 'tablet' },
+  { id: 'omega', comp: 3, ko: '오메가3', en: 'Omega-3', form: 'pill', supp: true, slots: [0, 0, 1, 0], unit: 1.3, container: 30 + 60 * 1.3, stock: 60, uko: '캡슐', uen: 'capsule' },
+  { id: 'cal', comp: 3, ko: '칼슘·비타민D', en: 'Calcium + D', form: 'pill', supp: true, slots: [0, 0, 0, 1], unit: 1.5, container: 30 + 60 * 1.5, stock: 60, uko: '알', uen: 'tablet' },
+];
+const FAMILY_NOTES = ['엄마 최고예요! — 지은', '오늘도 잘하셨어요 — 지은', '주말에 갈게요 — 지은'];
+const FAMILY_NOTES_EN = ['You\'re the best, Mum! — Ji-eun', 'Well done today — Ji-eun', 'See you this weekend — Ji-eun'];
+
+// ------------------------------------------------------------------ state
+const S = { day: 0, t: 505, home: true, noise: 0.03, lang: 'ko' };
+let items, doses, held, pending, extra, notice, override, lastLevel, voiceCount, lowSent, history, noteIdx, lastPageKey;
+
+function gauss(s) { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const hhmm = (m) => { m = ((Math.round(m) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+const nm = (i) => S.lang === 'ko' ? items[i].ko : items[i].en;
+const slotName = (k) => S.lang === 'ko' ? SLOTS[k].ko : SLOTS[k].en;
+const unitName = (i, n) => S.lang === 'ko' ? `${n}${items[i].uko}` : `${n} ${items[i].uen}${n === 1 || !items[i].uen ? '' : 's'}`;
+const ko = () => S.lang === 'ko';
+// Korean particles follow the last syllable: 약봉투를 / 인공눈물을, 약봉투가 / 오메가3이.
+function batchim(w) {
+  const ch = w[w.length - 1];
+  const c = ch.charCodeAt(0);
+  if (c >= 0xac00 && c <= 0xd7a3) return (c - 0xac00) % 28 !== 0;
+  if (/[0-9]/.test(ch)) return '013678'.includes(ch);
+  return /[LMNR]/i.test(ch);
+}
+const eul = (w) => w + (batchim(w) ? '을' : '를');
+const iga = (w) => w + (batchim(w) ? '이' : '가');
+
+function dateOf(day) { const d = new Date(BASE); d.setDate(d.getDate() + day); return d; }
+function dateLabel(day) {
+  const d = dateOf(day);
+  if (ko()) return `${d.getMonth() + 1}월 ${d.getDate()}일 (${'일월화수목금토'[d.getDay()]})`;
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function makeDoses() {
+  const out = [];
+  items.forEach((it, i) => it.slots.forEach((n, k) => { if (n) out.push({ item: i, slot: k, due: SLOTS[k].min, planned: n, status: 'upcoming', at: -1, source: '', seenHome: false }); }));
+  return out.sort((a, b) => a.due - b.due || a.item - b.item);
+}
+
+// 20 days of simulated history for the week view and "Lyra noticed": she is
+// out at Sunday lunch every week and sometimes forgets bedtime calcium.
+function makeHistory() {
+  const h = {};
+  for (let d = -20; d < 0; d++) {
+    const wd = dateOf(d).getDay();
+    h[d] = makeDoses().map((x) => {
+      let st = 'taken';
+      if (wd === 0 && x.slot === 1) st = 'missed';
+      else if (x.item === 8 && (d === -3 || d === -10)) st = 'missed';
+      else if (x.item === 3 && wd === 6) st = 'missed';
+      return { ...x, status: st, at: st === 'missed' ? -1 : x.due + 8 + Math.round(gauss(6)), source: 'weighed', why: st === 'missed' && wd === 0 ? 'away' : 'home' };
+    });
+  }
+  return h;
+}
+
+function reset(day, t) {
+  S.day = day; S.t = t;
+  items = DEF.map((d) => ({ ...d, slots: [...d.slots], slotW: d.slotW ? [...d.slotW] : null }));
+  doses = makeDoses();
+  history = makeHistory();
+  held = [[], [], [], []];
+  pending = null; extra = null; notice = null; override = null;
+  lastLevel = [0, 0, 0, 0]; voiceCount = [0, 0, 0, 0]; lowSent = {}; noteIdx = 0; lastPageKey = '';
+  $('#kakao').innerHTML = '<p class="muted" style="font-size:13px">Nothing sent. Lyra writes only when something needs her.</p>';
+}
+
+// ------------------------------------------------------------------ log, voice, family
+function log(kind, text) {
+  const el = document.createElement('div');
+  el.className = kind;
+  el.innerHTML = `<time>${hhmm(S.t)}</time>${text}`;
+  const box = $('#log');
+  box.prepend(el);
+  while (box.children.length > 80) box.lastChild.remove();
+}
+function say(ko_, en_) {
+  $('#say').innerHTML = `<b>Voice:</b> ${ko() ? ko_ : en_}`;
+  log('s', `voice: “${ko_}”`);
+}
+function kakao(text) {
+  const box = $('#kakao');
+  if (box.querySelector('p')) box.innerHTML = '';
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.innerHTML = `<small>Lyra → 지은 · ${dateLabel(S.day)} ${hhmm(S.t)}</small>${text}`;
+  box.prepend(b);
+  log('f', `KakaoTalk to 지은: ${text}`);
+}
+
+// ------------------------------------------------------------------ engine rules (same numbers as lib/lyra_core)
+function lateLimit(i, k) {
+  const it = items[i];
+  let gap = 0;
+  for (let j = k + 1; j < 4 && !gap; j++) if (it.slots[j]) gap = SLOTS[j].min - SLOTS[k].min;
+  for (let j = 0; j <= k && !gap; j++) if (it.slots[j]) gap = 1440 - SLOTS[k].min + SLOTS[j].min;
+  return Math.min(180, gap / 2);
+}
+const isDone = (d) => d.status === 'taken' || d.status === 'late' || d.status === 'missed';
+const isOpenAt = (d, t) => !isDone(d) && t >= d.due - 60 && t <= d.due + lateLimit(d.item, d.slot);
+function openDose(i, t = S.t) {
+  let best = null;
+  for (const d of doses) if (d.item === i && isOpenAt(d, t) && (!best || Math.abs(t - d.due) < Math.abs(t - best.due))) best = d;
+  return best;
+}
+function dueGroup(t = S.t) {
+  let slot = -1;
+  for (const d of doses) if (!isDone(d) && t >= d.due && isOpenAt(d, t)) { if (slot < 0 || d.due < SLOTS[slot].min) slot = d.slot; }
+  return slot;
+}
+function daysLeft(i) {
+  const it = items[i];
+  const use = it.slots.reduce((a, b) => a + b, 0);
+  return it.stock < 0 || !use ? -1 : it.stock / use;
+}
+
+function take(d, source, n) {
+  d.status = Math.abs(S.t - d.due) <= 60 ? 'taken' : 'late';
+  d.at = S.t; d.source = source;
+  const it = items[d.item];
+  if (it.stock >= 0) it.stock = Math.max(0, it.stock - (n || d.planned));
+  log('d', `✓ ${items[d.item].ko} (${slotName(d.slot)}) recorded — ${source}`);
+  if (pending && pending.item === d.item) pending = null;
+  const note = noteIdx < 3 && d.item === 0 ? noteIdx++ : -1;
+  setNotice({ type: 'done', item: d.item, slot: d.slot, time: S.t, note });
+}
+
+function setNotice(n) { notice = { ...n, until: performance.now() + 9000 }; override = null; }
+function ask(p) { pending = { ...p, cursor: 0, at: S.t }; override = null; notice = null; }
+
+function extraDose(i, n, g) {
+  extra = { item: i, g, pills: n, at: S.t };
+  let last = null;
+  for (const d of doses) if (d.item === i && d.at >= 0 && S.t - d.at <= 720 && (!last || d.at > last.at)) last = d;
+  if (last) {
+    setNotice({ type: 'already', item: i, time: last.at });
+    log('d', `no ${items[i].ko} dose open; last taken ${hhmm(last.at)} → “already taken”, 10 min to put it back`);
+    say('이미 드셨어요. 제자리에 넣어주세요.', 'You already took it. Please put it back.');
+  } else {
+    let next = null;
+    for (const d of doses) if (d.item === i && !isDone(d) && d.due > S.t && (!next || d.due < next.due)) next = d;
+    setNotice({ type: 'early', item: i, time: next ? next.due - 60 : -1 });
+    log('d', `no ${items[i].ko} dose open yet → “not yet”, 10 min to put it back`);
+    say('아직 드실 시간이 아니에요.', 'It is not time for this yet.');
+  }
+}
+
+// weight left the tray and the tracker says it was item i
+function unitsRemoved(i, d, n, conf) {
+  const it = items[i];
+  const od = openDose(i);
+  if (it.form === 'pouch') return pouchRemoved(i, d);
+  if (it.form === 'topical') {
+    if (od) take(od, 'opened');
+    else log('d', `${it.ko} used outside its window: logged only`);
+    return;
+  }
+  if (!od) return extraDose(i, n || 1, d);
+  if (it.unit < 0.15) {
+    ask({ type: 'confirm', item: i });
+    log('d', `${it.ko} is ${Math.round(it.unit * 1000)} mg: too light to count → “did you take it?”`);
+    say('드셨나요? 누르시면 네.', 'Did you take it? Press for yes.');
+    return;
+  }
+  if (conf < 90) {
+    ask({ type: 'confirm', item: i });
+    log('d', `count confidence ${conf}% < 90% → ask`);
+    return;
+  }
+  if (n > od.planned) {
+    take(od, 'weighed', n);
+    extra = { item: i, g: (n - od.planned) * it.unit, pills: n - od.planned, at: S.t };
+    setNotice({ type: 'extra', item: i, pills: n - od.planned });
+    log('d', `${n} × ${it.ko} left, plan says ${od.planned} → put ${n - od.planned} back`);
+    say(`${n - od.planned}개 더 꺼내셨어요. 하나는 제자리에 넣어주세요.`, 'One too many. Please put one back.');
+    return;
+  }
+  take(od, 'weighed', n);
+}
+
+function pouchRemoved(i, d) {
+  const it = items[i];
+  const od = openDose(i);
+  if (!od) return extraDose(i, 1, d);
+  const w = it.slotW[od.slot];
+  const near = (a, b) => Math.abs(a - b) <= 0.15;
+  let bk = -1, be = 1e9;
+  it.slotW.forEach((wk, k) => { if (it.slots[k] && wk > 0 && Math.abs(d - wk) < be) { be = Math.abs(d - wk); bk = k; } });
+  if (bk === od.slot && near(d, w)) {
+    log('d', `${d.toFixed(2)} g = ${SLOTS[od.slot].ko} sachet (${w.toFixed(2)} g ± 0.15)`);
+    return take(od, 'weighed');
+  }
+  if (bk >= 0 && bk !== od.slot && be <= 0.15 && Math.abs(d - w) >= 0.3) {
+    extra = { item: i, g: d, pills: 1, at: S.t };
+    ask({ type: 'wrongpouch', item: i, slot: bk, want: od.slot });
+    log('d', `${d.toFixed(2)} g matches the ${SLOTS[bk].ko} sachet, not ${SLOTS[od.slot].ko} (${w.toFixed(2)} g) → wrong sachet`);
+    say(`${SLOTS[bk].ko} 약봉투예요. 제자리에 두시고 ${SLOTS[od.slot].ko} 봉투를 드세요.`, `That is the ${SLOTS[bk].en.toLowerCase()} sachet. Put it back and take the ${SLOTS[od.slot].en.toLowerCase()} one.`);
+    return;
+  }
+  for (let k = 0; k < 4; k++) {
+    if (!it.slots[k]) continue;
+    if (Math.abs(d - (w + it.slotW[k])) <= 0.225) {
+      take(od, 'weighed');
+      extra = { item: i, g: it.slotW[k], pills: 1, at: S.t };
+      setNotice({ type: 'twopouch', item: i, slot: k });
+      log('d', `${d.toFixed(2)} g = ${SLOTS[od.slot].ko} + ${SLOTS[k].ko} sachets → one extra`);
+      say(`봉투가 두 개예요. ${SLOTS[k].ko} 봉투는 제자리에 넣어주세요.`, `Two sachets. Please put the ${SLOTS[k].en.toLowerCase()} one back.`);
+      return;
+    }
+  }
+  extra = { item: i, g: d, pills: 1, at: S.t };
+  ask({ type: 'label', item: i, slot: od.slot });
+  log('d', `${d.toFixed(2)} g matches no sachet clearly → check the printed time`);
+  say(`봉투에 ${SLOTS[od.slot].ko}이라고 쓰여 있나요?`, `Does the sachet say ${SLOTS[od.slot].en}?`);
+}
+
+function unitsBack(i, w, n) {
+  const it = items[i];
+  const same = extra && extra.item === i && S.t - extra.at <= 10 &&
+    (it.form === 'pouch' ? Math.abs(w - extra.g) <= 0.15 : n === extra.pills);
+  if (same) {
+    log('d', `${it.ko} back within 10 min → thank, nothing sent`);
+    if (it.stock >= 0) it.stock += n || 1;
+    extra = null;
+    if (pending && (pending.type === 'wrongpouch' || pending.type === 'label')) {
+      const want = pending.want ?? pending.slot;
+      pending = null;
+      setNotice({ type: 'thanks', item: i, slot: want });
+    } else setNotice({ type: 'thanks', item: i });
+    return;
+  }
+  if (it.stock >= 0) it.stock += n || 1;
+  log('d', `${it.ko} +${n || 1}: counted as a refill`);
+}
+
+// ------------------------------------------------------------------ compartment tracker (same rules as compartment.cpp)
+const containerTol = (c) => Math.max(0.5, c * 0.02);
+function scoreUnits(comp, d) {
+  const post = {}, bestN = {};
+  let total = 0;
+  const sig = S.noise;
+  items.forEach((it, i) => {
+    if (it.comp !== comp || it.form === 'topical') return;
+    const od = openDose(i);
+    const prior = od ? 10 : 1;
+    let p = 0, bl = 0;
+    if (it.form === 'pouch') {
+      it.slotW.forEach((w, k) => {
+        if (!it.slots[k] || w <= 0) return;
+        for (let n = 1; n <= 2; n++) {
+          const sg = Math.sqrt(sig * sig + n * 0.05 * 0.05);
+          const z = (d - n * w) / sg;
+          if (Math.abs(z) > 4) continue;
+          const l = prior * Math.exp(-0.5 * z * z) / sg;
+          p += l; if (l > bl) { bl = l; bestN[i] = n; }
+        }
+      });
+    } else {
+      const expect = od ? od.planned : 1;
+      for (let n = 1; n <= 4; n++) {
+        const sg = Math.sqrt(sig * sig + n * Math.pow(0.04 * it.unit, 2));
+        const z = (d - n * it.unit) / sg;
+        if (Math.abs(z) > 4) continue;
+        const l = prior * (n === expect ? 1 : 0.1) * Math.exp(-0.5 * z * z) / sg;
+        p += l; if (l > bl) { bl = l; bestN[i] = n; }
+      }
+    }
+    if (p > 0) { post[i] = p; total += p; }
+  });
+  let best = -1;
+  for (const k in post) if (best < 0 || post[k] > post[best]) best = +k;
+  return { post, bestN, total, best, p: best >= 0 ? post[best] / total : 0 };
+}
+function countPosterior(d, n, unit, sigma) {
+  let num = 0, den = 0;
+  for (let k = 0; k <= n + 3; k++) {
+    const sg = Math.sqrt(sigma * sigma + k * Math.pow(0.04 * unit, 2));
+    const z = (d - k * unit) / sg;
+    const l = Math.exp(-0.5 * z * z) / sg;
+    den += l; if (k === n) num = l;
+  }
+  return num / den;
+}
+
+function stepOut(comp, d) {  // weight left compartment `comp`
+  // 1. a whole container lifted?
+  const cands = items.map((it, i) => ({ it, i })).filter(({ it }) => it.comp === comp && it.container >= 2 && Math.abs(d - it.container) <= containerTol(it.container));
+  if (cands.length && held[comp].length < 3) {
+    const u = scoreUnits(comp, d);
+    const alt = u.best >= 0 && u.p >= 0.9 && openDose(u.best) ? u.best : -1;
+    const h = { item: cands.length === 1 ? cands[0].i : -1, cands: cands.map((c) => c.i), g: d, since: S.t, alt };
+    held[comp].push(h);
+    if (alt >= 0) log('d', `−${d.toFixed(2)} g fits the ${items[h.item].ko} container AND one ${items[alt].ko} → provisional; if nothing returns in 3 min it was ${items[alt].ko}`);
+    else log('d', `−${d.toFixed(2)} g = container of ${items[h.item].ko} (${items[h.item].container.toFixed(1)} g) → in her hand`);
+    notice = null; override = null;
+    return;
+  }
+  // 2. units taken straight from the compartment
+  const u = scoreUnits(comp, d);
+  const due = items.map((_, i) => i).filter((i) => items[i].comp === comp && items[i].form !== 'topical' && openDose(i));
+  if (u.best < 0) {
+    ask({ type: 'which', cands: due.length ? due : items.map((_, i) => i).filter((i) => items[i].comp === comp) });
+    log('d', `−${d.toFixed(2)} g fits nothing known → “which one?”`);
+    say('어느 것을 드셨나요?', 'Which one did you take?');
+    return;
+  }
+  const otherDue = due.some((i) => i !== u.best);
+  const light = items[u.best].form === 'pill' && items[u.best].unit < 0.2;
+  if (u.p >= 0.9 && !(light && otherDue)) {
+    const n = u.bestN[u.best] || 1;
+    const it = items[u.best];
+    const conf = it.form === 'pouch' ? 99 : Math.round(100 * u.p * countPosterior(d, n, it.unit, S.noise));
+    it.container -= d;
+    log('d', `−${d.toFixed(2)} g = ${it.form === 'pouch' ? 'one sachet' : n + ' × ' + it.ko} (item ${Math.round(u.p * 100)}%, count ${conf}%)`);
+    unitsRemoved(u.best, d, n, conf);
+    return;
+  }
+  const cands2 = Object.keys(u.post).map(Number).filter((i) => u.post[i] / u.total >= 0.05);
+  due.forEach((i) => { if (!cands2.includes(i)) cands2.push(i); });
+  ask({ type: 'which', cands: cands2, delta: d });
+  log('d', `−${d.toFixed(2)} g: ${light && otherDue ? 'a light tablet cannot say which item it is' : 'no item ≥ 90 %'} → “which one?”`);
+  say('어느 것을 드셨나요?', 'Which one did you take?');
+}
+
+function stepBack(comp, w) {  // weight came back
+  const hs = held[comp];
+  for (let j = hs.length - 1; j >= 0; j--) {
+    const h = hs[j];
+    const used = h.g - w;
+    if (used < -containerTol(h.g) || used > 0.5 * h.g) continue;
+    hs.splice(j, 1);
+    const i = h.item;
+    items[i].container = w;
+    const thr = Math.max(0.05, 4 * S.noise);
+    log('d', `+${w.toFixed(2)} g = ${items[i].ko} back; ${used.toFixed(2)} g used`);
+    if (items[i].form === 'topical') return unitsRemoved(i, used, 0, 100);
+    if (used < thr) {
+      if (openDose(i)) { ask({ type: 'confirm', item: i }); log('d', `nothing measurable left the ${items[i].ko} → “did you take it?”`); say('드셨나요?', 'Did you take it?'); }
+      return;
+    }
+    if (items[i].form === 'pouch') return pouchRemoved(i, used);
+    const n = Math.max(1, Math.round(used / items[i].unit));
+    const conf = Math.round(100 * countPosterior(used, n, items[i].unit, S.noise));
+    return unitsRemoved(i, used, n, conf);
+  }
+  // nothing in hand: units put back?
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (it.comp !== comp || it.form === 'topical') continue;
+    if (it.form === 'pouch') { if (w <= 8) { it.container += w; return unitsBack(i, w, 1); } continue; }
+    const n = Math.round(w / it.unit);
+    const sg = Math.sqrt(S.noise * S.noise + n * Math.pow(0.04 * it.unit, 2));
+    // must fit in absolute terms (≤ 3σ), not just be the least-bad count
+    if (n >= 1 && n <= 4 && Math.abs(w - n * it.unit) <= 3 * sg && countPosterior(w, n, it.unit, S.noise) >= 0.9) { it.container += w; return unitsBack(i, w, n); }
+  }
+  log('d', `+${w.toFixed(2)} g matches nothing: a new item? (setup page)`);
+}
+
+function touched(comp) {  // hands in, no measurable change
+  const due = items.map((_, i) => i).filter((i) => items[i].comp === comp && items[i].form !== 'topical' && openDose(i));
+  if (!due.length || held[comp].length) return;
+  if (due.length === 1) { ask({ type: 'confirm', item: due[0] }); log('d', `touched, no measurable change, ${items[due[0]].ko} due → “did you take it?”`); say('드셨나요?', 'Did you take it?'); }
+  else { ask({ type: 'which', cands: due }); log('d', 'touched, no measurable change, several due → “which one?”'); say('어느 것을 드셨나요?', 'Which one did you take?'); }
+}
+
+// The scale: every change arrives as a settled step with noise.
+function scaleStep(comp, trueDelta) {
+  const d = trueDelta + gauss(S.noise);
+  const thr = Math.max(0.05, 4 * S.noise);
+  log('w', `C${comp + 1} ${COMPS[comp].ko}: ${d > 0 ? '−' : '+'}${Math.abs(d).toFixed(3)} g settled`);
+  if (Math.abs(d) < thr) touched(comp);
+  else if (d > 0) stepOut(comp, d);
+  else stepBack(comp, -d);
+  render();
+}
+
+// ------------------------------------------------------------------ her actions
+const physical = DEF.map((d) => d.container);  // true weights, separate from what Lyra believes
+function act(kind, i, arg) {
+  const it = items[i];
+  const c = it.comp;
+  switch (kind) {
+    case 'tear': {  // one sachet of slot arg (or two)
+      const g = (arg === 'double' ? DEF[0].slotW[0] + DEF[0].slotW[1] : DEF[0].slotW[arg]) + gauss(0.03);
+      lastTorn = arg === 'double' ? DEF[0].slotW[1] : g;
+      physical[i] -= g; scaleStep(c, g); break;
+    }
+    case 'unit': {
+      const g = it.unit * (1 + gauss(it.form === 'stick' ? 0.02 : 0.04)) + (c === 1 ? 0.01 : 0);
+      physical[i] -= g; scaleStep(c, g); break;
+    }
+    case 'lift': liftedTrue[i] = physical[i]; scaleStep(c, physical[i]); break;
+    case 'return': {
+      const used = arg === 'none' ? 0 : it.form === 'topical' ? (i === 4 ? 0.04 : 0.3) : arg * it.unit * (1 + gauss(0.04));
+      physical[i] = (liftedTrue[i] ?? physical[i]) - used; delete liftedTrue[i];
+      scaleStep(c, -physical[i]); break;
+    }
+    case 'putback': {
+      const g = extra ? extra.g : lastTorn;
+      physical[i] += g; scaleStep(c, -g); break;
+    }
+  }
+}
+let lastTorn = 1.1;
+const liftedTrue = {};
+
+// ------------------------------------------------------------------ time
+function advanceTo(t) {
+  if (t < S.t) { reset(S.day, t); log('d', 'clock moved back: day restarted'); render(); return; }
+  for (let m = S.t + 1; m <= t; m++) { S.t = m; minute(); }
+  render();
+}
+function minute() {
+  const t = S.t;
+  // presence while due, then close expired doses
+  for (const d of doses) {
+    if (!isDone(d) && t >= d.due && S.home) d.seenHome = true;
+    if (!isDone(d) && t > d.due + lateLimit(d.item, d.slot)) {
+      d.status = 'missed'; d.why = d.seenHome ? 'home' : 'away';
+      log('d', `${items[d.item].ko} (${SLOTS[d.slot].ko}) window closed → missed, ${d.why === 'away' ? 'she was out' : 'she was home and reminded'}`);
+      if (!items[d.item].supp) {
+        const msg = d.why === 'away' ? `어머니가 ${SLOTS[d.slot].ko} ${eul(items[d.item].ko)} 못 드셨어요. 외출 중이셨어요.` : `어머니가 ${SLOTS[d.slot].ko} ${eul(items[d.item].ko)} 못 드셨어요. 집에 계셨고 ${voiceCount[d.slot] + 1}번 알려드렸어요.`;
+        if (!doses.some((x) => x !== d && x.slot === d.slot && x.status === 'missed' && !items[x.item].supp && x.kakao)) { kakao(msg); d.kakao = true; }
+        setNotice({ type: 'missed', item: d.item, slot: d.slot });
+      }
+    }
+  }
+  // reminder ladder
+  const g = dueGroup(t);
+  if (g >= 0) {
+    const waited = t - SLOTS[g].min;
+    const hasMed = doses.some((d) => d.slot === g && !isDone(d) && !items[d.item].supp && isOpenAt(d, t));
+    let level = 1;
+    if (S.home) level = waited >= 30 ? 3 : waited >= 15 ? 2 : 1;
+    if (!hasMed) level = Math.min(level, 2);
+    if (level > lastLevel[g]) {
+      if (level === 1) log('s', `${SLOTS[g].ko} due: compartments glow, screen shows what to take (silent)`);
+      if (level === 2) { log('s', 'chime'); $('#say').innerHTML = '<b>Chime</b> ♪'; }
+      if (level === 3) say(`어머니, ${SLOTS[g].ko} 약 드실 시간이에요.`, `Time for your ${SLOTS[g].en.toLowerCase()} medicine.`);
+    } else if (level === 3 && voiceCount[g] < 3 && waited >= 30 + 10 * (voiceCount[g] + 1)) {
+      voiceCount[g]++;
+      say(`어머니, ${SLOTS[g].ko} 약 드실 시간이에요.`, `Time for your ${SLOTS[g].en.toLowerCase()} medicine.`);
+    }
+    lastLevel[g] = Math.max(lastLevel[g], level);
+  }
+  // put-back window
+  if (extra && t - extra.at > 10) {
+    if (!items[extra.item].supp) kakao(`어머니가 ${eul(items[extra.item].ko)} 한 번 더 꺼내셨고 10분 안에 돌려놓지 않으셨어요. 확인 부탁드려요.`);
+    log('d', 'extra not returned in 10 min');
+    extra = null;
+  }
+  // tracker: look-alikes resolve, items left out
+  held.forEach((hs, c) => {
+    for (let j = hs.length - 1; j >= 0; j--) {
+      const h = hs[j];
+      if (h.alt >= 0 && t - h.since >= 3) {
+        hs.splice(j, 1);
+        log('d', `nothing came back in 3 min → it was one ${items[h.alt].ko}, not the ${items[h.item].ko}`);
+        items[h.alt].container -= h.g;
+        unitsRemoved(h.alt, h.g, 1, 97);
+      } else if (!h.warned && t - h.since >= 10) {
+        h.warned = true;
+        setNotice({ type: 'leftoff', item: h.item });
+        say(`${eul(items[h.item].ko)} 제자리에 넣어주세요.`, `Please put the ${items[h.item].en} back.`);
+      }
+    }
+  });
+  // low stock
+  items.forEach((it, i) => {
+    const dl = daysLeft(i);
+    if (dl >= 0 && dl <= 7 && !lowSent[i]) {
+      lowSent[i] = true;
+      setNotice({ type: 'low', item: i, days: Math.floor(dl) });
+      kakao(`${iga(it.ko)} ${Math.floor(dl)}일 치 남았어요. 약국에 연락드릴까요?`);
+    }
+  });
+}
+
+// ------------------------------------------------------------------ knob
+function knob(k) {
+  if (k === 'hold') { say(screenSpeech(), screenSpeech()); return; }
+  if (pending) {
+    if (pending.type === 'which' && (k === 'l' || k === 'r')) {
+      pending.cursor = (pending.cursor + (k === 'r' ? 1 : pending.cands.length - 1)) % pending.cands.length;
+      render(); return;
+    }
+    if (k === 'p') {
+      const p = pending;
+      pending = null;
+      if (p.type === 'which') {
+        const i = p.cands[p.cursor];
+        const od = openDose(i);
+        log('d', `she picked ${items[i].ko} with the knob`);
+        if (od) take(od, 'knob'); else extraDose(i, 1, p.delta || 0);
+      } else {
+        const od = openDose(p.item);
+        log('d', `she pressed “yes” (${p.type === 'label' || p.type === 'wrongpouch' ? 'label says the right time' : 'taken'})`);
+        if (extra && extra.item === p.item) extra = null;
+        if (od) take(od, 'knob');
+      }
+      render(); return;
+    }
+  }
+  if (notice && k === 'p') { notice = null; render(); return; }
+  const cycle = [null, 'week', 'supply', 'insight'];
+  const idx = cycle.indexOf(override);
+  if (k === 'r' || k === 'l') override = cycle[(idx + (k === 'r' ? 1 : 3)) % 4];
+  if (k === 'p') override = null;
+  notice = null;
+  render();
+}
+
+// ------------------------------------------------------------------ screen
+const cv = $('#eink');
+const ctx = cv.getContext('2d');
+const INK = '#1b1b1b', PAPER = '#e8e7e1';
+const F = (size, w = 700) => `${w} ${size}px ${ko() ? '"Noto Sans KR"' : '"Atkinson Hyperlegible", "Noto Sans KR"'}, sans-serif`;
+function txt(s, x, y, size, w = 700, align = 'left', color = INK) { ctx.font = F(size, w); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillText(s, x, y); }
+function fitTxt(s, x, y, size, maxW, w = 700, align = 'left') { let sz = size; ctx.font = F(sz, w); while (ctx.measureText(s).width > maxW && sz > 10) { sz--; ctx.font = F(sz, w); } txt(s, x, y, sz, w, align); }
+function circle(x, y, r, fill, lw = 3) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); if (fill) { ctx.fillStyle = INK; ctx.fill(); } else { ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke(); } }
+function mark(state, x, y, r) {
+  ctx.lineCap = 'round';
+  if (state === 'done') { circle(x, y, r, true); ctx.strokeStyle = PAPER; ctx.lineWidth = r / 4.5; ctx.beginPath(); ctx.moveTo(x - r * .45, y); ctx.lineTo(x - r * .12, y + r * .35); ctx.lineTo(x + r * .5, y - r * .38); ctx.stroke(); }
+  else if (state === 'missed') { circle(x, y, r, false, 2); ctx.lineWidth = r / 5; ctx.beginPath(); ctx.moveTo(x - r * .45, y - r * .45); ctx.lineTo(x + r * .45, y + r * .45); ctx.moveTo(x + r * .45, y - r * .45); ctx.lineTo(x - r * .45, y + r * .45); ctx.stroke(); }
+  else if (state === 'half') { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI); ctx.fillStyle = INK; ctx.fill(); circle(x, y, r, false, 2); }
+  else circle(x, y, r - 1.5, false, 3);
+}
+function slotIcon(k, x, y, r) {
+  ctx.fillStyle = INK; ctx.strokeStyle = INK; ctx.lineWidth = Math.max(2, r / 7); ctx.lineCap = 'round';
+  if (k === 0) { ctx.beginPath(); ctx.arc(x, y + r * .3, r * .5, Math.PI, 0); ctx.fill(); ctx.beginPath(); ctx.moveTo(x - r, y + r * .3); ctx.lineTo(x + r, y + r * .3); ctx.stroke(); [-.9, -.5, -.1].forEach((a) => { const t = a * Math.PI; ctx.beginPath(); ctx.moveTo(x + Math.cos(t) * r * .7, y + r * .3 + Math.sin(t) * r * .7); ctx.lineTo(x + Math.cos(t) * r, y + r * .3 + Math.sin(t) * r); ctx.stroke(); }); }
+  else if (k === 1) { ctx.beginPath(); ctx.arc(x, y, r * .45, 0, Math.PI * 2); ctx.fill(); for (let a = 0; a < 8; a++) { const t = a * Math.PI / 4; ctx.beginPath(); ctx.moveTo(x + Math.cos(t) * r * .65, y + Math.sin(t) * r * .65); ctx.lineTo(x + Math.cos(t) * r, y + Math.sin(t) * r); ctx.stroke(); } }
+  else if (k === 2) { ctx.beginPath(); ctx.arc(x, y + r * .45, r * .55, Math.PI, 0); ctx.fill(); ctx.beginPath(); ctx.moveTo(x - r, y + r * .45); ctx.lineTo(x + r, y + r * .45); ctx.moveTo(x - r * .65, y + r * .75); ctx.lineTo(x + r * .65, y + r * .75); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.arc(x, y, r * .62, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = PAPER; ctx.beginPath(); ctx.arc(x + r * .35, y - r * .22, r * .56, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = INK; }
+}
+function header(title) {
+  txt(title || dateLabel(S.day), 16, 28, 17);
+  txt(hhmm(S.t), 384, 28, 17, 700, 'right');
+  ctx.fillStyle = INK; ctx.fillRect(16, 38, 368, 2);
+}
+// The tray as the screen draws it: four boxes, black = act here.
+function trayMap(x, y, s, hot, labels = true) {
+  for (let c = 0; c < 4; c++) {
+    const bx = x + (c % 2) * (s + 6), by = y + Math.floor(c / 2) * (s + 6);
+    ctx.lineWidth = 2; ctx.strokeStyle = INK;
+    if (hot.includes(c)) { ctx.fillStyle = INK; ctx.fillRect(bx, by, s, s); }
+    else ctx.strokeRect(bx + 1, by + 1, s - 2, s - 2);
+    if (labels) txt(String(c + 1), bx + s / 2, by + s / 2 + s * .17, s * .45, 900, 'center', hot.includes(c) ? PAPER : INK);
+  }
+}
+function pouchIcon(x, y, w, h, label, crossed) {
+  ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, y + h * .22); ctx.lineTo(x + w, y + h * .22); ctx.stroke(); ctx.setLineDash([]);
+  txt(label, x + w / 2, y + h * .72, h * .34, 900, 'center');
+  if (crossed) { ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 6, y + h + 6); ctx.lineTo(x + w + 6, y - 6); ctx.stroke(); }
+}
+function slotSummary(k, list = doses) {
+  const ds = list.filter((d) => d.slot === k);
+  if (!ds.length) return null;
+  const done = ds.filter((d) => d.status === 'taken' || d.status === 'late').length;
+  const missed = ds.filter((d) => d.status === 'missed').length;
+  if (done === ds.length) return 'done';
+  if (missed === ds.length) return 'missed';
+  return done > 0 ? 'half' : 'todo';
+}
+function dueNowItems() { return doses.filter((d) => !isDone(d) && isOpenAt(d, S.t) && S.t >= d.due - 60); }
+function hotComps() {
+  const g = dueGroup();
+  if (g < 0) return [];
+  return [...new Set(doses.filter((d) => d.slot === g && !isDone(d)).map((d) => items[d.item].comp))];
+}
+
+function pageKey() {
+  if (pending) return 'q:' + pending.type;
+  if (notice) return 'n:' + notice.type + notice.item;
+  const h = held.flat()[0];
+  if (h) return 'h:' + h.item;
+  if (override) return 'o:' + override;
+  const g = dueGroup();
+  if (g >= 0) return S.home ? 'due:' + g : 'away';
+  if (S.t >= 21 * 60 + 30 && doses.every((d) => isDone(d) || d.due > S.t + 600)) return 'night';
+  return 'today';
+}
+function draw() {
+  ctx.setTransform(2, 0, 0, 2, 0, 0);
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, 400, 300);
+  const key = pageKey();
+  const [kind] = key.split(':');
+  if (kind === 'q') return drawQuestion();
+  if (kind === 'n') return drawNotice();
+  if (kind === 'h') return drawInHand(held.flat()[0]);
+  if (kind === 'o') return ({ week: drawWeek, supply: drawSupply, insight: drawInsight })[override]();
+  if (kind === 'due') return drawDue(dueGroup());
+  if (kind === 'away') return drawAway();
+  if (kind === 'night') return drawNight();
+  return drawToday();
+}
+
+// HOME: the day as a ring, the tray as a map. "Did I take it?" at a glance.
+function drawToday() {
+  header();
+  const cx = 112, cy = 170, r = 88;
+  const ang = (m) => (m / 1440) * Math.PI * 2 - Math.PI / 2;
+  ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 8; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.arc(cx, cy, r, ang(360), ang(Math.min(S.t, 1439))); ctx.stroke();
+  [0, 6, 12, 18].forEach((h) => { const a = ang(h * 60); txt(String(h === 0 ? 24 : h), cx + Math.cos(a) * (r - 20), cy + Math.sin(a) * (r - 20) + 5, 12, 700, 'center'); });
+  // now hand
+  ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang(S.t)) * (r - 34), cy + Math.sin(ang(S.t)) * (r - 34)); ctx.lineTo(cx + Math.cos(ang(S.t)) * (r + 10), cy + Math.sin(ang(S.t)) * (r + 10)); ctx.stroke();
+  for (let k = 0; k < 4; k++) {
+    const st = slotSummary(k);
+    if (!st) continue;
+    const a = ang(SLOTS[k].min);
+    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    ctx.fillStyle = PAPER; ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.fill();
+    mark(st === 'todo' ? 'todo' : st, x, y, 13);
+  }
+  // centre: the next thing
+  const next = doses.filter((d) => !isDone(d)).sort((a, b) => a.due - b.due)[0];
+  if (next) {
+    txt(ko() ? '다음' : 'Next', cx, cy - 18, 14, 400, 'center');
+    txt(slotName(next.slot), cx, cy + 12, 28, 900, 'center');
+    txt(hhmm(next.due), cx, cy + 34, 16, 700, 'center');
+  } else { txt(ko() ? '오늘 완료' : 'All done', cx, cy + 8, 22, 900, 'center'); }
+  // right: tray map + today's count
+  const taken = doses.filter((d) => d.status === 'taken' || d.status === 'late').length;
+  txt(ko() ? '오늘' : 'Today', 250, 72, 15, 400);
+  txt(`${taken} / ${doses.length}`, 250, 104, 30, 900);
+  trayMap(250, 124, 54, []);
+  txt(ko() ? '약 칸' : 'compartments', 250, 262, 12, 400);
+}
+
+function drawDue(g) {
+  header();
+  slotIcon(g, 40, 76, 24);
+  txt(ko() ? `${SLOTS[g].ko} 약` : `${SLOTS[g].en}`, 78, 90, 38, 900);
+  const list = doses.filter((d) => d.slot === g && !isDone(d));
+  txt(ko() ? `${list.length}가지 · 불 켜진 칸에서` : `${list.length} item${list.length > 1 ? 's' : ''} · from the lit compartments`, 80, 116, 15, 400);
+  let y = 150;
+  list.slice(0, 5).forEach((d) => {
+    const it = items[d.item];
+    circle(30, y - 6, 12, true); txt(String(it.comp + 1), 30, y - 1, 14, 900, 'center', PAPER);
+    const q = it.form === 'topical' ? (ko() ? '사용' : 'use') : unitName(d.item, d.planned);
+    fitTxt(`${nm(d.item)}${it.form === 'pouch' ? (ko() ? ` (${SLOTS[g].ko})` : ` (${SLOTS[g].en.toLowerCase()})`) : ''}`, 50, y, 18, 185, 700);
+    txt(q, 262, y, 16, 400, 'right');
+    if (it.supp) txt(ko() ? '영양제' : 'suppl.', 268, y, 11, 400);
+    y += 30;
+  });
+  trayMap(308, 150, 36, hotComps(), true);
+}
+
+// NEW: the screen follows the hand. Lift a container and the screen says
+// what it is and how many to take, before a single pill leaves.
+function drawInHand(h) {
+  header();
+  const it = items[h.item];
+  if (h.alt >= 0) {
+    txt(ko() ? '확인 중…' : 'Checking…', 200, 118, 36, 900, 'center');
+    txt(ko() ? `${items[h.alt].ko} 또는 ${it.ko}` : `${items[h.alt].en} or ${it.en}`, 200, 156, 18, 400, 'center');
+    txt(ko() ? '돌려놓으시면 알 수 있어요' : 'Lyra will know when it comes back', 200, 190, 15, 400, 'center');
+    trayMap(168, 208, 30, [it.comp], false);
+    return;
+  }
+  txt(ko() ? '손에 드신 것' : 'In your hand', 24, 70, 15, 400);
+  fitTxt(nm(h.item), 24, 116, 40, 250, 900);
+  const od = openDose(h.item);
+  if (od) {
+    const q = it.form === 'topical' ? (ko() ? '사용하시고 제자리에' : 'Use it, then put it back') : ko() ? `${unitName(h.item, od.planned)} 드세요` : `Take ${unitName(h.item, od.planned)}`;
+    txt(q, 24, 156, 24, 700);
+    txt(ko() ? '다 드시면 제자리에 놓아주세요' : 'Put it back in its compartment', 24, 188, 15, 400);
+  } else {
+    let next = null;
+    for (const d of doses) if (d.item === h.item && !isDone(d) && d.due > S.t && (!next || d.due < next.due)) next = d;
+    txt(ko() ? '지금은 드실 때가 아니에요' : 'Not time for this one', 24, 156, 22, 700);
+    txt(next ? (ko() ? `다음 ${slotName(next.slot)} ${hhmm(next.due)}` : `Next: ${slotName(next.slot)} ${hhmm(next.due)}`) : (ko() ? '오늘은 다 드셨어요' : 'Done for today'), 24, 188, 15, 400);
+  }
+  trayMap(300, 70, 40, [it.comp]);
+  txt(ko() ? '이 칸' : 'this one', 343, 170, 12, 400, 'center');
+  // unit strip: what "one dose" looks like
+  if (it.form !== 'topical' && od) { for (let n = 0; n < od.planned; n++) { ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(40 + n * 34, 240, 13, 8, 0, 0, Math.PI * 2); ctx.fill(); } }
+}
+
+function drawQuestion() {
+  header();
+  const p = pending;
+  if (p.type === 'which') {
+    txt(ko() ? '어느 것을 드셨나요?' : 'Which one did you take?', 200, 78, 26, 900, 'center');
+    p.cands.slice(0, 5).forEach((i, n) => {
+      const y = 118 + n * 34;
+      if (n === p.cursor) { ctx.fillStyle = INK; ctx.fillRect(40, y - 24, 320, 32); }
+      txt(`${items[i].comp + 1}  ${nm(i)}`, 62, y, 20, 700, 'left', n === p.cursor ? PAPER : INK);
+    });
+    txt(ko() ? '돌려서 고르고 누르세요' : 'Turn to choose, press to confirm', 200, 290, 13, 400, 'center');
+    return;
+  }
+  if (p.type === 'wrongpouch') {
+    pouchIcon(118, 56, 74, 64, SLOTS[p.slot].ko, true);
+    pouchIcon(214, 56, 74, 64, SLOTS[p.want].ko, false);
+    txt(ko() ? `${SLOTS[p.slot].ko} 약봉투예요` : `That's the ${SLOTS[p.slot].en.toLowerCase()} sachet`, 200, 170, 32, 900, 'center');
+    txt(ko() ? `제자리에 두시고 ${SLOTS[p.want].ko} 봉투를 드세요` : `Put it back, take the ${SLOTS[p.want].en.toLowerCase()} one`, 200, 206, 17, 400, 'center');
+    txt(ko() ? `봉투에 ${SLOTS[p.want].ko}이면 누르세요` : `If it says ${SLOTS[p.want].en}, press`, 200, 240, 15, 700, 'center');
+    return;
+  }
+  if (p.type === 'label') {
+    pouchIcon(163, 54, 74, 64, '?', false);
+    txt(ko() ? '봉투를 확인하세요' : 'Check the sachet', 200, 166, 32, 900, 'center');
+    txt(ko() ? `‘${SLOTS[p.slot].ko}’이라고 쓰여 있나요?` : `Does it say “${SLOTS[p.slot].en}”?`, 200, 204, 19, 400, 'center');
+    txt(ko() ? '누르시면 = 네' : 'Press = yes', 200, 240, 18, 700, 'center');
+    return;
+  }
+  mark('todo', 200, 92, 34);
+  txt(ko() ? '드셨나요?' : 'Did you take it?', 200, 170, 36, 900, 'center');
+  txt(`${nm(p.item)} ${items[p.item].form === 'topical' ? '' : unitName(p.item, 1)}`, 200, 206, 19, 400, 'center');
+  txt(ko() ? '누르시면 = 네' : 'Press = yes', 200, 240, 18, 700, 'center');
+}
+
+function drawNotice() {
+  header();
+  const n = notice;
+  const it = n.item >= 0 ? items[n.item] : null;
+  const big = (s, y = 176) => txt(s, 200, y, 34, 900, 'center');
+  const sub = (s, y = 212, w = 400) => txt(s, 200, y, 18, w, 'center');
+  switch (n.type) {
+    case 'done':
+      mark('done', 200, 92, 36); big(ko() ? '잘하셨어요' : 'Done');
+      sub(`${nm(n.item)}${it.form === 'pouch' ? ` (${slotName(n.slot)})` : ''} · ${hhmm(n.time)}`);
+      if (n.note >= 0) { ctx.lineWidth = 1.5; ctx.strokeRect(46, 232, 308, 40); txt(ko() ? `“${FAMILY_NOTES[n.note].split(' — ')[0]}” — 지은` : `“${FAMILY_NOTES_EN[n.note].split(' — ')[0]}” — Ji-eun`, 200, 258, 16, 400, 'center'); }
+      break;
+    case 'already':
+      mark('missed', 200, 92, 36); big(ko() ? '이미 드셨어요' : 'Already taken');
+      sub(ko() ? `${nm(n.item)} · ${hhmm(n.time)}에 드셨어요` : `${nm(n.item)} at ${hhmm(n.time)}`); sub(ko() ? '제자리에 넣어주세요' : 'Please put it back', 244, 700); break;
+    case 'early':
+      mark('todo', 200, 92, 36); big(ko() ? '아직이에요' : 'Not yet');
+      sub(n.time >= 0 ? (ko() ? `${nm(n.item)} · ${hhmm(n.time)}부터` : `${nm(n.item)} from ${hhmm(n.time)}`) : nm(n.item)); sub(ko() ? '제자리에 넣어주세요' : 'Please put it back', 244, 700); break;
+    case 'twopouch':
+      pouchIcon(128, 52, 64, 58, SLOTS[0].ko, false); pouchIcon(208, 52, 64, 58, SLOTS[n.slot].ko, false);
+      big(ko() ? '봉투가 두 개예요' : 'Two sachets', 164); sub(ko() ? `${SLOTS[n.slot].ko} 봉투는 제자리에` : `Put the ${SLOTS[n.slot].en.toLowerCase()} one back`, 202); break;
+    case 'extra':
+      mark('missed', 200, 92, 36); big(ko() ? `${n.pills}개 더 꺼내셨어요` : `${n.pills} too many`); sub(ko() ? '제자리에 넣어주세요' : 'Please put it back', 212, 700); break;
+    case 'thanks':
+      mark('done', 200, 92, 36); big(ko() ? '고맙습니다' : 'Thank you');
+      sub(n.slot >= 0 && n.slot !== undefined && it.form === 'pouch' ? (ko() ? `이제 ${SLOTS[n.slot].ko} 봉투를 드세요` : `Now the ${SLOTS[n.slot].en.toLowerCase()} sachet`) : (ko() ? '제자리에 돌아왔어요' : 'It is back in place')); break;
+    case 'missed':
+      mark('missed', 200, 92, 36); big(ko() ? `${SLOTS[n.slot].ko} 약을 놓치셨어요` : `Missed ${SLOTS[n.slot].en.toLowerCase()}`);
+      sub(ko() ? '이번에는 건너뛰세요' : 'Skip this one — do not double up'); sub(ko() ? '지은님께 알렸어요' : 'Ji-eun has been told', 244); break;
+    case 'low':
+      txt(String(n.days), 200, 128, 72, 900, 'center'); big(ko() ? '일 치 남았어요' : 'days left', 172);
+      sub(nm(n.item), 208); sub(ko() ? '지은님께 알렸어요' : 'Ji-eun has been told', 240); break;
+    case 'leftoff':
+      mark('todo', 200, 92, 36); big(ko() ? '제자리에 놓아주세요' : 'Put it back'); sub(nm(n.item)); break;
+  }
+}
+
+function drawAway() {
+  header();
+  txt(ko() ? '다녀오세요' : 'Out and about', 200, 110, 38, 900, 'center');
+  const g = dueGroup();
+  txt(ko() ? `${SLOTS[g].ko} 약은 돌아오시면` : `${SLOTS[g].en} medicine: I'll remind you`, 200, 156, 19, 400, 'center');
+  txt(ko() ? '바로 알려드릴게요' : 'as soon as you are back', 200, 182, 19, 400, 'center');
+  const g2 = doses.find((d) => d.slot === g && !isDone(d));
+  txt(ko() ? `늦어도 ${hhmm(SLOTS[g].min + lateLimit(g2.item, g))}까지` : `Until ${hhmm(SLOTS[g].min + lateLimit(g2.item, g))} at the latest`, 200, 222, 16, 700, 'center');
+  slotIcon(g, 200, 260, 16);
+}
+
+function drawNight() {
+  header();
+  slotIcon(3, 56, 96, 30);
+  const missed = doses.filter((d) => d.status === 'missed').length;
+  txt(missed ? (ko() ? `오늘 ${doses.length - missed}/${doses.length}` : `Today ${doses.length - missed}/${doses.length}`) : (ko() ? '오늘 다 드셨어요' : 'All taken today'), 100, 108, 30, 900);
+  const first = makeDoses()[0];
+  txt(ko() ? '내일 아침' : 'Tomorrow morning', 40, 170, 17, 400);
+  txt(`${hhmm(SLOTS[0].min)} · ${ko() ? `${makeDoses().filter((d) => d.slot === 0).length}가지` : `${makeDoses().filter((d) => d.slot === 0).length} items`}`, 40, 204, 26, 900);
+  trayMap(290, 150, 36, [...new Set(makeDoses().filter((d) => d.slot === 0).map((d) => items[d.item].comp))]);
+  txt(ko() ? '안녕히 주무세요' : 'Good night', 40, 270, 16, 400);
+  void first;
+}
+
+function drawWeek() {
+  header(ko() ? '이번 주' : 'This week');
+  const x0 = 64, cw = 46;
+  for (let j = 0; j < 7; j++) {
+    const day = S.day - 6 + j;
+    const list = day === S.day ? doses : history[day] || [];
+    const d = dateOf(day);
+    txt(ko() ? '일월화수목금토'[d.getDay()] : 'SMTWTFS'[d.getDay()], x0 + j * cw + cw / 2, 64, 15, 700, 'center');
+    for (let k = 0; k < 4; k++) {
+      const ds = list.filter((x) => x.slot === k);
+      if (!ds.length) continue;
+      const done = ds.filter((x) => x.status === 'taken' || x.status === 'late').length;
+      const miss = ds.filter((x) => x.status === 'missed').length;
+      const st = done === ds.length ? 'done' : miss === ds.length ? 'missed' : done ? 'half' : 'todo';
+      mark(day === S.day && st === 'todo' ? 'todo' : st, x0 + j * cw + cw / 2, 98 + k * 52, 13);
+    }
+  }
+  for (let k = 0; k < 4; k++) slotIcon(k, 30, 96 + k * 52, 14);
+}
+
+function drawSupply() {
+  header(ko() ? '남은 양' : 'Supply');
+  let y = 66;
+  items.forEach((it, i) => {
+    const dl = daysLeft(i);
+    if (dl < 0) return;
+    fitTxt(nm(i), 16, y, 15, 130, 700);
+    ctx.lineWidth = 1.5; ctx.strokeRect(156, y - 12, 150, 13);
+    ctx.fillStyle = INK; ctx.fillRect(156, y - 12, Math.min(150, 150 * dl / 30), 13);
+    txt(ko() ? `${Math.floor(dl)}일` : `${Math.floor(dl)} d`, 384, y, 15, dl <= 7 ? 900 : 400, 'right');
+    y += 31;
+  });
+}
+
+// NEW: Lyra noticed — patterns from her own weeks, in one sentence she can act on.
+function drawInsight() {
+  header(ko() ? 'Lyra가 알아챈 것' : 'Lyra noticed');
+  let sunLunch = 0, sundays = 0;
+  for (let d = -20; d < 0; d++) if (dateOf(d).getDay() === 0) { sundays++; if ((history[d] || []).some((x) => x.slot === 1 && x.status === 'missed')) sunLunch++; }
+  slotIcon(1, 40, 84, 20);
+  txt(ko() ? `일요일 점심을` : 'Sunday lunch:', 72, 80, 22, 900);
+  txt(ko() ? `${sundays}주 중 ${sunLunch}번 놓치셨어요` : `missed ${sunLunch} of ${sundays} weeks`, 72, 108, 22, 900);
+  txt(ko() ? '외출하실 때 점심 약봉투 1포를' : 'When you go out on Sundays,', 40, 150, 17, 400);
+  txt(ko() ? '챙겨 가시면 좋아요' : 'take one lunch sachet with you', 40, 174, 17, 400);
+  ctx.fillStyle = INK; ctx.fillRect(40, 196, 320, 1.5);
+  let full = 0;
+  for (let d = -1; d >= -20; d--) { if ((history[d] || []).every((x) => x.status !== 'missed' || items[x.item].supp)) full++; else break; }
+  txt(ko() ? `처방약 연속 ${full}일 빠짐없이` : `${full} days in a row, every prescription taken`, 40, 232, 18, 700);
+  for (let j = 0; j < Math.min(full, 14); j++) mark('done', 50 + j * 22, 262, 8);
+}
+
+function screenSpeech() {
+  const k = pageKey();
+  if (k.startsWith('due')) { const g = dueGroup(); return `${SLOTS[g].ko} 약 ${doses.filter((d) => d.slot === g && !isDone(d)).map((d) => items[d.item].ko).join(', ')}`; }
+  if (k.startsWith('h')) return `${eul(items[held.flat()[0].item].ko)} 드셨어요`;
+  return `오늘 ${doses.filter((d) => d.status === 'taken' || d.status === 'late').length}개 드셨어요. 다음은 ${(doses.find((d) => !isDone(d)) || { slot: 0 }).slot >= 0 ? SLOTS[(doses.find((d) => !isDone(d)) || { slot: 0 }).slot].ko : ''}`;
+}
+
+// e-ink: a full refresh flashes (black, then white) when the page changes;
+// small changes on the same page use a quiet partial refresh.
+let flashing = false;
+function paint() {
+  const key = pageKey();
+  if (key !== lastPageKey && !flashing && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    lastPageKey = key; flashing = true;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = INK; ctx.fillRect(0, 0, 800, 600);
+    setTimeout(() => { ctx.fillStyle = PAPER; ctx.fillRect(0, 0, 800, 600); setTimeout(() => { flashing = false; draw(); }, 90); }, 90);
+  } else if (!flashing) { lastPageKey = key; draw(); }
+}
+
+// ------------------------------------------------------------------ side panels
+function render() {
+  if (notice && performance.now() > notice.until && !pending) notice = null;
+  $('#clockOut').textContent = hhmm(S.t);
+  $('#dayOut').textContent = dateLabel(S.day + (S.t >= 1440 ? 1 : 0));
+  $('#clock').value = Math.min(1500, S.t);
+  const hot = hotComps();
+  const inHandComps = held.map((hs) => hs.length > 0);
+  for (let c = 0; c < 4; c++) {
+    const el = $('#led' + c);
+    el.classList.toggle('on', hot.includes(c) && !inHandComps[c]);
+    el.classList.toggle('hold', inHandComps[c]);
+  }
+  paint();
+  renderTray(hot);
+  renderDoses();
+}
+function renderTray(hot) {
+  const box = $('#tray');
+  const heldItems = new Set(held.flat().map((h) => h.item));
+  box.innerHTML = '';
+  COMPS.forEach((c, ci) => {
+    const el = document.createElement('div');
+    el.className = 'comp' + (hot.includes(ci) ? ' glow' : '');
+    el.innerHTML = `<h3>${ci + 1} · ${c.ko} <span>${c.en}</span></h3>`;
+    items.forEach((it, i) => {
+      if (it.comp !== ci) return;
+      const row = document.createElement('div');
+      row.className = 'item';
+      const lifted = i in liftedTrue;
+      row.innerHTML = `<span class="nm">${it.ko} <small>${it.supp ? 'suppl. · ' : ''}${it.form === 'pouch' ? it.slotW.slice(0, 3).map((w) => w.toFixed(2)).join('/') + ' g' : it.form === 'topical' ? it.container.toFixed(1) + ' g' : Math.round(it.unit * 1000) + ' mg'}</small></span>`;
+      const b = (label, fn, cls = '') => { const x = document.createElement('button'); x.className = 'btn small ' + cls; x.textContent = label; x.onclick = () => { if (running) return; fn(); }; row.appendChild(x); };
+      if (it.form === 'pouch') {
+        [0, 1, 2].forEach((k) => b(`tear ${SLOTS[k].ko}`, () => act('tear', i, k)));
+        b('tear 2 stuck', () => act('tear', i, 'double'));
+        b('put back', () => act('putback', i), 'warn');
+      } else if (lifted) {
+        if (it.form === 'topical') b('put back (used)', () => act('return', i, 1), 'warn');
+        else { b('back −1', () => act('return', i, 1), 'warn'); b('back −2', () => act('return', i, 2), 'warn'); b('back, none', () => act('return', i, 'none'), 'warn'); }
+      } else {
+        if (it.form === 'pill' && it.comp === 1) b('pop 1', () => act('unit', i));
+        if (it.form === 'stick') b('take a stick', () => act('unit', i));
+        b(it.comp === 1 ? 'lift card' : 'lift', () => act('lift', i));
+        if (it.form !== 'topical' && it.form !== 'stick') b('put 1 back', () => { const g = it.unit; physical[i] += g; scaleStep(it.comp, -g); }, 'warn');
+      }
+      void heldItems;
+      el.appendChild(row);
+    });
+    box.appendChild(el);
+  });
+}
+function renderDoses() {
+  const tb = $('#doses tbody');
+  tb.innerHTML = '';
+  doses.forEach((d) => {
+    const tr = document.createElement('tr');
+    const open = isOpenAt(d, S.t) && S.t >= d.due;
+    const st = d.status === 'taken' ? '<span class="pill ok">taken</span>' : d.status === 'late' ? '<span class="pill ok">late</span>' : d.status === 'missed' ? `<span class="pill bad">missed · ${d.why}</span>` : open ? '<span class="pill due">due</span>' : '<span class="pill up">later</span>';
+    tr.innerHTML = `<td>${hhmm(d.due)}</td><td>${items[d.item].ko}</td><td>${st}</td><td>${d.source ? d.source + ' ' + hhmm(d.at) : ''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ------------------------------------------------------------------ scenarios
+let running = false;
+function prime(upto) {  // she took everything due before `upto`, on time
+  for (const d of doses) if (d.due + 20 < upto) { d.status = 'taken'; d.at = d.due + 8; d.source = 'weighed'; const it = items[d.item]; if (it.stock >= 0) it.stock -= d.planned; }
+  lastLevel = SLOTS.map((s) => (s.min + 20 < upto ? 3 : 0));
+}
+let P = 1300;
+const SCEN = [
+  { name: 'Morning, all right', run: () => [
+    () => { reset(0, 500); prime(500); render(); log('d', '— scenario: an ordinary morning —'); },
+    () => advanceTo(512), () => act('tear', 0, 0), () => act('unit', 1), () => knob('p'), () => act('unit', 2), () => act('unit', 3),
+    () => act('lift', 4), () => act('return', 4, 1), () => act('lift', 6), () => act('return', 6, 1), () => advanceTo(540)] },
+  { name: 'Wrong sachet at lunch', run: () => [
+    () => { reset(0, 740); prime(745); render(); log('d', '— scenario: she tears the evening sachet at lunch —'); },
+    () => advanceTo(752), () => act('tear', 0, 2), () => act('putback', 0), () => act('tear', 0, 1)] },
+  { name: 'Two sachets stuck', run: () => [
+    () => { reset(0, 505); prime(505); render(); log('d', '— scenario: morning and lunch sachets stuck together —'); },
+    () => advanceTo(515), () => act('tear', 0, 'double'), () => act('putback', 0)] },
+  { name: 'The screen follows her hand', run: () => [
+    () => { reset(0, 1105); prime(1105); render(); log('d', '— scenario: evening, she lifts the omega-3 bottle —'); },
+    () => advanceTo(1112), () => act('lift', 7), () => act('return', 7, 2), () => { const g = items[7].unit; physical[7] += g; scaleStep(3, -g); }] },
+  { name: 'Stick or eye drops?', run: () => [
+    () => { reset(0, 512); prime(512); render(); log('d', '— scenario: a 12 g stick weighs like an 11.5 g eye-drop bottle —'); },
+    () => { items[4].container = 11.9; physical[4] = 11.9; act('unit', 3); }, () => advanceTo(514), () => advanceTo(516)] },
+  { name: 'Sunday, out for lunch', run: () => [
+    () => { reset(1, 600); prime(600); render(); log('d', '— scenario: Sunday, church and lunch out —'); },
+    () => { S.home = false; $('#home').checked = false; log('d', 'radar: nobody near Lyra'); advanceTo(640); },
+    () => advanceTo(760), () => advanceTo(900), () => advanceTo(931), () => { S.home = true; $('#home').checked = true; advanceTo(960); }] },
+  { name: 'Forgets at bedtime', run: () => [
+    () => { reset(0, 1315); prime(1315); render(); log('d', '— scenario: home, watching TV at bedtime —'); },
+    () => advanceTo(1320), () => advanceTo(1336), () => advanceTo(1351), () => advanceTo(1391), () => advanceTo(1501)] },
+  { name: 'Takes it twice', run: () => [
+    () => { reset(0, 1110); prime(1110); render(); log('d', '— scenario: stomach tablet at 18:35, again at 18:50 —'); },
+    () => advanceTo(1115), () => act('unit', 2), () => advanceTo(1130), () => act('unit', 2), () => { const g = items[2].unit; physical[2] += g; scaleStep(1, -g); }] },
+  { name: 'Sachets running low', run: () => [
+    () => { reset(0, 700); prime(700); items[0].stock = 22; render(); log('d', '— scenario: 22 sachets left —'); },
+    () => advanceTo(760), () => act('tear', 0, 1), () => advanceTo(762)] },
+  { name: 'Turn the knob: week, supply, noticed', run: () => [
+    () => { reset(0, 1000); prime(1000); override = null; render(); log('d', '— the knob pages —'); },
+    () => knob('r'), () => knob('r'), () => knob('r'), () => knob('p')] },
+];
+function play(sc) {
+  if (running) return;
+  running = true;
+  const steps = sc.run();
+  $('#say').innerHTML = '&nbsp;';
+  let n = 0;
+  const next = () => { if (n >= steps.length) { running = false; document.querySelectorAll('#scen button').forEach((b) => (b.disabled = false)); return; } steps[n++](); render(); setTimeout(next, P); };
+  document.querySelectorAll('#scen button').forEach((b) => (b.disabled = true));
+  next();
+}
+
+// ------------------------------------------------------------------ wiring
+function setLang(l) { S.lang = l; $('#lang-ko').setAttribute('aria-pressed', l === 'ko'); $('#lang-en').setAttribute('aria-pressed', l === 'en'); lastPageKey = ''; render(); }
+$('#lang-ko').onclick = () => setLang('ko');
+$('#lang-en').onclick = () => setLang('en');
+$('#clock').oninput = (e) => { if (!running) advanceTo(+e.target.value); };
+document.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => { if (!running) advanceTo(S.t + +b.dataset.adv); }));
+$('#home').onchange = (e) => { S.home = e.target.checked; log('d', S.home ? 'radar: she is home' : 'radar: nobody near Lyra'); render(); };
+$('#noise').oninput = (e) => { S.noise = +e.target.value / 1000; $('#noiseOut').textContent = e.target.value; };
+$('#kl').onclick = () => knob('l'); $('#kr').onclick = () => knob('r'); $('#kp').onclick = () => knob('p'); $('#kh').onclick = () => knob('hold');
+$('#clearLog').onclick = () => { $('#log').innerHTML = ''; };
+SCEN.forEach((sc) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = sc.name; b.onclick = () => play(sc); $('#scen').appendChild(b); });
+setInterval(() => { if (notice && performance.now() > notice.until && !pending) render(); }, 1000);
+
+reset(0, 505);
+prime(505);
+log('d', 'Lyra is ready: 9 items in 4 compartments. Try a scenario, or act on the tray yourself.');
+const start = () => render();
+if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700 20px "Noto Sans KR"'), document.fonts.load('900 20px "Noto Sans KR"'), document.fonts.load('700 20px "Atkinson Hyperlegible"')]).then(start, start);
+else start();
+window.__lyra = { S, act, knob, advanceTo, play, SCEN, get doses() { return doses; }, pageKey, setSpeed: (ms) => { P = ms; }, get running() { return running; } };
+})();
+</script>
+
+</body>
+</html>
