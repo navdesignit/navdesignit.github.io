@@ -52,6 +52,7 @@ That's all: no sign-in setup and no billing. The free Spark plan allows 100 phon
 | Character names, nicknames, trash-talk lines, face drawings | `js/characters.js` |
 | Rules: blast radius, box effects and their odds, Kaboom limits | `js/engine.js` |
 | Board drawing and animations | `js/board.js` |
+| Meme voice clips on a kill | `sounds/kill-memes.mp3`, cut into clips by `KILL_CLIPS` in `js/sound.js` |
 | Screens and buttons | `index.html`, `style.css`, `js/app.js` |
 | Online rooms (Firebase) | `js/net.js` |
 

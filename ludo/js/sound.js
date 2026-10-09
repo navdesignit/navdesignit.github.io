@@ -1,5 +1,11 @@
-// Tiny synthesised sound effects (no audio files to download) + haptics.
+// Tiny synthesised sound effects + haptics, plus meme voice clips on a kill.
 // iPhones only allow audio after a tap, so unlock() runs on the first touch.
+
+// Kill reactions: 10 meme clips cut from one file, as [start, end] seconds.
+const KILL_CLIPS = [[0.55, 6.1], [7.12, 16.21], [17.12, 23.33], [24.54, 27.52], [28.56, 30.5],
+  [31.31, 37.38], [38.5, 40.65], [41.88, 42.78], [44.04, 45.85], [46.67, 51.54]];
+let killBuf = null;
+let killSrc = null;
 
 let ctx = null;
 let muted = false;
@@ -16,6 +22,10 @@ export function unlock() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
+    fetch(new URL('../sounds/kill-memes.mp3', import.meta.url))
+      .then(r => r.arrayBuffer())
+      .then(b => ctx.decodeAudioData(b, buf => { killBuf = buf; }))
+      .catch(() => { /* no clips: the synth kill sound still plays */ });
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
@@ -51,11 +61,21 @@ function noise(dur, { vol = 0.3, at = 0, cutoff = 1200 } = {}) {
   src.start(t);
 }
 
+function killClip() {
+  if (!killBuf) return;
+  const [from, to] = KILL_CLIPS[Math.floor(Math.random() * KILL_CLIPS.length)];
+  if (killSrc) killSrc.stop(); // a new kill cuts off the last clip instead of talking over it
+  killSrc = ctx.createBufferSource();
+  killSrc.buffer = killBuf;
+  killSrc.connect(ctx.destination);
+  killSrc.start(0, from, to - from);
+}
+
 const SOUNDS = {
   roll() { for (let i = 0; i < 7; i++) noise(0.04, { vol: 0.25, at: i * 0.06, cutoff: 3000 }); },
   step() { tone(520 + Math.random() * 80, 0.06, { type: 'triangle', vol: 0.12 }); },
   six() { tone(880, 0.12, { type: 'square', vol: 0.08 }); tone(1320, 0.2, { type: 'square', vol: 0.08, at: 0.1 }); },
-  kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); },
+  kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); killClip(); },
   kaboom() { noise(1.3, { vol: 0.9, cutoff: 500 }); tone(90, 0.9, { vol: 0.5, to: 30 }); tone(160, 0.3, { type: 'sawtooth', vol: 0.2, to: 40 }); },
   box() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, { type: 'triangle', vol: 0.12, at: i * 0.07 })); },
   home() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, { vol: 0.14, at: i * 0.09 })); },
