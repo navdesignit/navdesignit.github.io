@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRoom, reduce, botAction, blastTargets, kaboomTokens, square, current, bestMove, moveVictims,
-  YARD, HOME, SAFE,
+  YARD, HOME, SAFE, setArms,
 } from '../js/engine.js';
 import { charForName, pickLine, CHARACTERS } from '../js/characters.js';
 
@@ -290,14 +290,31 @@ test('threat taunt: the player one exact roll from death says the number', () =>
 });
 
 // Plays thousands of full bot games and checks nothing ever breaks.
+test('5 players play on a 5-arm board with a 65-square track', () => {
+  const s = started(['Ajay', 'Nav', 'Chechu', 'Vanshika', 'Liu']);
+  assert.deepEqual(s.players.map(p => p.color), ['red', 'green', 'yellow', 'blue', 'pink']);
+  assert.equal(HOME, 69);
+  assert.equal(square('pink', 0), 52);
+  assert.equal(square('pink', 13), 0); // wraps round the 65-square ring
+  // Red on its last track square (63) goes up its home lane: 63 + 6 = 69 = home.
+  let t = reduce(setup(s, { red: [63, YARD, YARD, YARD] }), { type: 'roll', uid: 'u0' }, dice(6));
+  t = reduce(t, { type: 'move', uid: 'u0', token: 0 });
+  assert.equal(t.tokens.red[0], HOME);
+  // Pink at step 12 (square 64) kills green on square 1 with a 2.
+  t = reduce(setup(s, { pink: [12, YARD, YARD, YARD], green: [53, YARD, YARD, YARD] }, 'pink'), { type: 'roll', uid: 'u4' }, dice(2));
+  assert.equal(t.tokens.pink[0], 14);
+  assert.equal(t.tokens.green[0], YARD);
+  setArms(4);
+});
+
 test('simulation: 600 random games always finish cleanly', () => {
   let seed = 42;
   const rng = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
   const stats = { kabooms: 0, boxes: 0, kills: 0, greedy: 0, actions: 0 };
   for (let g = 0; g < 600; g++) {
-    const n = 2 + (g % 3);
+    const n = 2 + (g % 4);
     let s = createRoom('SIM', 1);
-    for (let i = 0; i < n; i++) s = reduce(s, { type: 'join', uid: `p${i}`, name: ['Ajay', 'Nav', 'Chechu', 'Liu'][i] });
+    for (let i = 0; i < n; i++) s = reduce(s, { type: 'join', uid: `p${i}`, name: ['Ajay', 'Nav', 'Chechu', 'Liu', 'Vanshika'][i] });
     s = reduce(s, { type: 'settings', uid: 'p0', settings: { boxes: g % 2 === 0, finish: g % 4 < 2 ? 'first' : 'all', timer: 0 } });
     s = reduce(s, { type: 'start', uid: 'p0', at: 1 }, rng);
     let steps = 0;

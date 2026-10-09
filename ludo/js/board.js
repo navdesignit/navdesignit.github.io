@@ -2,11 +2,11 @@
 // 15 × 15, with (0,0) the top-left corner. Red sits top-left, then clockwise
 // green, yellow, blue.
 
-import { START, SAFE, YARD, HOME, LAST_TRACK, square } from './engine.js';
+import { COLORS, START, SAFE, YARD, HOME, LAST_TRACK, square } from './engine.js';
 import { CHAR_IDS, faceMarkup } from './characters.js';
 
-export const TEAM = { red: '#E5383B', green: '#1FA45B', yellow: '#F2B705', blue: '#1F6FEB' };
-export const TINT = { red: '#FDD5D5', green: '#C9EED8', yellow: '#FFEDB8', blue: '#D2E3FD' };
+export const TEAM = { red: '#E5383B', green: '#1FA45B', yellow: '#F2B705', blue: '#1F6FEB', pink: '#E040A0' };
+export const TINT = { red: '#FDD5D5', green: '#C9EED8', yellow: '#FFEDB8', blue: '#D2E3FD', pink: '#FBD3EA' };
 
 export const TRACK = (() => {
   const t = [];
@@ -38,14 +38,53 @@ const GOAL_SPOTS = [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]];
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 
+const YARD_R = 2.4;
+const CLASSIC = { TRACK, LANE, YARD_AT, GOAL, ANG: TRACK.map(() => 0), view: '-0.2 -0.2 15.4 15.4', draw: () => staticBoard() };
+
+// 5-player board: five 3×6 arms around a pentagon centred on (0,0), red pointing
+// left then clockwise. Same per-arm path as the classic board, so the same
+// 13-squares-per-colour rules apply. Cells are stored by top-left corner like TRACK.
+const PENTA = (() => {
+  const A = 1.5 / Math.tan(Math.PI / 5); // centre → inner edge of an arm
+  const deg = k => -162 + 72 * k;
+  // `out` cells out from the arm's inner edge, `side` cells to its left (+) or right (−).
+  const at = (k, out, side) => {
+    const a = (deg(k) * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a), r = A + out;
+    return [r * ux + side * uy - 0.5, r * uy - side * ux - 0.5];
+  };
+  const raw = [], ang = [];
+  for (let k = 0; k < 5; k++) {
+    for (let j = 0; j < 6; j++) raw.push(at(k, j + 0.5, 1));
+    raw.push(at(k, 5.5, 0));
+    for (let j = 5; j >= 0; j--) raw.push(at(k, j + 0.5, -1));
+    for (let j = 0; j < 13; j++) ang.push(deg(k));
+  }
+  // Each colour starts on its own arm's right column, 2nd square from the tip.
+  const rot = list => list.slice(8).concat(list.slice(0, 8));
+  const P = { TRACK: rot(raw), ANG: rot(ang), LANE: {}, YARD_AT: {}, GOAL: {}, ARM: {}, CORNERS: {}, view: '-9.4 -9.4 18.8 18.8' };
+  COLORS.forEach((c, k) => {
+    P.LANE[c] = [4, 3, 2, 1, 0].map(j => at(k, j + 0.5, 0));
+    // Yard: a circle wedged between this arm and the next, touching both.
+    const y = ((deg(k) + 36) * Math.PI) / 180, d = (1.5 + YARD_R) / Math.sin(Math.PI / 5);
+    P.YARD_AT[c] = [d * Math.cos(y) - 3, d * Math.sin(y) - 3];
+    const g = (deg(k) * Math.PI) / 180;
+    P.GOAL[c] = [1.3 * Math.cos(g), 1.3 * Math.sin(g)];
+    P.ARM[c] = deg(k);
+    P.CORNERS[c] = [at(k, 0, 1.5), at(k, 0, -1.5)].map(([x, py]) => [x + 0.5, py + 0.5]);
+  });
+  P.draw = () => staticBoard5(P);
+  return P;
+})();
+let G = CLASSIC;
+
 // Centre of where token t of colour c sits at step p.
 export function spot(c, p, t) {
-  if (p === YARD) { const [x, y] = YARD_AT[c]; return { x: x + SPOTS[t][0], y: y + SPOTS[t][1], s: 1 }; }
-  if (p === HOME) { const [x, y] = GOAL[c]; return { x: x + GOAL_SPOTS[t][0], y: y + GOAL_SPOTS[t][1], s: 0.42 }; }
-  const [x, y] = p > LAST_TRACK ? LANE[c][p - LAST_TRACK - 1] : TRACK[square(c, p)];
+  if (p === YARD) { const [x, y] = G.YARD_AT[c]; return { x: x + SPOTS[t][0], y: y + SPOTS[t][1], s: 1 }; }
+  if (p === HOME) { const [x, y] = G.GOAL[c]; return { x: x + GOAL_SPOTS[t][0], y: y + GOAL_SPOTS[t][1], s: 0.42 }; }
+  const [x, y] = p > LAST_TRACK ? G.LANE[c][p - LAST_TRACK - 1] : G.TRACK[square(c, p)];
   return { x: x + 0.5, y: y + 0.5, s: 1 };
 }
-export const squareCenter = sq => ({ x: TRACK[sq][0] + 0.5, y: TRACK[sq][1] + 0.5 });
+export const squareCenter = sq => ({ x: G.TRACK[sq][0] + 0.5, y: G.TRACK[sq][1] + 0.5 });
 
 function starPath(cx, cy, r) {
   let d = '';
@@ -87,12 +126,37 @@ function staticBoard() {
   g += `<path d="M6 6 L9 6 L7.5 7.5Z" fill="${TEAM.green}"/><path d="M9 6 L9 9 L7.5 7.5Z" fill="${TEAM.yellow}"/>`;
   g += `<path d="M9 9 L6 9 L7.5 7.5Z" fill="${TEAM.blue}"/><path d="M6 9 L6 6 L7.5 7.5Z" fill="${TEAM.red}"/>`;
   g += '<path d="M6 6 L9 9 M9 6 L6 9" stroke="rgba(255,255,255,.5)" stroke-width="0.04"/>';
-  // the bomb in the middle
-  g += '<g transform="translate(7.5 7.55)"><circle r="0.52" fill="#2a1747" stroke="#fff" stroke-width="0.07"/>' +
-    '<path d="M0.22 -0.42 Q0.42 -0.72 0.62 -0.6" fill="none" stroke="#fff" stroke-width="0.07" stroke-linecap="round"/>' +
-    '<circle class="spark" cx="0.64" cy="-0.6" r="0.11" fill="#FFC93C"/>' +
-    '<text y="0.17" text-anchor="middle" font-size="0.42" font-weight="900" fill="#fff" font-family="Bungee, sans-serif">AL</text></g>';
-  return g;
+  return g + `<g transform="translate(7.5 7.55)">${BOMB}</g>`;
+}
+
+// the bomb in the middle
+const BOMB = '<circle r="0.52" fill="#2a1747" stroke="#fff" stroke-width="0.07"/>' +
+  '<path d="M0.22 -0.42 Q0.42 -0.72 0.62 -0.6" fill="none" stroke="#fff" stroke-width="0.07" stroke-linecap="round"/>' +
+  '<circle class="spark" cx="0.64" cy="-0.6" r="0.11" fill="#FFC93C"/>' +
+  '<text y="0.17" text-anchor="middle" font-size="0.42" font-weight="900" fill="#fff" font-family="Bungee, sans-serif">AL</text>';
+
+function staticBoard5(P) {
+  const cell = ([x, y], a, fill) => `<rect x="-0.5" y="-0.5" width="1" height="1" transform="translate(${(x + 0.5).toFixed(3)} ${(y + 0.5).toFixed(3)}) rotate(${a})" fill="${fill}" stroke="#d8d2c4" stroke-width="0.035"/>`;
+  let g = '<circle r="9.3" fill="#2a1747"/><circle r="9.12" fill="#fffdf7"/>';
+  const startColor = {};
+  for (const c of Object.keys(P.LANE)) startColor[START[c]] = c;
+  P.TRACK.forEach(([x, y], sq) => {
+    const c = startColor[sq];
+    g += cell([x, y], P.ANG[sq], c ? TEAM[c] : '#fffdf7');
+    if (SAFE.includes(sq)) g += `<path d="${starPath(x + 0.5, y + 0.52, 0.32)}" fill="${c ? '#fff' : '#cfc6b3'}" opacity="${c ? 0.85 : 1}"/>`;
+  });
+  for (const c of Object.keys(P.LANE)) {
+    for (const xy of P.LANE[c]) g += cell(xy, P.ARM[c], TEAM[c]);
+    const [ax, ay] = P.TRACK[square(c, LAST_TRACK)];
+    g += `<path d="M-0.28 -0.14 H0.08 V-0.3 L0.32 0 L0.08 0.3 V0.14 H-0.28Z" fill="${TEAM[c]}" opacity=".55" transform="translate(${(ax + 0.5).toFixed(3)} ${(ay + 0.5).toFixed(3)}) rotate(${P.ARM[c] + 180})"/>`;
+    const [yx, yy] = P.YARD_AT[c].map(v => v + 3);
+    g += `<circle cx="${yx.toFixed(3)}" cy="${yy.toFixed(3)}" r="${YARD_R}" fill="${TEAM[c]}"/><circle cx="${yx.toFixed(3)}" cy="${yy.toFixed(3)}" r="${YARD_R - 0.35}" fill="#fffdf7"/>`;
+    g += `<g class="yard-glow" data-c="${c}"><circle cx="${yx.toFixed(3)}" cy="${yy.toFixed(3)}" r="${YARD_R - 0.35}" fill="none" stroke="${TEAM[c]}" stroke-width="0.22"/></g>`;
+    for (const [dx, dy] of SPOTS) g += `<circle cx="${(yx + dx - 3).toFixed(3)}" cy="${(yy + dy - 3).toFixed(3)}" r="0.62" fill="${TINT[c]}" stroke="${TEAM[c]}" stroke-width="0.08"/>`;
+    const [[x1, y1], [x2, y2]] = P.CORNERS[c];
+    g += `<path d="M0 0 L${x1.toFixed(3)} ${y1.toFixed(3)} L${x2.toFixed(3)} ${y2.toFixed(3)}Z" fill="${TEAM[c]}" stroke="rgba(255,255,255,.5)" stroke-width="0.04"/>`;
+  }
+  return g + `<g transform="translate(0 0.05)">${BOMB}</g>`;
 }
 
 function defs() {
@@ -114,8 +178,9 @@ export class Board {
     this.svg = svg;
     this.onTap = onTap;
     this.speed = 1;
-    svg.setAttribute('viewBox', '-0.2 -0.2 15.4 15.4');
-    svg.innerHTML = defs() + `<g>${staticBoard()}</g><g class="boxes"></g><g class="marks"></g><g class="tokens"></g><g class="fxl"></g>`;
+    svg.innerHTML = defs() + '<g class="static"></g><g class="boxes"></g><g class="marks"></g><g class="tokens"></g><g class="fxl"></g>';
+    this.staticG = svg.querySelector('.static');
+    this.useArms(4);
     this.boxesG = svg.querySelector('.boxes');
     this.marksG = svg.querySelector('.marks');
     this.tokensG = svg.querySelector('.tokens');
@@ -124,6 +189,15 @@ export class Board {
     this.pos = new Map();   // "red:0" → {x, y, s}
     this.targets = [];      // tappable tokens [{c, t}]
     svg.addEventListener('pointerup', e => this.tap(e));
+  }
+
+  // Classic board for 2–4 players, the 5-arm one for 5.
+  useArms(n) {
+    if (n === this.arms) return;
+    this.arms = n;
+    G = n === 5 ? PENTA : CLASSIC;
+    this.svg.setAttribute('viewBox', G.view);
+    this.staticG.innerHTML = G.draw();
   }
 
   // Build token elements for the players in this game.
@@ -203,7 +277,7 @@ export class Board {
     if (mode === 'kaboom' && blast) {
       for (const { sq } of blast) {
         const { x, y } = squareCenter(sq);
-        this.marksG.insertAdjacentHTML('beforeend', `<rect class="blast-zone" x="${x - 0.5}" y="${y - 0.5}" width="1" height="1"/>`);
+        this.marksG.insertAdjacentHTML('beforeend', `<rect class="blast-zone" x="${x - 0.5}" y="${y - 0.5}" width="1" height="1" transform="rotate(${G.ANG[sq]} ${x} ${y})"/>`);
       }
     }
   }

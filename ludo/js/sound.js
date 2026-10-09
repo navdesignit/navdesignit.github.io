@@ -1,5 +1,32 @@
-// Tiny synthesised sound effects (no audio files to download) + haptics.
+// Tiny synthesised sound effects + haptics, plus meme voice clips: on a kill, on a
+// close call, and whenever someone taps one on the soundboard.
 // iPhones only allow audio after a tap, so unlock() runs on the first touch.
+
+// Meme clips packed into one file: [start, end] seconds and the soundboard label.
+export const MEMES = [
+  [0.0, 2.65, "Main lad raha hoon aapke liye"],
+  [2.95, 5.6, "Mazaa nahi aa raha hai"],
+  [5.9, 7.9, "Mister Donald Trump"],
+  [8.2, 11.0, "Wah Modi ji wah"],
+  [11.3, 15.25, "Wah kya scene hai"],
+  [15.55, 17.55, "Ye PUBG wala hai kya?"],
+  [17.85, 22.05, "Hum to fakir aadmi hain"],
+  [22.35, 25.8, "Hypocrisy ki bhi seema"],
+  [26.1, 28.35, "Is sajjan ko kya takleef hai"],
+  [28.65, 32.75, "Moorkh samajhna band karo"],
+  [33.05, 38.45, "Bachkana baatein"],
+  [38.75, 43.05, "Jhooth bolo, baar baar"],
+  [43.35, 48.64, "Kitne tejasvi log hain"],
+  [48.94, 55.84, "Wahi baat… garib aadmi"],
+  [56.14, 61.04, "Depression mein ho?"],
+  [61.34, 66.49, "Alag hi level ka banda"],
+  [66.79, 69.59, "🤔 Mystery meme"],
+  [69.89, 75.79, "Sanitizer ka nasha band karo"],
+  [76.09, 81.04, "Bade deshon mein… Senorita"],
+  [81.34, 85.14, "System phaad denge"],
+];
+let memeBuf = null;
+let memeSrc = null;
 
 let ctx = null;
 let muted = false;
@@ -16,6 +43,10 @@ export function unlock() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
+    fetch(new URL('../sounds/memes.mp3', import.meta.url))
+      .then(r => r.arrayBuffer())
+      .then(b => ctx.decodeAudioData(b, buf => { memeBuf = buf; }))
+      .catch(() => { /* no clips: the synth kill sound still plays */ });
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
@@ -51,11 +82,22 @@ function noise(dur, { vol = 0.3, at = 0, cutoff = 1200 } = {}) {
   src.start(t);
 }
 
+function memeClip(i = Math.floor(Math.random() * MEMES.length)) {
+  if (!memeBuf || !MEMES[i]) return;
+  const [from, to] = MEMES[i];
+  if (memeSrc) memeSrc.stop(); // a new clip cuts off the last one instead of talking over it
+  memeSrc = ctx.createBufferSource();
+  memeSrc.buffer = memeBuf;
+  memeSrc.connect(ctx.destination);
+  memeSrc.start(0, from, to - from);
+}
+
 const SOUNDS = {
   roll() { for (let i = 0; i < 7; i++) noise(0.04, { vol: 0.25, at: i * 0.06, cutoff: 3000 }); },
   step() { tone(520 + Math.random() * 80, 0.06, { type: 'triangle', vol: 0.12 }); },
   six() { tone(880, 0.12, { type: 'square', vol: 0.08 }); tone(1320, 0.2, { type: 'square', vol: 0.08, at: 0.1 }); },
-  kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); },
+  kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); memeClip(); },
+  danger() { memeClip(); },
   kaboom() { noise(1.3, { vol: 0.9, cutoff: 500 }); tone(90, 0.9, { vol: 0.5, to: 30 }); tone(160, 0.3, { type: 'sawtooth', vol: 0.2, to: 40 }); },
   box() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, { type: 'triangle', vol: 0.12, at: i * 0.07 })); },
   home() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, { vol: 0.14, at: i * 0.09 })); },
@@ -68,6 +110,12 @@ const SOUNDS = {
 export function sfx(name) {
   if (muted || !ctx || !SOUNDS[name]) return;
   try { SOUNDS[name](); } catch (e) { /* never let sound break the game */ }
+}
+
+// Soundboard: play meme clip i.
+export function playMeme(i) {
+  if (muted || !ctx) return;
+  try { memeClip(i); } catch (e) { /* never let sound break the game */ }
 }
 
 // Android only — iPhones ignore vibration from web pages.

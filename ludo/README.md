@@ -4,7 +4,7 @@ Ludo, but with bombs. Make a room, send the link on WhatsApp, and your friends t
 
 **Play:** https://navdesignit.github.io/ludo/
 
-- **2, 3 or 4 players**, online or pass-and-play on one phone, with optional 🤖 bots.
+- **2 to 5 players**, online or pass-and-play on one phone, with optional 🤖 bots. With 5 players the game switches to a pentagon board with five arms (pink is the 5th colour), so the whole gang can play together.
 - **5 characters:** Ajay, Nav, Chechu, Vanshika and Liu. Type one of those names and you *become* that character. Anyone else picks a free one, and the real Nav always gets Nav.
   - 😎 Ajay, 🧠 Nav and 🍛 Chechu are childhood friends from Indore and roast each other in Indori.
   - ⚖️ Vanshika is a Delhi lawyer and Ajay's wife. If you need a 4 to kill her: "4 ni ayega 😌". If you get it anyway: "Toh maar do… haha 😂".
@@ -52,6 +52,7 @@ That's all: no sign-in setup and no billing. The free Spark plan allows 100 phon
 | Character names, nicknames, trash-talk lines, face drawings | `js/characters.js` |
 | Rules: blast radius, box effects and their odds, Kaboom limits | `js/engine.js` |
 | Board drawing and animations | `js/board.js` |
+| Meme voice clips (kills, close calls, the 😂 soundboard) | `sounds/memes.mp3`: 20 clips packed back to back, listed with their labels in `MEMES` in `js/sound.js` |
 | Screens and buttons | `index.html`, `style.css`, `js/app.js` |
 | Online rooms (Firebase) | `js/net.js` |
 

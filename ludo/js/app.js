@@ -2,12 +2,12 @@
 
 import {
   createRoom, reduce, current, canKaboom, kaboomTokens, blastTargets, botAction, cleanName, moveVictims, playerByColor,
-  BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn,
+  BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn, setArms, armsOf, ARMS, RING,
 } from './engine.js';
 import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
 import { Board, TEAM, squareCenter } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
-import { sfx, buzz, unlock, isMuted, setMuted } from './sound.js';
+import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -370,6 +370,9 @@ async function pump() {
 
 async function present(st, fast) {
   const prev = S.shown;
+  setArms(armsOf(st));
+  board.useArms(ARMS);
+  $('#game').classList.toggle('five', ARMS === 5);
   if (st.phase === 'lobby') {
     S.shown = st;
     closeModal('modal-results');
@@ -454,6 +457,7 @@ async function playFx(st, prev, intro) {
         await kaboomFx(f, st);
         break;
       case 'say':
+        if (f.kind === 'threat') sfx('danger'); // someone is one roll from dying
         sayBubble(f.uid, f.text);
         break;
       case 'greedy':
@@ -535,9 +539,11 @@ function confetti(n) {
   }
 }
 
-const EMOJIS = ['😂', '😭', '🔥', '💀', '🤡', '🙏', '😡', '👋', '🐢', '😈'];
+const EMOJIS = ['😂', '😭', '🔥', '💀', '🤡', '🙏', '😡', '👋', '🐢', '😈', '🤣', '🙈', '🤯', '🥵', '😎', '🫡', '🐒', '🍌', '💩', '🐔'];
+// A "clip:N" reaction plays meme clip N on every phone, with a 🔊 floater.
 function floatEmoji(e, uid) {
-  if (!EMOJIS.includes(e)) return;
+  const clip = /^clip:(\d+)$/.exec(e);
+  if (clip) { playMeme(Number(clip[1])); e = '🔊'; } else if (!EMOJIS.includes(e)) return;
   const p = player(S.state, uid);
   const el = document.createElement('div');
   el.className = 'floater';
@@ -602,7 +608,7 @@ function renderControls(st, busy = false) {
     const zone = [];
     for (const o of list) {
       const sq = square(me.color, st.tokens[me.color][o.t]);
-      for (let d = -2; d <= 2; d++) zone.push({ sq: (sq + d + 52) % 52 });
+      for (let d = -2; d <= 2; d++) zone.push({ sq: (sq + d + RING) % RING });
     }
     board.highlight(list, 'kaboom', zone);
   } else if (!busy && me && st.phase === 'move' && S.sentSeq !== st.seq) {
@@ -724,7 +730,7 @@ function showResults(st) {
   const host = S.mode === 'local' || st.host === S.me;
   $('#results').innerHTML = `
     <div class="winner" style="--c:${TEAM[winner.color]}">${face(winner)}<h2>${esc(winner.name)} wins!</h2><p>Alquida Champion 🏆</p></div>
-    <ol class="ranking">${ranks.map((p, i) => `<li style="--c:${TEAM[p.color]}"><span>${['🥇', '🥈', '🥉', '4️⃣'][i]}</span>${face(p)}<b>${esc(p.name)}</b><small>⚔️${p.kills} 💀${p.deaths}</small></li>`).join('')}</ol>
+    <ol class="ranking">${ranks.map((p, i) => `<li style="--c:${TEAM[p.color]}"><span>${['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][i]}</span>${face(p)}<b>${esc(p.name)}</b><small>⚔️${p.kills} 💀${p.deaths}</small></li>`).join('')}</ol>
     ${awards.length ? `<div class="awards">${awards.map(([i, t, d, p]) => `<div class="award"><span>${i}</span><div><b>${t}</b><small>${esc(p.name)} · ${d}</small></div></div>`).join('')}</div>` : ''}
     <div class="stack">
       ${host ? '<button class="btn big primary" id="btn-again">🔁 Play again</button>' : '<p class="waiting">Waiting for the host to start a rematch…</p>'}
@@ -898,7 +904,8 @@ $('#lobby-players').onclick = e => {
 $('#dice').onclick = onDice;
 $('#btn-kaboom').onclick = onKaboomBtn;
 $('#btn-emoji').onclick = () => { $('#emoji-tray').hidden = !$('#emoji-tray').hidden; };
-$('#emoji-tray').innerHTML = EMOJIS.map(e => `<button data-e="${e}">${e}</button>`).join('');
+$('#emoji-tray').innerHTML = EMOJIS.map(e => `<button data-e="${e}">${e}</button>`).join('') +
+  `<div class="clips">${MEMES.map(([, , label], i) => `<button data-e="clip:${i}">🔊 ${esc(label)}</button>`).join('')}</div>`;
 $('#emoji-tray').onclick = e => {
   const b = e.target.closest('[data-e]');
   if (!b || !S.room) return;
