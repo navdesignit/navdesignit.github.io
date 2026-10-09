@@ -2,7 +2,7 @@
 
 import {
   createRoom, reduce, current, canKaboom, kaboomTokens, blastTargets, botAction, cleanName, moveVictims, playerByColor,
-  BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn,
+  BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn, setArms, armsOf, ARMS, RING,
 } from './engine.js';
 import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
 import { Board, TEAM, squareCenter } from './board.js';
@@ -370,6 +370,9 @@ async function pump() {
 
 async function present(st, fast) {
   const prev = S.shown;
+  setArms(armsOf(st));
+  board.useArms(ARMS);
+  $('#game').classList.toggle('five', ARMS === 5);
   if (st.phase === 'lobby') {
     S.shown = st;
     closeModal('modal-results');
@@ -602,7 +605,7 @@ function renderControls(st, busy = false) {
     const zone = [];
     for (const o of list) {
       const sq = square(me.color, st.tokens[me.color][o.t]);
-      for (let d = -2; d <= 2; d++) zone.push({ sq: (sq + d + 52) % 52 });
+      for (let d = -2; d <= 2; d++) zone.push({ sq: (sq + d + RING) % RING });
     }
     board.highlight(list, 'kaboom', zone);
   } else if (!busy && me && st.phase === 'move' && S.sentSeq !== st.seq) {
@@ -724,7 +727,7 @@ function showResults(st) {
   const host = S.mode === 'local' || st.host === S.me;
   $('#results').innerHTML = `
     <div class="winner" style="--c:${TEAM[winner.color]}">${face(winner)}<h2>${esc(winner.name)} wins!</h2><p>Alquida Champion 🏆</p></div>
-    <ol class="ranking">${ranks.map((p, i) => `<li style="--c:${TEAM[p.color]}"><span>${['🥇', '🥈', '🥉', '4️⃣'][i]}</span>${face(p)}<b>${esc(p.name)}</b><small>⚔️${p.kills} 💀${p.deaths}</small></li>`).join('')}</ol>
+    <ol class="ranking">${ranks.map((p, i) => `<li style="--c:${TEAM[p.color]}"><span>${['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][i]}</span>${face(p)}<b>${esc(p.name)}</b><small>⚔️${p.kills} 💀${p.deaths}</small></li>`).join('')}</ol>
     ${awards.length ? `<div class="awards">${awards.map(([i, t, d, p]) => `<div class="award"><span>${i}</span><div><b>${t}</b><small>${esc(p.name)} · ${d}</small></div></div>`).join('')}</div>` : ''}
     <div class="stack">
       ${host ? '<button class="btn big primary" id="btn-again">🔁 Play again</button>' : '<p class="waiting">Waiting for the host to start a rematch…</p>'}

@@ -3,20 +3,32 @@
 //
 // A token's position is counted in steps from its own start square:
 //   -1 = in the yard, 0–50 = on the shared track, 51–55 = own home lane, 56 = home.
+// That's the classic 4-arm board (52 squares). A 5-player game uses a 5-arm
+// board (65 squares), so the track runs 0–63 and home is 69. setArms() switches.
 
 import { CHARACTERS, CHAR_IDS, charForName, pickLine, areBesties } from './characters.js';
 
-export const COLORS = ['red', 'green', 'yellow', 'blue'];
-export const SEATS = { 2: ['red', 'yellow'], 3: ['red', 'green', 'yellow'], 4: ['red', 'green', 'yellow', 'blue'] };
-export const START = { red: 0, green: 13, yellow: 26, blue: 39 };
-export const SAFE = [0, 8, 13, 21, 26, 34, 39, 47];
+export const COLORS = ['red', 'green', 'yellow', 'blue', 'pink'];
+export const SEATS = { 2: ['red', 'yellow'], 3: ['red', 'green', 'yellow'], 4: ['red', 'green', 'yellow', 'blue'], 5: COLORS };
 export const YARD = -1;
-export const LAST_TRACK = 50;
-export const HOME = 56;
+export let ARMS = 4;
+export let RING = 52;
+export let LAST_TRACK = 50;
+export let HOME = 56;
+export const START = {};
+export let SAFE = [];
+// shortcut: board size is module state, fine because a page shows one game at a time.
+export function setArms(n) {
+  ARMS = n; RING = 13 * n; LAST_TRACK = RING - 2; HOME = RING + 4;
+  COLORS.forEach((c, i) => { START[c] = 13 * i; });
+  SAFE = COLORS.slice(0, n).flatMap((c, i) => [13 * i, 13 * i + 8]);
+}
+setArms(4);
+export const armsOf = s => (s && s.tokens && s.tokens.pink ? 5 : 4);
 export const BLAST = 2;
 export const MAX_KABOOMS = 3;
 export const BOX_COUNT = 3;
-export const MAX_PLAYERS = 4;
+export const MAX_PLAYERS = 5;
 export const NAME_MAX = 14;
 export const TIMERS = [0, 15, 30, 60];
 
@@ -30,11 +42,11 @@ export const BOX_EFFECTS = {
   recharge: { w: 1, icon: '💣', text: 'Extra KABOOM charge!' },
 };
 
-export const square = (color, p) => (START[color] + p) % 52;
+export const square = (color, p) => (START[color] + p) % RING;
 export const onTrack = p => p >= 0 && p <= LAST_TRACK;
 export const isSafe = sq => SAFE.includes(sq);
-const rel = (color, sq) => (sq - START[color] + 52) % 52;
-const ring = (a, b) => { const d = Math.abs(a - b) % 52; return Math.min(d, 52 - d); };
+const rel = (color, sq) => (sq - START[color] + RING) % RING;
+const ring = (a, b) => { const d = Math.abs(a - b) % RING; return Math.min(d, RING - d); };
 const key = (c, t) => `${c}:${t}`;
 const pick = (list, rng) => list[Math.floor(rng() * list.length) % list.length];
 
@@ -182,7 +194,7 @@ function setDeadline(s, at) {
 function spawnBox(s, rng) {
   const busy = new Set(tokensOnTrack(s).map(h => h.sq).concat(s.boxes));
   const free = [];
-  for (let sq = 0; sq < 52; sq++) if (!isSafe(sq) && !busy.has(sq)) free.push(sq);
+  for (let sq = 0; sq < RING; sq++) if (!isSafe(sq) && !busy.has(sq)) free.push(sq);
   if (free.length) s.boxes.push(pick(free, rng));
 }
 
@@ -413,6 +425,7 @@ const HANDLERS = {
     const n = s.players.length;
     if (n < 2) return false;
     s.players.forEach((p, i) => Object.assign(p, newPlayer(p.uid, p.name, p.bot), { char: p.char, color: SEATS[n][i] }));
+    setArms(n === 5 ? 5 : 4);
     s.tokens = {};
     s.players.forEach(p => { s.tokens[p.color] = [YARD, YARD, YARD, YARD]; });
     s.ranks = []; s.shields = {}; s.boxes = []; s.turnNo = 0; s.log = [];
@@ -469,6 +482,7 @@ const HANDLERS = {
 export function reduce(state, a, rng = Math.random) {
   if (!state || !a || !HANDLERS[a.type]) return null;
   if (a.seq != null && a.seq !== state.seq) return null;
+  setArms(armsOf(state));
   const s = JSON.parse(JSON.stringify(state));
   s.shields = s.shields || {};
   s.boxes = s.boxes || [];
