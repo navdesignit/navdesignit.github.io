@@ -457,6 +457,7 @@ async function playFx(st, prev, intro) {
         await kaboomFx(f, st);
         break;
       case 'say':
+        if (f.kind === 'threat') sfx('danger'); // someone is one roll from dying
         sayBubble(f.uid, f.text);
         break;
       case 'greedy':

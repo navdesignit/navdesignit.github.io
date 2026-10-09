@@ -144,7 +144,7 @@ function log(s, text) {
 // Player p says a `kind` line, aimed at player `to` when given.
 function say(s, fx, p, kind, rng, to, vars) {
   const text = pickLine(p.char, kind, to && to.char, rng, vars);
-  if (text) fx.push({ k: 'say', uid: p.uid, text });
+  if (text) fx.push({ k: 'say', uid: p.uid, text, kind });
 }
 
 const besties = (s, c1, c2) => {
