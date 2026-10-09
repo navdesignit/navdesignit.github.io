@@ -52,7 +52,7 @@ That's all: no sign-in setup and no billing. The free Spark plan allows 100 phon
 | Character names, nicknames, trash-talk lines, face drawings | `js/characters.js` |
 | Rules: blast radius, box effects and their odds, Kaboom limits | `js/engine.js` |
 | Board drawing and animations | `js/board.js` |
-| Meme voice clips on a kill or a close call | `sounds/kill-memes.mp3`, cut into clips by `MEME_CLIPS` in `js/sound.js` |
+| Meme voice clips (kills, close calls, the 😂 soundboard) | `sounds/memes.mp3`: 20 clips packed back to back, listed with their labels in `MEMES` in `js/sound.js` |
 | Screens and buttons | `index.html`, `style.css`, `js/app.js` |
 | Online rooms (Firebase) | `js/net.js` |
 

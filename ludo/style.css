@@ -268,6 +268,10 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .emoji-tray[hidden] { display: none; }
 .emoji-tray button { font-size: 1.7rem; background: none; border: 0; width: 46px; height: 46px; border-radius: 12px; }
 .emoji-tray button:active { background: rgba(0, 0, 0, 0.08); transform: scale(1.2); }
+.emoji-tray .clips { grid-column: 1 / -1; width: 0; min-width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; max-height: 32vh; overflow-y: auto; border-top: 2px solid rgba(0, 0, 0, 0.08); padding-top: 6px; }
+.emoji-tray .clips button { width: auto; height: auto; min-height: 40px; padding: 6px 8px; font: 800 0.78rem/1.15 'Nunito', sans-serif; color: var(--ink); background: rgba(0, 0, 0, 0.06); text-align: left; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.emoji-tray .clips button:active { transform: scale(1.05); }
 
 #game.shake { animation: shake 0.55s; }
 

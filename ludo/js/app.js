@@ -7,7 +7,7 @@ import {
 import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
 import { Board, TEAM, squareCenter } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
-import { sfx, buzz, unlock, isMuted, setMuted } from './sound.js';
+import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -539,9 +539,11 @@ function confetti(n) {
   }
 }
 
-const EMOJIS = ['😂', '😭', '🔥', '💀', '🤡', '🙏', '😡', '👋', '🐢', '😈'];
+const EMOJIS = ['😂', '😭', '🔥', '💀', '🤡', '🙏', '😡', '👋', '🐢', '😈', '🤣', '🙈', '🤯', '🥵', '😎', '🫡', '🐒', '🍌', '💩', '🐔'];
+// A "clip:N" reaction plays meme clip N on every phone, with a 🔊 floater.
 function floatEmoji(e, uid) {
-  if (!EMOJIS.includes(e)) return;
+  const clip = /^clip:(\d+)$/.exec(e);
+  if (clip) { playMeme(Number(clip[1])); e = '🔊'; } else if (!EMOJIS.includes(e)) return;
   const p = player(S.state, uid);
   const el = document.createElement('div');
   el.className = 'floater';
@@ -902,7 +904,8 @@ $('#lobby-players').onclick = e => {
 $('#dice').onclick = onDice;
 $('#btn-kaboom').onclick = onKaboomBtn;
 $('#btn-emoji').onclick = () => { $('#emoji-tray').hidden = !$('#emoji-tray').hidden; };
-$('#emoji-tray').innerHTML = EMOJIS.map(e => `<button data-e="${e}">${e}</button>`).join('');
+$('#emoji-tray').innerHTML = EMOJIS.map(e => `<button data-e="${e}">${e}</button>`).join('') +
+  `<div class="clips">${MEMES.map(([, , label], i) => `<button data-e="clip:${i}">🔊 ${esc(label)}</button>`).join('')}</div>`;
 $('#emoji-tray').onclick = e => {
   const b = e.target.closest('[data-e]');
   if (!b || !S.room) return;

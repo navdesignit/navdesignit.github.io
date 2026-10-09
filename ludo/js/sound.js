@@ -1,9 +1,30 @@
-// Tiny synthesised sound effects + haptics, plus meme voice clips on a kill or a close call.
+// Tiny synthesised sound effects + haptics, plus meme voice clips: on a kill, on a
+// close call, and whenever someone taps one on the soundboard.
 // iPhones only allow audio after a tap, so unlock() runs on the first touch.
 
-// 10 meme clips cut from one file, as [start, end] seconds.
-const MEME_CLIPS = [[0.55, 6.1], [7.12, 16.21], [17.12, 23.33], [24.54, 27.52], [28.56, 30.5],
-  [31.31, 37.38], [38.5, 40.65], [41.88, 42.78], [44.04, 45.85], [46.67, 51.54]];
+// Meme clips packed into one file: [start, end] seconds and the soundboard label.
+export const MEMES = [
+  [0.0, 2.65, "Main lad raha hoon aapke liye"],
+  [2.95, 5.6, "Mazaa nahi aa raha hai"],
+  [5.9, 7.9, "Mister Donald Trump"],
+  [8.2, 11.0, "Wah Modi ji wah"],
+  [11.3, 15.25, "Wah kya scene hai"],
+  [15.55, 17.55, "Ye PUBG wala hai kya?"],
+  [17.85, 22.05, "Hum to fakir aadmi hain"],
+  [22.35, 25.8, "Hypocrisy ki bhi seema"],
+  [26.1, 28.35, "Is sajjan ko kya takleef hai"],
+  [28.65, 32.75, "Moorkh samajhna band karo"],
+  [33.05, 38.45, "Bachkana baatein"],
+  [38.75, 43.05, "Jhooth bolo, baar baar"],
+  [43.35, 48.64, "Kitne tejasvi log hain"],
+  [48.94, 55.84, "Wahi baat… garib aadmi"],
+  [56.14, 61.04, "Depression mein ho?"],
+  [61.34, 66.49, "Alag hi level ka banda"],
+  [66.79, 69.59, "🤔 Mystery meme"],
+  [69.89, 75.79, "Sanitizer ka nasha band karo"],
+  [76.09, 81.04, "Bade deshon mein… Senorita"],
+  [81.34, 85.14, "System phaad denge"],
+];
 let memeBuf = null;
 let memeSrc = null;
 
@@ -22,7 +43,7 @@ export function unlock() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
-    fetch(new URL('../sounds/kill-memes.mp3', import.meta.url))
+    fetch(new URL('../sounds/memes.mp3', import.meta.url))
       .then(r => r.arrayBuffer())
       .then(b => ctx.decodeAudioData(b, buf => { memeBuf = buf; }))
       .catch(() => { /* no clips: the synth kill sound still plays */ });
@@ -61,9 +82,9 @@ function noise(dur, { vol = 0.3, at = 0, cutoff = 1200 } = {}) {
   src.start(t);
 }
 
-function memeClip() {
-  if (!memeBuf) return;
-  const [from, to] = MEME_CLIPS[Math.floor(Math.random() * MEME_CLIPS.length)];
+function memeClip(i = Math.floor(Math.random() * MEMES.length)) {
+  if (!memeBuf || !MEMES[i]) return;
+  const [from, to] = MEMES[i];
   if (memeSrc) memeSrc.stop(); // a new clip cuts off the last one instead of talking over it
   memeSrc = ctx.createBufferSource();
   memeSrc.buffer = memeBuf;
@@ -89,6 +110,12 @@ const SOUNDS = {
 export function sfx(name) {
   if (muted || !ctx || !SOUNDS[name]) return;
   try { SOUNDS[name](); } catch (e) { /* never let sound break the game */ }
+}
+
+// Soundboard: play meme clip i.
+export function playMeme(i) {
+  if (muted || !ctx) return;
+  try { memeClip(i); } catch (e) { /* never let sound break the game */ }
 }
 
 // Android only — iPhones ignore vibration from web pages.
