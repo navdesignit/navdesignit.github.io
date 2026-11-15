@@ -112,6 +112,9 @@ const SOUNDS = {
   spare() { [262, 330, 392, 523, 659].forEach((f, i) => tone(f, 0.9, { type: 'triangle', vol: 0.09, at: i * 0.12 })); },
   // TV serial sting: three tom hits with a tense chord, each a bit higher. Whistle: the loser slides home.
   dhan(i = 0) { const f = [72, 80, 92][i] || 92; noise(0.25, { vol: 0.9, cutoff: 420 }); tone(f, 0.7, { vol: 0.6, to: f * 0.5 }); [220, 262, 311].forEach(h => tone(h * (1 + i * 0.06), i === 2 ? 0.9 : 0.45, { type: 'sawtooth', vol: 0.06 })); },
+  unlock() { [880, 1109, 1319, 1760].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.1, at: i * 0.08 })); },
+  // Royal fanfare that turns sour: the Landu throne changes hands.
+  fanfare() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.28, { type: 'sawtooth', vol: 0.09, at: i * 0.14 })); [392, 370, 349, 330].forEach((f, i) => tone(f, 0.5, { type: 'sawtooth', vol: 0.09, to: f * 0.96, at: 0.8 + i * 0.3 })); },
   whistle() { tone(300, 0.7, { vol: 0.12, to: 1400 }); tone(220, 0.1, { vol: 0.15, to: 60, at: 0.72 }); },
   tense() { tone(55, 1.6, { type: 'sawtooth', vol: 0.12 }); tone(58, 1.6, { type: 'sawtooth', vol: 0.1 }); [0, 0.25, 0.9, 1.15].forEach(at => tone(50, 0.18, { vol: 0.5, to: 30, at })); },
   box() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, { type: 'triangle', vol: 0.12, at: i * 0.07 })); },

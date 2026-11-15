@@ -8,6 +8,7 @@ import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './charact
 import { Board, TEAM, squareCenter } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
 import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
+import { UNLOCKS } from './unlocks.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -403,6 +404,9 @@ async function present(st, fast) {
   renderChips(st);
   renderControls(st);
   tension(st, prev);
+  const landu = player(st, landuUid(st));
+  for (const [k, el] of board.els) el.classList.toggle('landu', !!landu && k.startsWith(`${landu.color}:`));
+  if (animate && landu && landuUid(prev) !== landu.uid) await throneFx(player(prev, landuUid(prev)), landu);
   const turnChanged = !prev || prev.phase === 'lobby' || (current(prev) && current(prev).uid) !== (current(st) && current(st).uid);
   if (S.mode === 'online' && turnChanged && controls(st)) { sfx('turn'); buzz(60); }
   if (st.phase === 'over' && (!prev || prev.phase !== 'over')) showResults(st);
@@ -435,6 +439,7 @@ async function playFx(st, prev, intro) {
         const victims = [f]; // a stack of enemies dies in one show
         while (items[i + 1] && items[i + 1].k === 'kill') victims.push(items[++i]);
         await killShow(victims, st);
+        await unlockFx(playerByColor(st, f.by), victims.length);
         break;
       }
       case 'shielded':
@@ -516,6 +521,7 @@ async function kaboomFx(f, st) {
   banner(`<span class="kaboom-text">KABOOM!</span><small>${nameOf(f.uid, st)} took ${f.victims.length} with them 💀</small>`, 'kaboom', 1700);
   await board.boom(f.sq, true);
   await Promise.all([board.flyHome(f.c, f.t, 650), ...f.victims.map(v => board.flyHome(v.c, v.t, 650))]);
+  await unlockFx(player(st, f.uid), f.victims.length);
 }
 
 // ---------------------------------------------------------------- Ramayana kill show
@@ -806,6 +812,68 @@ async function impactFrames() {
   sfx('hero'); buzz([40, 30, 120]);
   const game = $('#game');
   for (let i = 0; i < 2; i++) { game.classList.add('impact'); await sleep(60); game.classList.remove('impact'); await sleep(60); }
+}
+
+// ---------------------------------------------------------------- the kill collection
+
+// Every kill unlocks the next film or dish for that character, counted per phone.
+// Online, only the killer's own phone shows the card; pass & play shows it for everyone.
+const killCounts = () => store.get('al_kills', {});
+
+async function unlockFx(p, n) {
+  if (!p || !n || p.bot || (S.mode === 'online' && p.uid !== S.me)) return;
+  const kills = killCounts();
+  const before = kills[p.char] || 0, after = before + n;
+  kills[p.char] = after;
+  store.set('al_kills', kills);
+  const item = UNLOCKS[after - 1];
+  if (!item) return; // collection complete
+  const el = $('#unlock');
+  el.className = 'unlock';
+  el.innerHTML = `<div class="ucard" style="--c:${TEAM[p.color]}"><div class="ucard-in"><small>UNLOCKED · KILL #${after}</small><span class="uicon">${item[0]}</span><b>${esc(item[1])}</b><em>${face(p)} ${esc(p.name)}'s collection · ${after}/${UNLOCKS.length}</em></div></div>`;
+  el.hidden = false;
+  sfx('unlock'); buzz([30, 30, 60]);
+  confetti(18);
+  await sleep(1500);
+  el.classList.add('out');
+  await sleep(300);
+  el.hidden = true;
+}
+
+function showCollection() {
+  const kills = killCounts();
+  const chars = CHAR_IDS.filter(id => kills[id] > 0);
+  const html = chars.length ? chars.map(id => {
+    const n = kills[id], items = UNLOCKS.slice(0, n), next = UNLOCKS[n];
+    return `<h4>${avatar(id, { size: 28 })} ${CHARACTERS[id].name} · ${n} kill${n === 1 ? '' : 's'} · ${items.length}/${UNLOCKS.length}</h4>
+      <p class="collection">${items.map(([i, name]) => `<span>${i} ${esc(name)}</span>`).join('')}${next ? `<span class="locked">🔒 next: ${next[0]} ???</span>` : '<span>🏆 Complete!</span>'}</p>`;
+  }).join('') : '<p>Kill someone to start your collection 😈<br><small>100 films and 60 dishes to unlock, one per kill.</small></p>';
+  info(`<h3>🎬 Kill collection</h3>${html}`);
+}
+
+// ---------------------------------------------------------------- the Landu throne
+
+// The clown crown flies from the old Biggest Landu to the new one: "this is you now".
+async function throneFx(oldP, newP) {
+  const chip = p => p && $(`#game .slot[data-color="${p.color}"] .chip-face`);
+  const to = chip(newP);
+  if (!to) return;
+  const b = to.getBoundingClientRect();
+  const a = chip(oldP) ? chip(oldP).getBoundingClientRect() : { left: b.left, top: -120, width: b.width, height: 0 };
+  const crown = document.createElement('div');
+  crown.className = 'crown-fly';
+  crown.textContent = '🤡';
+  $('#floaters').appendChild(crown);
+  sfx('fanfare'); buzz([80, 50, 80, 50, 200]);
+  if (oldP) chipFx(oldP.color, 'party', 2400);
+  chipFx(newP.color, 'cry', 3000);
+  const at = (r, s, deg, dy = 0) => ({ transform: `translate(${r.left + r.width / 2}px, ${r.top + r.height / 2 + dy}px) scale(${s}) rotate(${deg}deg)` });
+  const mid = { left: (a.left + b.left) / 2, width: b.width, top: Math.min(a.top, b.top), height: 0 };
+  await crown.animate([at(a, 1, 0), { ...at(mid, 2.6, 360, -110), offset: 0.5 }, at(b, 1.5, 720)],
+    { duration: 1500, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' }).finished;
+  banner(`<span class="big-emoji">🤡</span><b>NAYA LANDU!</b><small>${esc(newP.name)}, this is you now 👑${oldP ? ` · ${esc(oldP.name)} is free 🎉` : ''}</small>`, 'box', 2000);
+  await sleep(700);
+  crown.remove();
 }
 
 // ---------------------------------------------------------------- maarega ya chhodega?
@@ -1110,6 +1178,7 @@ $('#btn-menu').onclick = () => {
   $('#btn-menu-share').hidden = S.mode !== 'online';
   openModal('modal-menu');
 };
+$('#btn-collection').onclick = () => { closeModal('modal-menu'); showCollection(); };
 $('#btn-sound').onclick = () => { setMuted(!isMuted()); $('#btn-sound').textContent = isMuted() ? '🔇 Sound: off' : '🔊 Sound: on'; };
 $('#btn-quit').onclick = () => { closeModal('modal-menu'); goHome(); };
 $('#results').onclick = e => {
@@ -1125,4 +1194,4 @@ const startCode = (params.get('room') || '').toUpperCase();
 if (validCode(startCode)) openRoom(startCode);
 
 // for tests / debugging in the console
-window.alquida = { S, board, squareCenter, isTurn, killShow, dude };
+window.alquida = { S, board, squareCenter, isTurn, killShow, dude, throneFx, unlockFx, showCollection };
