@@ -2,10 +2,10 @@
 
 import {
   createRoom, reduce, current, canKaboom, kaboomTokens, blastTargets, botAction, cleanName, moveVictims, playerByColor,
-  BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn, setArms, armsOf, ARMS, RING,
+  BOX_EFFECTS, MANHOOS_GIFTS, TIMERS, MAX_PLAYERS, square, isTurn, setArms, armsOf, ARMS, RING,
 } from './engine.js';
 import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
-import { Board, TEAM, squareCenter } from './board.js';
+import { Board, TEAM, squareCenter, manhoosAvatar } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
 import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
 import { UNLOCKS } from './unlocks.js';
@@ -280,6 +280,7 @@ function renderSettings(el, settings, editable, showTimer, onChange) {
   const opt = (key, val, label) => `<button class="seg ${settings[key] === val ? 'on' : ''}" data-k="${key}" data-v='${JSON.stringify(val)}' ${editable ? '' : 'disabled'}>${label}</button>`;
   el.innerHTML = `
     <div class="setting"><span>❓ Mystery boxes</span><div class="segs">${opt('boxes', true, 'On')}${opt('boxes', false, 'Off')}</div></div>
+    <div class="setting"><span>☂️ Mr. Manhoos</span><div class="segs">${opt('manhoos', true, 'On')}${opt('manhoos', false, 'Off')}</div></div>
     <div class="setting"><span>🏁 Game ends</span><div class="segs">${opt('finish', 'first', 'First home wins')}${opt('finish', 'all', 'Play till the last')}</div></div>
     ${showTimer ? `<div class="setting"><span>⏱️ Turn timer</span><div class="segs">${TIMERS.map(t => opt('timer', t, t ? `${t}s` : 'Off')).join('')}</div></div>` : ''}`;
   el.onclick = e => {
@@ -501,6 +502,16 @@ async function playFx(st, prev, intro) {
         break;
       case 'freeze':
         toast(`🧊 ${nameOf(f.uid, st)} is frozen — next turn skipped`);
+        break;
+      case 'manhoos':
+        await manhoosFx(f, st);
+        break;
+      case 'cursed':
+        toast(`${MANHOOS_GIFTS[f.curse].icon} ${nameOf(f.uid, st)} rolled ${f.d0}… ${MANHOOS_GIFTS[f.curse].text}! It's a ${f.d}`);
+        await sleep(500);
+        break;
+      case 'nazar':
+        toast(`🧿 Nazar! ${nameOf(f.uid, st)} ka haath kaanp gaya — no kill`);
         break;
       default:
         break;
@@ -876,6 +887,47 @@ async function throneFx(oldP, newP) {
   crown.remove();
 }
 
+// ---------------------------------------------------------------- Mr. Manhoos
+
+const MANHOOS_SAYS = ['Namaste ji… ☂️', 'Main aa gaya 😑', 'Kismat kharab hai aapki', 'Thoda sa dukh le lo', 'Bura mat maanna…', 'Aaj ka din aapka nahi', 'Nazar utaar lena 🧿'];
+const MANHOOS_REPLIES = ['Arre nahi! Ye kyun aaya? 😩', 'Manhoos! Door ho ja 🙏', 'Nazar na lage… 🧿', 'Kya yaar 😤', 'Mere paas kyun?! 😭', 'Chal be, aage ja 🫵'];
+
+// Puff of smoke, he reappears beside the token, says something unkind, hands over the gift.
+async function manhoosFx(f, st) {
+  const p = player(st, f.uid);
+  const g = MANHOOS_GIFTS[f.gift];
+  if (f.from != null) board.pop(f.from, '💨');
+  board.setManhoos(null);
+  sfx('manhoos'); buzz([30, 40, 30]);
+  await sleep(350);
+  board.pop(f.sq, '💨');
+  board.setManhoos(f.sq, true);
+  npcBubble(pickRandom(MANHOOS_SAYS));
+  await sleep(600);
+  const el = $('#unlock');
+  el.className = 'unlock manhoos';
+  el.innerHTML = `<div class="ucard" style="--c:#2b2b33"><div class="ucard-in"><small>☂️ MANHOOS KA TOHFA</small><span class="uicon">${g.icon}</span><b>${g.text}</b><em>${p ? face(p) : ''} ${p ? esc(p.name) : ''} · ${g.hint}</em></div></div>`;
+  el.hidden = false;
+  if (p) { chipFx(p.color, f.gift === 'lucky' || f.gift === 'shield' ? 'party' : 'cry', 1800); sayBubble(p.uid, pickRandom(MANHOOS_REPLIES)); }
+  await sleep(1400);
+  el.classList.add('out');
+  await sleep(300);
+  el.hidden = true;
+}
+
+// A speech bubble from Mr. Manhoos himself (he is not a player).
+function npcBubble(text) {
+  const el = document.createElement('div');
+  el.className = 'say';
+  el.style.setProperty('--c', '#2b2b33');
+  el.innerHTML = `${manhoosAvatar()}<div><b>Mr. Manhoos</b><span>${esc(text)}</span></div>`;
+  const box = $('#says');
+  box.appendChild(el);
+  while (box.children.length > 2) box.firstElementChild.remove();
+  setTimeout(() => el.classList.add('out'), 2600);
+  setTimeout(() => el.remove(), 3000);
+}
+
 // ---------------------------------------------------------------- maarega ya chhodega?
 
 // Enemy tokens the player at the controls could kill right now: with the dice they
@@ -1066,7 +1118,7 @@ $('#btn-online').onclick = () => {
 };
 $('#btn-local').onclick = () => {
   S.seats = seatDefaults();
-  S.localSettings = { boxes: true, finish: 'first' };
+  S.localSettings = { boxes: true, finish: 'first', manhoos: true };
   renderLocal();
   show('local');
 };

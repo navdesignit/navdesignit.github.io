@@ -46,6 +46,17 @@ export const BOX_EFFECTS = {
   lucky: { w: 2, icon: '🍀', text: 'Lucky! Your next roll is a 6' },
 };
 
+// Mr. Manhoos's gifts. Mostly bad, never a big setback: they deny rather than push back.
+export const MANHOOS_GIFTS = {
+  nazar: { w: 3, icon: '🧿', text: 'Nazar lag gayi', hint: 'Your next landing cannot kill' },
+  ulta: { w: 3, icon: '🔄', text: 'Ulta dice', hint: 'Your next roll becomes 7 minus it' },
+  slow: { w: 2, icon: '🐌', text: 'Slow poison', hint: 'Your next roll is halved' },
+  chori: { w: 2, icon: '💸', text: 'Kaboom chori', hint: 'He pocketed one of your Kabooms' },
+  cockroach: { w: 2, icon: '🪳', text: 'Cockroach!', hint: 'That token slips back 2 squares' },
+  lucky: { w: 1, icon: '🍀', text: 'Phisal gaya!', hint: 'He tripped: your next roll is a 6' },
+  shield: { w: 1, icon: '🛡️', text: 'Manhoos ka saaya', hint: 'Nobody dares touch that token for a round' },
+};
+
 export const square = (color, p) => (START[color] + p) % RING;
 export const onTrack = p => p >= 0 && p <= LAST_TRACK;
 export const isSafe = sq => SAFE.includes(sq);
@@ -57,14 +68,14 @@ const pick = (list, rng) => list[Math.floor(rng() * list.length) % list.length];
 export function createRoom(code, at = 0) {
   return {
     v: 1, code, phase: 'lobby', host: null, seq: 0, createdAt: at,
-    settings: { boxes: true, finish: 'first', timer: 30 },
+    settings: { boxes: true, finish: 'first', timer: 30, manhoos: true },
     players: [], tokens: {}, turn: 0, turnNo: 0, dice: null, sixes: 0, movable: [],
-    boxes: [], shields: {}, ranks: [], deadline: null, fx: null, log: [],
+    boxes: [], shields: {}, ranks: [], deadline: null, fx: null, log: [], manhoos: null,
   };
 }
 
 function newPlayer(uid, name, bot) {
-  return { uid, name, bot: !!bot, char: null, color: null, kabooms: 1, kills: 0, deaths: 0, boomKills: 0, booms: 0, skip: 0, afk: 0, done: false, dry: 0, lucky: false };
+  return { uid, name, bot: !!bot, char: null, color: null, kabooms: 1, kills: 0, deaths: 0, boomKills: 0, booms: 0, skip: 0, afk: 0, done: false, dry: 0, lucky: false, curse: null };
 }
 
 export const cleanName = n => String(n || '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
@@ -202,8 +213,8 @@ function spawnBox(s, rng) {
   if (free.length) s.boxes.push(pick(free, rng));
 }
 
-function pickEffect(rng) {
-  const all = Object.entries(BOX_EFFECTS);
+function pickEffect(rng, table = BOX_EFFECTS) {
+  const all = Object.entries(table);
   let r = rng() * all.reduce((n, [, e]) => n + e.w, 0);
   for (const [id, e] of all) { if ((r -= e.w) < 0) return id; }
   return all[0][0];
@@ -216,7 +227,37 @@ function startTurn(s, i, at) {
   setDeadline(s, at);
 }
 
-function passTurn(s, fx, at) {
+// Once a round Mr. Manhoos appears beside a token on the track, drawn to whoever is
+// winning (jo aage hai usko nazar lagti hai), and leaves a gift. Mostly bad.
+function manhoosVisit(s, fx, rng) {
+  if (!s.settings.manhoos) return;
+  const live = tokensOnTrack(s).filter(h => !playerByColor(s, h.c).done);
+  if (!live.length) return;
+  const lead = Math.max(...s.players.filter(p => !p.done).map(p => progress(s, p)));
+  const bag = live.flatMap(h => Array(progress(s, playerByColor(s, h.c)) === lead ? 3 : 1).fill(h));
+  const h = pick(bag, rng);
+  const p = playerByColor(s, h.c);
+  let gift = pickEffect(rng, MANHOOS_GIFTS);
+  if (gift === 'chori' && !p.kabooms) gift = 'nazar';
+  fx.push({ k: 'manhoos', uid: p.uid, c: h.c, t: h.t, sq: h.sq, from: s.manhoos, gift });
+  s.manhoos = h.sq;
+  switch (gift) {
+    case 'nazar': case 'ulta': case 'slow': p.curse = gift; break;
+    case 'chori': p.kabooms -= 1; break;
+    case 'cockroach': {
+      const to = Math.max(0, h.p - 2);
+      s.tokens[h.c][h.t] = to;
+      fx.push({ k: 'move', c: h.c, t: h.t, from: h.p, to });
+      break;
+    }
+    case 'lucky': p.lucky = true; break;
+    case 'shield': s.shields[key(h.c, h.t)] = 1; break;
+    default: break;
+  }
+  log(s, `☂️ Mr. Manhoos visited ${p.name}: ${MANHOOS_GIFTS[gift].text}`);
+}
+
+function passTurn(s, fx, at, rng) {
   const n = s.players.length;
   let i = s.turn;
   for (let guard = 0; guard < 200; guard++) {
@@ -232,6 +273,7 @@ function passTurn(s, fx, at) {
     break;
   }
   if (s.players[i].done) i = s.players.findIndex(q => !q.done);
+  if (i <= s.turn) manhoosVisit(s, fx, rng); // the turn wrapped around: a new round
   startTurn(s, i, at);
 }
 
@@ -266,9 +308,12 @@ function land(s, p, t, fx, rng, allowBox) {
   if (!onTrack(pos)) return {};
   const sq = square(c, pos);
   let extra = false;
+  const nazar = p.curse === 'nazar'; // Mr. Manhoos: this landing cannot kill
+  if (nazar) p.curse = null;
   if (!isSafe(sq)) {
     let firstVictim = null;
     for (const h of tokensOnTrack(s).filter(h => h.sq === sq && h.c !== c)) {
+      if (nazar) { fx.push({ k: 'nazar', uid: p.uid, c: h.c, t: h.t }); continue; }
       if (shielded(s, h.c, h.t)) { fx.push({ k: 'shielded', c: h.c, t: h.t }); continue; }
       s.tokens[h.c][h.t] = YARD;
       const victim = playerByColor(s, h.c);
@@ -374,23 +419,32 @@ function doMove(s, p, t, fx, rng, at) {
   fx.push({ k: 'move', c, t, from, to });
   const r = land(s, p, t, fx, rng, true);
   if (s.phase === 'over') return;
-  if (r.finished) return passTurn(s, fx, at);
+  if (r.finished) return passTurn(s, fx, at, rng);
   if (d === 6 || r.extra) { fx.push({ k: 'extra', uid: p.uid }); return extraTurn(s, at); }
-  passTurn(s, fx, at);
+  passTurn(s, fx, at, rng);
 }
 
 function doRoll(s, fx, rng, at) {
   const p = current(s);
   // A guaranteed 6 after five dead rolls stuck in the yard (so nobody sits out the whole game), or after a 🍀 box.
   const forced = p.lucky || (p.dry || 0) >= 5;
-  const d = forced ? 6 : 1 + Math.floor(rng() * 6);
+  let d = forced ? 6 : 1 + Math.floor(rng() * 6);
+  // Mr. Manhoos's dice curses: ulta flips the roll, slow halves it. Nazar waits for the landing.
+  let cursed = null;
+  if (p.curse === 'ulta' || p.curse === 'slow') {
+    const d0 = d;
+    d = p.curse === 'ulta' ? 7 - d : Math.ceil(d / 2);
+    cursed = { k: 'cursed', uid: p.uid, curse: p.curse, d0, d };
+    p.curse = null;
+  }
   s.dice = d;
   s.sixes = d === 6 ? s.sixes + 1 : 0;
   fx.push({ k: 'dice', c: p.color, d, uid: p.uid });
+  if (cursed) fx.push(cursed);
   if (s.sixes >= 3) {
     fx.push({ k: 'greedy', uid: p.uid });
     log(s, `🐷 ${p.name} rolled three 6s — too greedy!`);
-    return passTurn(s, fx, at);
+    return passTurn(s, fx, at, rng);
   }
   if (forced) { fx.push({ k: 'pity', uid: p.uid, lucky: !!p.lucky }); p.lucky = false; }
   const opts = movable(s, p.color, d);
@@ -399,7 +453,7 @@ function doRoll(s, fx, rng, at) {
   if (!opts.length) {
     fx.push({ k: 'nomove', uid: p.uid });
     if (d === 6) { fx.push({ k: 'extra', uid: p.uid }); return extraTurn(s, at); }
-    return passTurn(s, fx, at);
+    return passTurn(s, fx, at, rng);
   }
   const uniq = distinctMoves(s, p.color, opts);
   if (uniq.length === 1) return doMove(s, p, uniq[0], fx, rng, at);
@@ -454,6 +508,7 @@ const HANDLERS = {
     if (s.phase !== 'lobby' || a.uid !== s.host || !a.settings) return false;
     const n = a.settings;
     if ('boxes' in n) s.settings.boxes = !!n.boxes;
+    if ('manhoos' in n) s.settings.manhoos = !!n.manhoos;
     if (n.finish === 'first' || n.finish === 'all') s.settings.finish = n.finish;
     if (TIMERS.includes(n.timer)) s.settings.timer = n.timer;
   },
@@ -465,7 +520,7 @@ const HANDLERS = {
     setArms(n === 5 ? 5 : 4);
     s.tokens = {};
     s.players.forEach(p => { s.tokens[p.color] = [YARD, YARD, YARD, YARD]; });
-    s.ranks = []; s.shields = {}; s.boxes = []; s.turnNo = 0; s.log = [];
+    s.ranks = []; s.shields = {}; s.boxes = []; s.turnNo = 0; s.log = []; s.manhoos = null;
     if (s.settings.boxes) for (let i = 0; i < BOX_COUNT; i++) spawnBox(s, rng);
     const first = Math.floor(rng() * n) % n;
     fx.push({ k: 'first', uid: s.players[first].uid });
@@ -494,7 +549,7 @@ const HANDLERS = {
     fx.push({ k: 'kaboom', c, t: a.token, from, sq: square(c, from), victims, uid: p.uid });
     say(s, fx, p, 'kaboom', rng);
     log(s, `💣 KABOOM! ${p.name} blew up and took ${victims.length} with them`);
-    passTurn(s, fx, a.at);
+    passTurn(s, fx, a.at, rng);
   },
   timeout(s, a, fx, rng) {
     if (a.turnNo !== s.turnNo || a.phase !== s.phase || (s.phase !== 'roll' && s.phase !== 'move')) return false;

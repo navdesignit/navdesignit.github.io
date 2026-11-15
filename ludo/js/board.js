@@ -159,6 +159,17 @@ function staticBoard5(P) {
   return g + `<g transform="translate(0 0.05)">${BOMB}</g>`;
 }
 
+// Mr. Manhoos: grey, bald, droopy, a mustache you could sweep the floor with.
+const MANHOOS_FACE = '<rect width="100" height="100" fill="#3a3a46"/>' +
+  '<circle cx="23" cy="58" r="6" fill="#a7adb5"/><circle cx="77" cy="58" r="6" fill="#a7adb5"/><circle cx="50" cy="56" r="27" fill="#a7adb5"/>' +
+  '<path d="M26 44 C34 22 66 22 74 44" fill="none" stroke="#1d1d1f" stroke-width="4" stroke-linecap="round"/>' +
+  '<path d="M31 50 Q40 54 46 50 M54 50 Q60 54 69 50" fill="none" stroke="#1d1d1f" stroke-width="2.6" stroke-linecap="round"/>' +
+  '<ellipse cx="40" cy="58" rx="3.4" ry="3" fill="#1d1d1f"/><ellipse cx="60" cy="58" rx="3.4" ry="3" fill="#1d1d1f"/>' +
+  '<path d="M34 64 Q40 67 46 64 M54 64 Q60 67 66 64" fill="none" stroke="#5b5f66" stroke-width="2"/>' +
+  '<path d="M36 72 C42 65 58 65 64 72 C58 71 42 71 36 72Z" fill="#1d1d1f"/>' +
+  '<path d="M42 80 Q50 75 58 80" fill="none" stroke="#5a2a14" stroke-width="2.6" stroke-linecap="round"/>';
+export const manhoosAvatar = () => `<svg class="avatar" viewBox="0 0 100 100" role="img" aria-label="Mr. Manhoos"><defs><clipPath id="av-manhoos"><circle cx="50" cy="50" r="50"/></clipPath></defs><g clip-path="url(#av-manhoos)">${MANHOOS_FACE}</g></svg>`;
+
 // The hero's sword, hilt at the origin, tip pointing up.
 const SWORD = '<path d="M-0.09 0 L0.09 0 L0.06 -1.5 L0 -1.75 L-0.06 -1.5Z" fill="url(#blade)"/>' +
   '<path d="M-0.02 0 L0.02 0 L0.02 -1.45 L-0.02 -1.45Z" fill="#fff" opacity=".7"/>' +
@@ -218,6 +229,7 @@ export class Board {
     this.sig = sig;
     this.piecesEl.innerHTML = '';
     this.els.clear(); this.pos.clear();
+    this.manhoosEl = null;
     for (const p of players) {
       if (!p.color) continue;
       for (let t = 0; t < 4; t++) {
@@ -270,6 +282,7 @@ export class Board {
     [...this.els.entries()].sort((a, b) => (this.pos.get(a[0])?.y || 0) - (this.pos.get(b[0])?.y || 0))
       .forEach(([, el]) => this.piecesEl.appendChild(el));
     this.boxesG.innerHTML = (state.boxes || []).map(boxMarkup).join('');
+    this.setManhoos(state.manhoos == null ? null : state.manhoos);
     const live = (state.phase === 'roll' || state.phase === 'move') && state.players[state.turn] ? `${state.players[state.turn].color}:` : '-';
     for (const [k, el] of this.els) {
       el.classList.toggle('shielded', !!(state.shields && state.shields[k]));
@@ -279,6 +292,22 @@ export class Board {
       const cur = state.players[state.turn];
       g.classList.toggle('on', (state.phase === 'roll' || state.phase === 'move') && !!cur && cur.color === g.dataset.c);
     });
+  }
+
+  // Mr. Manhoos stands beside square sq (null: not on the board). `arrive` plays his entrance.
+  setManhoos(sq, arrive = false) {
+    if (sq == null) { if (this.manhoosEl) this.manhoosEl.remove(); this.manhoosEl = null; this.els.delete('manhoos'); return; }
+    if (!this.manhoosEl) {
+      const el = document.createElement('div');
+      el.className = 'piece manhoos';
+      el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-body"></div><div class="p-head">${manhoosAvatar()}</div><span class="p-umbrella">☂️</span><span class="p-crow">🦇</span></div>`;
+      this.piecesEl.appendChild(el);
+      this.manhoosEl = el;
+      this.els.set('manhoos', el);
+    }
+    const { x, y } = squareCenter(sq);
+    this.place('manhoos', { x: x + 0.45, y: y - 0.1, s: 1.05 });
+    if (arrive) { this.manhoosEl.classList.remove('arrive'); void this.manhoosEl.offsetWidth; this.manhoosEl.classList.add('arrive'); }
   }
 
   // Tokens the local player may tap right now. mode: 'move' | 'kaboom' | null
