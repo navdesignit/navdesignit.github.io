@@ -35,6 +35,7 @@ const S = {
   seenSeq: -1,
   seenAt: 0,
   idleAt: 0,
+  gagAt: 0,
   online: new Set(),
   profileMode: null,   // 'create' | 'join'
   pickChar: null,
@@ -401,6 +402,7 @@ async function present(st, fast) {
   board.layout(st);
   renderChips(st);
   renderControls(st);
+  tension(st, prev);
   const turnChanged = !prev || prev.phase === 'lobby' || (current(prev) && current(prev).uid) !== (current(st) && current(st).uid);
   if (S.mode === 'online' && turnChanged && controls(st)) { sfx('turn'); buzz(60); }
   if (st.phase === 'over' && (!prev || prev.phase !== 'over')) showResults(st);
@@ -410,7 +412,9 @@ async function present(st, fast) {
 
 async function playFx(st, prev, intro) {
   if (intro) { board.layout(st); renderChips(st); }
-  for (const f of st.fx.items) {
+  const items = st.fx.items;
+  for (let i = 0; i < items.length; i++) {
+    const f = items[i];
     switch (f.k) {
       case 'first':
         await banner(`🎲 <b>${nameOf(f.uid, st)}</b> goes first!`, '', 1500);
@@ -418,16 +422,21 @@ async function playFx(st, prev, intro) {
         break;
       case 'dice':
         await rollDice(f.d, f.c);
-        if (f.d === 6) { sfx('six'); }
+        if (f.d === 6) { sfx('six'); chipFx(f.c, 'spin', 900); }
         break;
-      case 'move':
-        await board.walk(f.c, f.t, f.from, f.to, { fast: f.fast, onStep: () => sfx('step') });
+      case 'move': {
+        const kill = items[i + 1] && items[i + 1].k === 'kill' && items[i + 1].by === f.c && !f.fast;
+        if (kill) endTension(null); // the heartbeat would fight the camera zoom
+        await board.walk(f.c, f.t, f.from, f.to, { fast: f.fast, onStep: () => sfx('step'),
+          strike: kill && { onZoom: () => sfx('slowmo'), onImpact: () => { sfx('hero'); buzz([40, 30, 120]); } } });
         break;
-      case 'kill':
-        sfx('kill'); buzz(90);
-        board.pop(f.sq, '💥');
-        await board.flyHome(f.c, f.t);
+      }
+      case 'kill': {
+        const victims = [f]; // a stack of enemies dies in one show
+        while (items[i + 1] && items[i + 1].k === 'kill') victims.push(items[++i]);
+        await killShow(victims, st);
         break;
+      }
       case 'shielded':
         toast('🛡️ Shield blocked the attack!');
         break;
@@ -435,7 +444,7 @@ async function playFx(st, prev, intro) {
         const e = BOX_EFFECTS[f.e];
         sfx('box');
         board.pop(f.sq, '🎁');
-        await banner(`<span class="big-emoji">${e.icon}</span><b>${e.text}</b><small>${nameOf(f.uid, st)} opened a mystery box</small>`, 'box', 1500);
+        await banner(`<span class="big-emoji">${e.icon}</span><b>${e.text}</b><small>${nameOf(f.uid, st)} opened a mystery box</small>`, `box gift-${f.e}`, 1500);
         break;
       }
       case 'swap':
@@ -452,6 +461,7 @@ async function playFx(st, prev, intro) {
       case 'home':
         sfx('home'); buzz(40);
         confetti(14);
+        chipFx(f.c, 'party', 1600);
         break;
       case 'kaboom':
         await kaboomFx(f, st);
@@ -462,6 +472,7 @@ async function playFx(st, prev, intro) {
         break;
       case 'greedy':
         sfx('sad');
+        chipFx((player(st, f.uid) || {}).color, 'dizzy', 1600);
         await banner(`<span class="big-emoji">🐷</span><b>Three 6s!</b><small>${nameOf(f.uid, st)} got too greedy — turn over</small>`, 'box', 1500);
         break;
       case 'nomove':
@@ -479,6 +490,12 @@ async function playFx(st, prev, intro) {
         sfx('win');
         confetti(40);
         await banner(`<span class="big-emoji">🏆</span><b>${nameOf(f.uid, st)} is home!</b><small>${ordinal(f.place)} place</small>`, 'box', 1800);
+        break;
+      case 'pity':
+        toast(f.lucky ? '🍀 Lucky box: that roll was a free 6!' : `🙏 ${nameOf(f.uid, st)}: paanch baar nahi aaya… pity 6!`);
+        break;
+      case 'freeze':
+        toast(`🧊 ${nameOf(f.uid, st)} is frozen — next turn skipped`);
         break;
       default:
         break;
@@ -499,6 +516,77 @@ async function kaboomFx(f, st) {
   banner(`<span class="kaboom-text">KABOOM!</span><small>${nameOf(f.uid, st)} took ${f.victims.length} with them 💀</small>`, 'kaboom', 1700);
   await board.boom(f.sq, true);
   await Promise.all([board.flyHome(f.c, f.t, 650), ...f.victims.map(v => board.flyHome(v.c, v.t, 650))]);
+}
+
+// ---------------------------------------------------------------- Ramayana kill show
+
+// Funny ways to die. `cls` picks where the prop comes from (p-*) and what happens
+// to the victim's face (f-*) in style.css. Chosen from the shared seq so every
+// phone sees the same death.
+const DEATHS = [
+  { id: 'stone', prop: '🪨', title: 'PATHAR!', line: 'Upar se pathar gir gaya', sound: 'thud', cls: 'p-drop f-squash' },
+  { id: 'piano', prop: '🎹', title: 'PIANO!', line: 'Cartoon wali maut 🎼', sound: 'thud', cls: 'p-drop f-squash' },
+  { id: 'hammer', prop: '🔨', title: 'HATHODA!', line: 'Thor ka Indori cousin', sound: 'thud', cls: 'p-drop f-squash' },
+  { id: 'bucket', prop: '🪣', title: 'BALTI!', line: 'Thanda paani, Holi hai 💦', sound: 'whoosh', cls: 'p-drop f-wet' },
+  { id: 'thunder', prop: '⚡', title: 'BIJLI!', line: 'Upar wale ka network strong hai', sound: 'boom', cls: 'p-drop f-zap' },
+  { id: 'chappal', prop: '🩴', title: 'CHAPPAL!', line: 'Mummy ki chappal, 100% accuracy', sound: 'whoosh', cls: 'p-left f-flung' },
+  { id: 'buffalo', prop: '🐃', title: 'BHAINS!', line: 'Seedha aasmaan mein 🙏', sound: 'thud', cls: 'p-left f-lift' },
+  { id: 'monkey', prop: '🐒', title: 'BANDAR!', line: 'Hanuman ji ka style 🙏', sound: 'whoosh', cls: 'p-left f-flung' },
+  { id: 'boot', prop: '👞', title: 'LAAT!', line: 'Ek laat, seedha ghar', sound: 'thud', cls: 'p-left f-flung' },
+  { id: 'arrow', prop: '', title: 'RAM-BAAN!', line: 'Seedha nishane pe 🎯', sound: 'whoosh', cls: 'p-left f-topple' },
+  { id: 'auto', prop: '🛺', title: 'KUCHAL DIYA!', line: 'Indori auto wala brake nahi maarta', sound: 'whoosh', cls: 'p-right f-flung-l' },
+  { id: 'trishul', prop: '🔱', title: 'TRISHUL!', line: 'Mahadev ka prasad 🙏', sound: 'whoosh', cls: 'p-right f-topple' },
+  { id: 'fire', prop: '🔥', title: 'LANKA DAHAN!', line: 'Hanuman ji ki poonch 🐒', sound: 'fire', cls: 'p-rise f-burn' },
+  { id: 'ghost', prop: '👻', title: 'BHOOT!', line: 'Darr ke maare… 😱', sound: 'whoosh', cls: 'p-rise f-pale' },
+  { id: 'banana', prop: '🍌', title: 'SLIP!', line: 'Kele pe pair pad gaya', sound: 'thud', cls: 'p-rise f-upside' },
+  { id: 'rocket', prop: '🚀', title: 'ANTARIKSH!', line: 'Chandrayaan launch, one way ticket', sound: 'whoosh', cls: 'p-up f-lift' },
+];
+
+// The killer sprouts Ravana's 10 heads (boom boom boom), the board tilts into 3D
+// and the victims die one of the silly ways above before flying home.
+async function killShow(victims, st) {
+  const f = victims[0];
+  const killer = playerByColor(st, f.by);
+  const d = DEATHS[(st.seq + f.sq) % DEATHS.length];
+  const show = $('#killshow');
+  const game = $('#game');
+  // one big head in front, nine fanned out behind it (middle one wears the crown)
+  const heads = `<div class="rhead mid on">${face(killer)}</div>` + [0, -1, 1, -2, 2, -3, 3, -4, 4].map(o =>
+    `<div class="rhead ${o ? '' : 'top'}" style="--x:${o * 30}px;--y:${-28 + Math.abs(o) * 6}px;--z:${-50 - Math.abs(o) * 22}px;--ry:${-o * 13}deg">${face(killer)}</div>`).join('');
+  const names = victims.map(v => `<b>${esc(playerByColor(st, v.c).name)}</b>`).join(' aur ');
+  show.className = `killshow ${d.id} ${d.cls}`;
+  show.innerHTML = `<b class="rtitle">RAVANA MODE 😈</b><div class="ravana" style="--c:${TEAM[f.by]}">${heads}</div>` +
+    `<div class="victims">${victims.map(v => `<div class="victim" style="--c:${TEAM[v.c]}"><div class="vface">${face(playerByColor(st, v.c))}</div><span class="prop">${d.prop}</span></div>`).join('')}</div>` +
+    `<b class="dtitle">${d.title}</b><small><b>${esc(killer.name)}</b> ne ${names} ko maara · ${d.line}</small>`;
+  show.hidden = false;
+  board.camera('zoom', f.sq); // already there after a sword strike; sniper kills zoom in here
+  victims.forEach(v => { const el = board.els.get(`${v.c}:${v.t}`); if (el) el.classList.add('hit'); });
+  chipFx(f.by, 'laugh', 3200);
+  victims.forEach(v => chipFx(v.c, 'cry', 3200));
+  sfx('ravana'); buzz([50, 40, 50, 40, 50]);
+  await sleep(150);
+  for (const h of $$('.rhead:not(.mid)', show)) { h.classList.add('on'); sfx('head'); await sleep(45); }
+  await sleep(120);
+  show.classList.add('strike');
+  sfx(d.sound);
+  await sleep(250);
+  sfx('kill'); buzz(120); // the meme clip
+  game.classList.remove('shake'); void game.offsetWidth; game.classList.add('shake');
+  await sleep(750);
+  show.classList.add('out');
+  await sleep(280);
+  show.hidden = true;
+  board.camera(null);
+  await Promise.all(victims.map(v => board.flyHome(v.c, v.t)));
+  victims.forEach(v => { const el = board.els.get(`${v.c}:${v.t}`); if (el) el.classList.remove('hit'); });
+}
+
+// A short reaction on a player's card: laugh, cry, spin, dizzy or party.
+function chipFx(color, cls, ms) {
+  const slot = $(`#game .slot[data-color="${color}"]`);
+  if (!slot) return;
+  slot.classList.add(cls);
+  setTimeout(() => slot.classList.remove(cls), ms / SPEED);
 }
 
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -539,7 +627,7 @@ function confetti(n) {
   }
 }
 
-const EMOJIS = ['😂', '😭', '🔥', '💀', '🤡', '🙏', '😡', '👋', '🐢', '😈', '🤣', '🙈', '🤯', '🥵', '😎', '🫡', '🐒', '🍌', '💩', '🐔'];
+const EMOJIS = ['😂', '😭', '🔥', '💀', '🤡', '🙏', '😡', '👋', '🐢', '😈', '🤣', '🙈', '🤯', '🥵', '😎', '🫡', '🐒', '🍌', '💩', '🐔', '🩴', '🪨', '🛺', '👻', '🔱'];
 // A "clip:N" reaction plays meme clip N on every phone, with a 🔊 floater.
 function floatEmoji(e, uid) {
   const clip = /^clip:(\d+)$/.exec(e);
@@ -657,6 +745,7 @@ function onKaboomBtn() {
   S.aiming = !S.aiming;
   sfx('pop');
   renderControls(st);
+  tension(st, S.shown);
 }
 
 async function onTokenTap({ t }) {
@@ -709,6 +798,101 @@ function drive() {
   }
 }
 setInterval(drive, 200);
+
+
+// ---------------------------------------------------------------- maarega ya chhodega?
+
+// Enemy tokens the player at the controls could kill right now: with the dice they
+// just rolled, or (only on their own phone) with the Kaboom they are aiming.
+function killOptions(st) {
+  const cur = current(st);
+  if (st.phase === 'move' && cur && !cur.bot) return st.movable.flatMap(t => moveVictims(st, t));
+  const me = controls(st);
+  if (S.aiming && me) return kaboomTokens(st, me.color).flatMap(t => blastTargets(st, me.color, t));
+  return [];
+}
+
+const PLEAS = ['Arre nahi nahi 😱', 'Bhai mat maar 🙏', 'Oh my god 😱', 'Dekh le, yaari hai 🥺', 'Mummy! 😭', 'Chhod de na… 🥹'];
+let tenseKey = null;
+
+// Someone can kill. The table holds its breath: the hunter's 3D figure stands up with a
+// sword and looks around, the possible victims gasp. When they move on, a kill gets the
+// cinematic treatment (playFx), a spare gets a "chhod diya" beat.
+function tension(st, prev) {
+  const game = $('#game');
+  const victims = killOptions(st);
+  if (victims.length) {
+    const p = current(st);
+    if (tenseKey === `${p.uid}:${st.seq}:${S.aiming}`) return;
+    tenseKey = `${p.uid}:${st.seq}:${S.aiming}`;
+    game.classList.add('tense');
+    sfx('tense'); buzz([30, 60, 30]);
+    const prey = [...new Set(victims.map(v => v.c))].map(c => playerByColor(st, c)).filter(Boolean);
+    $$('#game .slot').forEach(s => s.classList.toggle('gasp', prey.some(v => v.color === s.dataset.color)));
+    chipFx(p.color, 'sword', 60000);
+    $('#status').innerHTML = `⚔️ <b style="color:${TEAM[p.color]}">${esc(p.name)}</b> can kill ${prey.map(v => `<b style="color:${TEAM[v.color]}">${esc(v.name)}</b>`).join(' & ')}… <span class="hot">maarega ya chhodega? 😈</span>`;
+    if (!$('.dude.stand')) { dude(p, true); sayBubble(pickRandom(prey).uid, pickRandom(PLEAS)); }
+    return;
+  }
+  if (!tenseKey) return;
+  const spared = prev && st.fx && st.fx.type === 'move' && killOptions(prev).length && !st.fx.items.some(f => f.k === 'kill');
+  endTension(spared ? current(prev) : null);
+}
+
+// The moment has passed. With `sparer`, they had the kill and walked away from it.
+function endTension(sparer) {
+  tenseKey = null;
+  $('#game').classList.remove('tense');
+  $$('#game .slot').forEach(s => s.classList.remove('gasp', 'sword'));
+  const standing = $('.dude.stand');
+  if (sparer) {
+    sfx('spare');
+    if (standing) standing.classList.add('bow');
+    banner(`<span class="big-emoji">😇</span><b>CHHOD DIYA</b><small>${esc(sparer.name)} ne jaan bakshi — boss hai boss 🫡</small>`, 'box', 1400);
+  } else $('#status').innerHTML = '&nbsp;';
+  setTimeout(() => standing && standing.remove(), sparer ? 1100 : 0);
+}
+
+// ---------------------------------------------------------------- idle gags
+
+// Nobody has done anything for a while? Something silly happens.
+const WALKERS = ['🐒', '🐃', '🛺', '🦚', '🐐', '🚲', '🐘', '🐓'];
+const NAGS = ['Oye! Dice phenk 🎲', 'Chai peene gaya kya? ☕', 'Jaldi kar be 😤', 'Sone mat ja 😴', 'Hello? Network hai? 📵', 'Bhai roll kar, ghar jaana hai 🏠', 'Soch soch ke Ravana ban jaayega 😈'];
+const pickRandom = list => list[Math.floor(Math.random() * list.length)];
+
+// A little 3D paper-doll of a player: strutting across the screen, or (`stand`)
+// standing by the board with a sword, deciding whether to kill.
+function dude(p, stand = false) {
+  const el = document.createElement('div');
+  el.className = stand ? 'dude stand' : `dude ${Math.random() < 0.5 ? 'back' : ''}`;
+  el.style.setProperty('--c', TEAM[p.color]);
+  if (!stand) el.style.top = `${8 + Math.random() * 55}%`;
+  el.innerHTML = `<div class="dude-in"><div class="d-head">${face(p)}</div><div class="d-body"></div><div class="d-arm l"></div><div class="d-arm r">${stand ? '<div class="d-sword"></div>' : ''}</div><div class="d-leg l"></div><div class="d-leg r"></div><div class="d-shadow"></div></div>`;
+  $('#floaters').appendChild(el);
+  if (!stand) setTimeout(() => el.remove(), 6000);
+  return el;
+}
+
+function idleGag() {
+  const st = S.shown;
+  if (S.screen !== 'game' || !st || S.pumping || document.hidden || (st.phase !== 'roll' && st.phase !== 'move')) return;
+  if (Date.now() - Math.max(S.idleAt, S.gagAt) < 7000 / SPEED) return;
+  S.gagAt = Date.now() - 2500 / SPEED; // first gag after 7s of nothing, then one every ~4.5s
+  const r = Math.random();
+  if (r < 0.3) dude(pickRandom(st.players.filter(p => p.color)));
+  else if (r < 0.5) {
+    const el = document.createElement('div');
+    el.className = `walker ${Math.random() < 0.5 ? 'back' : ''}`;
+    el.style.top = `${10 + Math.random() * 65}%`;
+    el.innerHTML = `<span>${pickRandom(WALKERS)}</span>`;
+    $('#floaters').appendChild(el);
+    setTimeout(() => el.remove(), 4300);
+  } else if (r < 0.75) {
+    const el = pickRandom([...board.els.values()]);
+    if (el) { el.classList.add('flip'); setTimeout(() => el.classList.remove('flip'), 900); }
+  } else if (!current(st).bot) sayBubble(current(st).uid, pickRandom(NAGS));
+}
+setInterval(idleGag, 1000);
 
 // ---------------------------------------------------------------- results
 
@@ -933,4 +1117,4 @@ const startCode = (params.get('room') || '').toUpperCase();
 if (validCode(startCode)) openRoom(startCode);
 
 // for tests / debugging in the console
-window.alquida = { S, board, squareCenter, isTurn };
+window.alquida = { S, board, squareCenter, isTurn, killShow, dude };

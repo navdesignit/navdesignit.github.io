@@ -18,12 +18,15 @@ Normal Ludo:
 - ⚔️ Landing on an enemy sends it back to its yard and gives you an extra roll.
 - ⭐ Star squares and start squares are safe.
 - 🏠 You need the exact number to get home. Getting home gives you an extra roll.
+- 🙏 **Pity 6:** stuck in the yard for five rolls in a row? The sixth is a guaranteed 6, so nobody sits out the whole game.
 
 The Alquida extras:
 - 💣 **KABOOM (self-destruct):** everyone gets one per game. Before you roll, if an enemy is within 2 squares of one of your tokens, you can blow that token up. Your token goes back to your yard, and so does every enemy within 2 squares. Star squares don't protect anyone from a bomb.
-- ❓ **Mystery boxes:** three boxes sit on the track. Stop on one and you get one of these: 🚀 +5 squares · 🍌 slip back 3 · 🌀 swap places with a random enemy · 🛡️ shield for a round · 🎲 free roll · 💤 skip your next turn · 💣 an extra Kaboom.
+- ❓ **Mystery boxes:** three boxes sit on the track. Stop on one and you get one of these: 🚀 +5 squares · 🍌 slip back 3 · 🌀 swap places with a random enemy · 🛡️ shield for a round · 🎲 free roll · 💤 skip your next turn · 💣 an extra Kaboom · 🎯 sniper (a random enemy goes home) · 🔓 jailbreak (a token walks out free) · 🧊 freeze (an enemy skips a turn) · 🍀 lucky (your next roll is a 6).
 - 💬 **Trash talk** changes with who you're talking to: husband and wife, girlfriend and boyfriend, the Indore boys, and the besties each get their own lines. Edit them in `js/characters.js`.
 - 😂 **Emoji throws** fly across everyone's screen.
+- ⚔️ **Maarega ya chhodega?** Roll a number that could kill and the table holds its breath: the hunter's 3D figure steps up with a sword and looks around, the possible victims gasp and beg. Spare them and you get a "chhod diya, boss hai boss" beat.
+- 😈 **Ravana mode:** a kill is a zoom cut and a slow-motion sword strike with a heroic sting, then the killer sprouts Ravana's 10 heads and the victim gets one of 16 filmi deaths (pathar, chappal, Ram-baan, Lanka dahan, Indori auto…). Leave the game alone for a bit and the gang strolls across the screen in 3D.
 - 🤡 **The Landu badge** goes to whoever has been killed the most. End-of-game awards: Assassin, Biggest Landu, Kaboom King, Sleepyhead and 💔 Backstabber.
 - ⏱️ **Turn timer** (host setting). If someone's phone goes to sleep or they leave, the game plays their turn for them.
 
@@ -52,6 +55,7 @@ That's all: no sign-in setup and no billing. The free Spark plan allows 100 phon
 | Character names, nicknames, trash-talk lines, face drawings | `js/characters.js` |
 | Rules: blast radius, box effects and their odds, Kaboom limits | `js/engine.js` |
 | Board drawing and animations | `js/board.js` |
+| Kill show deaths, idle gags, 3D walkers | `DEATHS`, `WALKERS` and `NAGS` in `js/app.js`, styles in `style.css` |
 | Meme voice clips (kills, close calls, the 😂 soundboard) | `sounds/memes.mp3`: 20 clips packed back to back, listed with their labels in `MEMES` in `js/sound.js` |
 | Screens and buttons | `index.html`, `style.css`, `js/app.js` |
 | Online rooms (Firebase) | `js/net.js` |

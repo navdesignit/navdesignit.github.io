@@ -40,6 +40,10 @@ export const BOX_EFFECTS = {
   bonus: { w: 2, icon: '🎲', text: 'Free roll!' },
   sleepy: { w: 2, icon: '💤', text: 'Sleeping pill… skips next turn' },
   recharge: { w: 1, icon: '💣', text: 'Extra KABOOM charge!' },
+  sniper: { w: 1, icon: '🎯', text: 'Sniper! A random enemy goes home' },
+  jailbreak: { w: 2, icon: '🔓', text: 'Jailbreak! A token walks out free' },
+  freeze: { w: 2, icon: '🧊', text: 'Freeze! A random enemy skips a turn' },
+  lucky: { w: 2, icon: '🍀', text: 'Lucky! Your next roll is a 6' },
 };
 
 export const square = (color, p) => (START[color] + p) % RING;
@@ -60,7 +64,7 @@ export function createRoom(code, at = 0) {
 }
 
 function newPlayer(uid, name, bot) {
-  return { uid, name, bot: !!bot, char: null, color: null, kabooms: 1, kills: 0, deaths: 0, boomKills: 0, booms: 0, skip: 0, afk: 0, done: false };
+  return { uid, name, bot: !!bot, char: null, color: null, kabooms: 1, kills: 0, deaths: 0, boomKills: 0, booms: 0, skip: 0, afk: 0, done: false, dry: 0, lucky: false };
 }
 
 export const cleanName = n => String(n || '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
@@ -328,6 +332,34 @@ function openBox(s, p, t, e, fx, rng) {
     case 'bonus': return { extra: true };
     case 'sleepy': p.skip += 1; return {};
     case 'recharge': p.kabooms = Math.min(MAX_KABOOMS, p.kabooms + 1); return {};
+    case 'sniper': { // a kill from anywhere (shields and besties excepted), with the usual extra roll
+      const targets = tokensOnTrack(s).filter(h => h.c !== c && !shielded(s, h.c, h.t) && !besties(s, c, h.c));
+      if (!targets.length) { fx.push({ k: 'fizzle', uid: p.uid }); return {}; }
+      const h = pick(targets, rng);
+      const victim = playerByColor(s, h.c);
+      s.tokens[h.c][h.t] = YARD;
+      victim.deaths += 1; p.kills += 1;
+      fx.push({ k: 'kill', c: h.c, t: h.t, from: h.p, by: c, sq: h.sq });
+      log(s, `🎯 ${p.name} sniped ${victim.name}`);
+      say(s, fx, p, 'kill', rng, victim); say(s, fx, victim, 'die', rng, p);
+      return { extra: true };
+    }
+    case 'jailbreak': {
+      const i = s.tokens[c].indexOf(YARD);
+      if (i < 0) { fx.push({ k: 'fizzle', uid: p.uid }); return {}; }
+      s.tokens[c][i] = 0; // start squares are safe, so nobody gets hurt
+      fx.push({ k: 'move', c, t: i, from: YARD, to: 0 });
+      return {};
+    }
+    case 'freeze': {
+      const foes = s.players.filter(q => q !== p && !q.done);
+      if (!foes.length) { fx.push({ k: 'fizzle', uid: p.uid }); return {}; }
+      const q = pick(foes, rng);
+      q.skip += 1;
+      fx.push({ k: 'freeze', uid: q.uid, by: p.uid });
+      return {};
+    }
+    case 'lucky': p.lucky = true; return {};
     default: return {};
   }
 }
@@ -349,7 +381,9 @@ function doMove(s, p, t, fx, rng, at) {
 
 function doRoll(s, fx, rng, at) {
   const p = current(s);
-  const d = 1 + Math.floor(rng() * 6);
+  // A guaranteed 6 after five dead rolls stuck in the yard (so nobody sits out the whole game), or after a 🍀 box.
+  const forced = p.lucky || (p.dry || 0) >= 5;
+  const d = forced ? 6 : 1 + Math.floor(rng() * 6);
   s.dice = d;
   s.sixes = d === 6 ? s.sixes + 1 : 0;
   fx.push({ k: 'dice', c: p.color, d, uid: p.uid });
@@ -358,7 +392,10 @@ function doRoll(s, fx, rng, at) {
     log(s, `🐷 ${p.name} rolled three 6s — too greedy!`);
     return passTurn(s, fx, at);
   }
+  if (forced) { fx.push({ k: 'pity', uid: p.uid, lucky: !!p.lucky }); p.lucky = false; }
   const opts = movable(s, p.color, d);
+  const stuck = s.tokens[p.color].every(x => x === YARD || x === HOME);
+  p.dry = !opts.length && stuck ? (p.dry || 0) + 1 : 0;
   if (!opts.length) {
     fx.push({ k: 'nomove', uid: p.uid });
     if (d === 6) { fx.push({ k: 'extra', uid: p.uid }); return extraTurn(s, at); }

@@ -99,6 +99,18 @@ const SOUNDS = {
   kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); memeClip(); },
   danger() { memeClip(); },
   kaboom() { noise(1.3, { vol: 0.9, cutoff: 500 }); tone(90, 0.9, { vol: 0.5, to: 30 }); tone(160, 0.3, { type: 'sawtooth', vol: 0.2, to: 40 }); },
+  // Ramayana kill show: Ravana's laugh, heads popping, the three booms, and the death props.
+  ravana() { [220, 196, 175, 147].forEach((f, i) => tone(f, 0.22, { type: 'sawtooth', vol: 0.16, to: f * 0.8, at: i * 0.21 })); },
+  head() { tone(400 + Math.random() * 500, 0.1, { type: 'square', vol: 0.09, to: 1400 }); },
+  boom() { noise(0.3, { vol: 0.55, cutoff: 600 }); tone(130, 0.3, { vol: 0.35, to: 40 }); },
+  thud() { noise(0.3, { vol: 0.8, cutoff: 300 }); tone(75, 0.4, { vol: 0.45, to: 25 }); },
+  whoosh() { noise(0.45, { vol: 0.35, cutoff: 4500 }); tone(1000, 0.4, { vol: 0.07, to: 180 }); },
+  fire() { for (let i = 0; i < 7; i++) noise(0.12, { vol: 0.28, at: i * 0.08, cutoff: 1600 }); },
+  // Cinematic kill: slow-mo dive, brass stab + cymbal + sub boom. Spare: a warm chord. Tense: a drone and a heartbeat.
+  slowmo() { tone(600, 0.9, { vol: 0.1, to: 80 }); noise(0.9, { vol: 0.2, cutoff: 900 }); },
+  hero() { [110, 165, 220, 277, 330].forEach(f => tone(f, 1.1, { type: 'sawtooth', vol: 0.07 })); noise(1.4, { vol: 0.4, cutoff: 7000 }); tone(55, 1.2, { vol: 0.5, to: 30 }); },
+  spare() { [262, 330, 392, 523, 659].forEach((f, i) => tone(f, 0.9, { type: 'triangle', vol: 0.09, at: i * 0.12 })); },
+  tense() { tone(55, 1.6, { type: 'sawtooth', vol: 0.12 }); tone(58, 1.6, { type: 'sawtooth', vol: 0.1 }); [0, 0.25, 0.9, 1.15].forEach(at => tone(50, 0.18, { vol: 0.5, to: 30, at })); },
   box() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, { type: 'triangle', vol: 0.12, at: i * 0.07 })); },
   home() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, { vol: 0.14, at: i * 0.09 })); },
   sad() { [392, 370, 349, 262].forEach((f, i) => tone(f, 0.3, { type: 'triangle', vol: 0.12, at: i * 0.22 })); },

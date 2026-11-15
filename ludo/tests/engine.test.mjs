@@ -187,16 +187,16 @@ test('mystery boxes', () => {
   assert.equal(s.tokens.red[0], 17, 'rocket: 12 + 5');
   assert.equal(s.boxes.length, 1, 'box respawned somewhere else');
   assert.notEqual(s.boxes[0], square('red', 12));
-  assert.equal(openBoxWith(4 / 15 + 0.01).tokens.red[0], 9, 'banana: 12 - 3');
-  s = openBoxWith(9 / 15);
+  assert.equal(openBoxWith(4 / 22 + 0.01).tokens.red[0], 9, 'banana: 12 - 3');
+  s = openBoxWith(9 / 22);
   assert.equal(s.shields['red:0'], 1, 'shield');
-  s = openBoxWith(11 / 15);
+  s = openBoxWith(11 / 22);
   assert.equal(current(s).uid, 'u0', 'bonus roll');
-  assert.equal(openBoxWith(14.5 / 15).players[0].kabooms, 2, 'recharge');
+  assert.equal(openBoxWith(14.5 / 22).players[0].kabooms, 2, 'recharge');
 });
 
 test('sleepy box skips the next turn', () => {
-  let s = openBoxWith(12.5 / 15);
+  let s = openBoxWith(12.5 / 22);
   assert.equal(s.players[0].skip, 1);
   assert.equal(current(s).uid, 'u1');
   s = reduce(s, { type: 'roll', uid: 'u1' }, dice(2));
@@ -305,6 +305,48 @@ test('5 players play on a 5-arm board with a 65-square track', () => {
   assert.equal(t.tokens.pink[0], 14);
   assert.equal(t.tokens.green[0], YARD);
   setArms(4);
+});
+
+test('new gifts: sniper, jailbreak, freeze, lucky', () => {
+  const s = setup(started(['Ajay', 'Nav']), { red: [10, YARD, YARD, YARD], yellow: [20, YARD, YARD, YARD] });
+  s.boxes = [square('red', 12)];
+  const open = roll => { const seq = [1 / 6 + 0.01, roll]; return reduce(s, { type: 'roll', uid: 'u0' }, () => (seq.length ? seq.shift() : 0.5)); };
+  let r = open(15.5 / 22);
+  assert.equal(r.tokens.yellow[0], YARD, 'sniper sent the enemy home');
+  assert.equal(r.players[0].kills, 1);
+  assert.ok(r.fx.items.some(f => f.k === 'kill' && f.by === 'red'));
+  assert.equal(current(r).uid, 'u0', 'a kill gives an extra roll');
+  r = open(17 / 22);
+  assert.deepEqual(r.tokens.red, [12, 0, YARD, YARD], 'jailbreak: one token walks out');
+  r = open(19 / 22);
+  assert.ok(r.fx.items.some(f => f.k === 'freeze' && f.uid === 'u1'), 'freeze hits the enemy');
+  assert.ok(r.fx.items.some(f => f.k === 'sleep'), '…who then sits out their turn');
+  assert.equal(current(r).uid, 'u0');
+  r = open(21 / 22);
+  assert.equal(r.players[0].lucky, true);
+  r = reduce(r, { type: 'roll', uid: 'u1' }, dice(2));
+  r = reduce(r, { type: 'roll', uid: 'u0' }, dice(3));
+  assert.equal(r.dice, 6, 'lucky: the next roll is a 6');
+  assert.equal(r.players[0].lucky, false);
+  assert.ok(r.fx.items.some(f => f.k === 'pity' && f.lucky));
+});
+
+test('pity six: five dead rolls stuck in the yard, then a guaranteed 6', () => {
+  let s = started(['Ajay', 'Nav']);
+  for (let i = 0; i < 5; i++) {
+    s = reduce(s, { type: 'roll', uid: 'u0' }, dice(2));
+    assert.equal(s.players[0].dry, i + 1);
+    s = reduce(s, { type: 'roll', uid: 'u1' }, dice(2));
+  }
+  s = reduce(s, { type: 'roll', uid: 'u0' }, dice(2));
+  assert.equal(s.fx.items.find(f => f.k === 'dice').d, 6, 'the sixth roll is forced');
+  assert.ok(s.fx.items.some(f => f.k === 'pity' && !f.lucky));
+  assert.equal(s.players[0].dry, 0);
+  assert.equal(s.tokens.red[0], 0, 'and the token came out');
+  // A player with a token on the track is not stuck, so the counter stays at 0.
+  s = setup(started(['Ajay', 'Nav']), { red: [54, YARD, YARD, YARD] });
+  s = reduce(s, { type: 'roll', uid: 'u0' }, dice(5));
+  assert.equal(s.players[0].dry, 0);
 });
 
 test('simulation: 600 random games always finish cleanly', () => {

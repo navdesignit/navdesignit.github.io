@@ -159,9 +159,17 @@ function staticBoard5(P) {
   return g + `<g transform="translate(0 0.05)">${BOMB}</g>`;
 }
 
+// The hero's sword, hilt at the origin, tip pointing up.
+const SWORD = '<path d="M-0.09 0 L0.09 0 L0.06 -1.5 L0 -1.75 L-0.06 -1.5Z" fill="url(#blade)"/>' +
+  '<path d="M-0.02 0 L0.02 0 L0.02 -1.45 L-0.02 -1.45Z" fill="#fff" opacity=".7"/>' +
+  '<rect x="-0.34" y="-0.05" width="0.68" height="0.12" rx="0.04" fill="#FFC93C"/>' +
+  '<rect x="-0.07" y="0.07" width="0.14" height="0.45" rx="0.04" fill="#7a3b12"/>' +
+  '<circle cy="0.58" r="0.09" fill="#FFC93C"/>';
+
 function defs() {
   const faces = CHAR_IDS.map(id => `<symbol id="face-${id}" viewBox="0 0 100 100">${faceMarkup(id)}</symbol>`).join('');
   return `<defs>${faces}<clipPath id="tok-clip"><circle r="0.4"/></clipPath>` +
+    '<linearGradient id="blade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b8c2cc"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#8e9aa6"/></linearGradient>' +
     '<radialGradient id="boom-grad"><stop offset="0" stop-color="#fff7c2"/><stop offset=".35" stop-color="#FFC93C"/><stop offset=".7" stop-color="#FF6B35"/><stop offset="1" stop-color="#E5383B" stop-opacity="0"/></radialGradient></defs>';
 }
 
@@ -212,6 +220,7 @@ export class Board {
       for (let t = 0; t < 4; t++) {
         const g = document.createElementNS(SVGNS, 'g');
         g.setAttribute('class', 'tok');
+        g.style.setProperty('--d', `${-t * 0.65}s`); // staggers the idle sway
         g.innerHTML = '<g class="tok-in">' +
           '<ellipse cx="0" cy="0.36" rx="0.34" ry="0.11" fill="rgba(0,0,0,.28)"/>' +
           `<circle class="tok-ring" r="0.47" fill="${TEAM[p.color]}" stroke="#fff" stroke-width="0.07"/>` +
@@ -257,7 +266,11 @@ export class Board {
     [...this.els.entries()].sort((a, b) => (this.pos.get(a[0])?.y || 0) - (this.pos.get(b[0])?.y || 0))
       .forEach(([, el]) => this.tokensG.appendChild(el));
     this.boxesG.innerHTML = (state.boxes || []).map(boxMarkup).join('');
-    for (const [k, el] of this.els) el.classList.toggle('shielded', !!(state.shields && state.shields[k]));
+    const live = (state.phase === 'roll' || state.phase === 'move') && state.players[state.turn] ? `${state.players[state.turn].color}:` : '-';
+    for (const [k, el] of this.els) {
+      el.classList.toggle('shielded', !!(state.shields && state.shields[k]));
+      el.classList.toggle('turn', k.startsWith(live)); // the current player's tokens sway
+    }
     this.svg.querySelectorAll('.yard-glow').forEach(g => {
       const cur = state.players[state.turn];
       g.classList.toggle('on', (state.phase === 'roll' || state.phase === 'move') && !!cur && cur.color === g.dataset.c);
@@ -333,20 +346,64 @@ export class Board {
   }
 
   // Walk a token from step `from` to step `to`, one square at a time.
-  async walk(c, t, from, to, { fast = false, onStep } = {}) {
+  // `strike` (a kill is coming): the last step is a zoomed-in slow-motion sword strike.
+  async walk(c, t, from, to, { fast = false, onStep, strike = null } = {}) {
     const k = `${c}:${t}`;
     this.place(k, from === YARD ? spot(c, YARD, t) : spot(c, from, t));
     if (from === YARD) { onStep && onStep(); return this.hop(k, spot(c, to, t), 320, 1.2); }
     const dir = to > from ? 1 : -1;
-    for (let p = from + dir; dir > 0 ? p <= to : p >= to; p += dir) {
+    const el = this.els.get(k);
+    if (el) el.classList.add('walking');
+    const last = strike && to > from ? to - 1 : to;
+    for (let p = from + dir; dir > 0 ? p <= last : p >= last; p += dir) {
       onStep && onStep();
       await this.hop(k, spot(c, p, t), fast ? 70 : 150, fast ? 0.15 : 0.35);
     }
+    if (el) el.classList.remove('walking');
+    if (last !== to) await this.strike(c, t, to, strike);
   }
 
   // Teleport-style flight straight to step `to` (mystery box swaps).
   async walkFly(c, t, to) {
     await this.hop(`${c}:${t}`, spot(c, to, t), 700, 2.5);
+  }
+
+  // Cinematic camera on the board: 'zoom' pushes in on square sq, null pulls back out.
+  camera(mode, sq) {
+    const el = this.svg.parentElement;
+    if (mode !== 'zoom') { el.style.transform = ''; return; }
+    const { x, y } = squareCenter(sq);
+    const vb = this.svg.viewBox.baseVal;
+    el.style.transformOrigin = `${(((x - vb.x) / vb.width) * 100).toFixed(2)}% ${(((y - vb.y) / vb.height) * 100).toFixed(2)}%`;
+    el.style.transform = 'perspective(700px) rotateX(28deg) scale(2.3)';
+  }
+
+  // Zoom in, take the last step in slow motion, then a sword comes down with a flash of light.
+  async strike(c, t, to, { onZoom, onImpact } = {}) {
+    const sq = square(c, to);
+    this.camera('zoom', sq);
+    onZoom && onZoom();
+    await this.wait(380);
+    await this.hop(`${c}:${t}`, spot(c, to, t), 650, 0.7);
+    const { x, y } = squareCenter(sq);
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', `translate(${x} ${y})`);
+    g.innerHTML = `<g class="sword">${SWORD}</g><circle class="flash" r="0" fill="#fff"/>` +
+      [0, 1, 2].map(i => `<path class="slashline" d="M-1 -0.6 L1 0.6" stroke="#fff" stroke-width="0.1" stroke-linecap="round" opacity="0" transform="rotate(${-28 + i * 24})"/>`).join('');
+    this.fxG.appendChild(g);
+    const sword = g.querySelector('.sword'), flash = g.querySelector('.flash'), lines = g.querySelectorAll('.slashline');
+    await this.tween(420, u => { // raised at the upper right, then swung down through the token
+      const e = u * u * u;
+      sword.setAttribute('transform', `translate(${(1.1 - 0.35 * e).toFixed(3)} ${(-1.2 + 0.45 * e).toFixed(3)}) rotate(${(20 - 155 * e).toFixed(1)})`);
+    });
+    onImpact && onImpact();
+    await this.tween(520, u => {
+      flash.setAttribute('r', (2.6 * Math.sqrt(u)).toFixed(3));
+      flash.setAttribute('opacity', (1 - u).toFixed(3));
+      lines.forEach(l => { l.setAttribute('opacity', (u < 0.6 ? 1 : 1 - (u - 0.6) / 0.4).toFixed(3)); l.setAttribute('stroke-width', (0.14 * (1 - u) + 0.02).toFixed(3)); });
+      sword.setAttribute('opacity', (1 - u * u).toFixed(3));
+    });
+    g.remove();
   }
 
   async flyHome(c, t, ms = 520) {
