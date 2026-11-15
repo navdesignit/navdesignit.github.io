@@ -225,7 +225,7 @@ export class Board {
         el.className = 'piece';
         el.style.setProperty('--c', TEAM[p.color]);
         el.style.setProperty('--d', `${-t * 0.65}s`); // staggers the idle sway
-        el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-body"></div><div class="p-head">${avatar(p.char, { bg: TINT[p.color] })}</div><div class="p-ring"></div><span class="p-shield">🛡️</span></div>`;
+        el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-body"></div><div class="p-head">${avatar(p.char, { bg: TINT[p.color] })}</div><div class="p-ring"></div><span class="p-shield">🛡️</span><span class="p-landu">🤡</span></div>`;
         this.piecesEl.appendChild(el);
         this.els.set(`${p.color}:${t}`, el);
       }

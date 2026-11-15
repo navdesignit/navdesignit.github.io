@@ -28,7 +28,8 @@ The Alquida extras:
 - ⚔️ **Maarega ya chhodega?** Roll a number that could kill and the table holds its breath: the hunter's 3D figure steps up with a sword and looks around, the possible victims gasp and beg. Spare them and you get a "chhod diya, boss hai boss" beat.
 - 🎥 **3D board:** the board sits tilted like a table with the characters standing on it as little figures.
 - 😈 **Ravana mode:** a kill opens with three TV-serial camera cuts (dhan, dhan, DHAN!), then a slow-motion sword strike with a heroic sting and anime impact frames, then the killer sprouts Ravana's 10 heads and the victim gets one of 16 filmi deaths (pathar, chappal, Ram-baan, Lanka dahan, Indori auto…). Leave the game alone for a bit and the gang strolls across the screen in 3D.
-- 🤡 **The Landu badge** goes to whoever has been killed the most. End-of-game awards: Assassin, Biggest Landu, Kaboom King, Sleepyhead and 💔 Backstabber.
+- 🎬 **Kill collection:** every kill unlocks the next of 100 famous films (Bollywood and Hollywood) and 60 dishes (mostly Indian, with Indore specials) for your character, counted on your phone. Open it from the ⋯ menu.
+- 🤡 **The Landu badge** goes to whoever has been killed the most. When it changes hands, the clown crown flies from the old Landu to the new one with a fanfare that goes sour: "this is you now". The Landu's figures on the board wear the badge too. End-of-game awards: Assassin, Biggest Landu, Kaboom King, Sleepyhead and 💔 Backstabber.
 - ⏱️ **Turn timer** (host setting). If someone's phone goes to sleep or they leave, the game plays their turn for them.
 
 ## Turn on online play (one time, about 5 minutes, free)
@@ -56,6 +57,7 @@ That's all: no sign-in setup and no billing. The free Spark plan allows 100 phon
 | Character names, nicknames, trash-talk lines, face drawings | `js/characters.js` |
 | Rules: blast radius, box effects and their odds, Kaboom limits | `js/engine.js` |
 | Board drawing and animations | `js/board.js` |
+| Films and dishes in the kill collection | `js/unlocks.js` |
 | Kill show deaths, idle gags, 3D walkers | `DEATHS`, `WALKERS` and `NAGS` in `js/app.js`, styles in `style.css` |
 | Meme voice clips (kills, close calls, the 😂 soundboard) | `sounds/memes.mp3`: 20 clips packed back to back, listed with their labels in `MEMES` in `js/sound.js` |
 | Screens and buttons | `index.html`, `style.css`, `js/app.js` |
