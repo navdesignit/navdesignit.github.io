@@ -180,6 +180,7 @@ const SWORD = '<path d="M-0.09 0 L0.09 0 L0.06 -1.5 L0 -1.75 L-0.06 -1.5Z" fill=
 function defs() {
   return '<defs>' +
     '<linearGradient id="blade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b8c2cc"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#8e9aa6"/></linearGradient>' +
+    '<radialGradient id="scorch-grad"><stop offset="0" stop-color="#000" stop-opacity=".8"/><stop offset=".5" stop-color="#1a0a00" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="boom-grad"><stop offset="0" stop-color="#fff7c2"/><stop offset=".35" stop-color="#FFC93C"/><stop offset=".7" stop-color="#FF6B35"/><stop offset="1" stop-color="#E5383B" stop-opacity="0"/></radialGradient></defs>';
 }
 
@@ -449,6 +450,31 @@ export class Board {
       sword.setAttribute('opacity', (1 - u * u).toFixed(3));
     });
     g.remove();
+  }
+
+  // Kaboom: shoot the piece up off the top of the screen spinning, then drop it into its yard.
+  async launch(c, t) {
+    const k = `${c}:${t}`, el = this.els.get(k);
+    if (!el) return;
+    el.classList.add('spinning');
+    const from = this.pos.get(k) || spot(c, YARD, t);
+    await this.tween(650, u => this.place(k, { ...from, lift: u * u * 16 }));
+    await this.wait(200);
+    const home = spot(c, YARD, t);
+    this.place(k, { ...home, lift: 16 });
+    await this.tween(550, u => this.place(k, { ...home, lift: 16 * (1 - u * u) }));
+    el.classList.remove('spinning');
+  }
+
+  // A scorch mark where the bomb went off; it fades over a few seconds.
+  scorch(sq) {
+    const { x, y } = squareCenter(sq);
+    const c = document.createElementNS(SVGNS, 'circle');
+    c.setAttribute('class', 'scorch');
+    c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', '1.6');
+    c.setAttribute('fill', 'url(#scorch-grad)');
+    this.fxG.appendChild(c);
+    setTimeout(() => c.remove(), 7000);
   }
 
   async flyHome(c, t, ms = 520) {

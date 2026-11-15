@@ -116,6 +116,7 @@ const SOUNDS = {
   // Royal fanfare that turns sour: the Landu throne changes hands.
   fanfare() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.28, { type: 'sawtooth', vol: 0.09, at: i * 0.14 })); [392, 370, 349, 330].forEach((f, i) => tone(f, 0.5, { type: 'sawtooth', vol: 0.09, to: f * 0.96, at: 0.8 + i * 0.3 })); },
   manhoos() { [330, 311, 262, 208].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.1, at: i * 0.14 })); noise(0.12, { vol: 0.3, at: 0.6, cutoff: 2500 }); },
+  beep(i = 0) { tone([600, 800, 1200][i] || 1200, 0.14, { type: 'square', vol: 0.12 }); },
   whistle() { tone(300, 0.7, { vol: 0.12, to: 1400 }); tone(220, 0.1, { vol: 0.15, to: 60, at: 0.72 }); },
   tense() { tone(55, 1.6, { type: 'sawtooth', vol: 0.12 }); tone(58, 1.6, { type: 'sawtooth', vol: 0.1 }); [0, 0.25, 0.9, 1.15].forEach(at => tone(50, 0.18, { vol: 0.5, to: 30, at })); },
   box() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, { type: 'triangle', vol: 0.12, at: i * 0.07 })); },
