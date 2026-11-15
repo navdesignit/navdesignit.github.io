@@ -295,6 +295,8 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .p-ring { position: absolute; left: -9%; right: -9%; top: -10%; aspect-ratio: 1; border-radius: 50%; border: 2px dashed #fff; display: none; }
 .p-shield { position: absolute; right: -14%; top: -16%; display: none; line-height: 1; }
 .piece.shielded .p-shield { display: block; }
+.p-weapon { position: absolute; right: -40%; top: 28%; font-size: 1.2em; line-height: 1; transform-origin: 20% 90%; animation: swingw 2.2s ease-in-out infinite; animation-delay: var(--d, 0s); filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
+.f-eye { transform-box: fill-box; transform-origin: center; animation: blink 4.2s ease-in-out infinite; animation-delay: var(--bd, 0s); }
 .piece.turn .piece-in { animation: swayp 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
 .piece.walking .piece-in { animation: waddlep 0.16s ease-in-out infinite; }
 .piece.flip .piece-in { animation: flipp 0.85s ease-in-out; }
@@ -305,17 +307,21 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .piece.aim .p-head { box-shadow: 0 0 0 2px #ff2d2d, 0 3px 6px rgba(0, 0, 0, 0.45); }
 .piece.aim .piece-in, .piece.fuse .piece-in { animation: jitterp 0.1s infinite; }
 .piece.fuse .p-head { box-shadow: 0 0 0 3px #ff2d2d; filter: brightness(1.1) sepia(1) hue-rotate(-40deg) saturate(4); }
-/* Mr. Manhoos: grey, with an umbrella and a bat, always a little bit swaying */
-.piece.manhoos { --c: #2b2b33; }
-.piece.manhoos .piece-in { animation: lurk 3.2s ease-in-out infinite; }
-.piece.manhoos.arrive .piece-in { animation: arrive 0.5s cubic-bezier(0.2, 1.6, 0.4, 1), lurk 3.2s ease-in-out 0.5s infinite; }
-.p-umbrella { position: absolute; right: -42%; top: -36%; font-size: 1.3em; line-height: 1; transform: rotate(14deg); filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.4)); }
-.p-crow { position: absolute; left: -26%; top: 36%; font-size: 0.85em; line-height: 1; animation: bounce 1.6s ease-in-out infinite; }
-.unlock.manhoos .ucard { background: #1d1d26; color: #fff; }
-.unlock.manhoos .ucard small { color: #a7adb5; }
-.unlock.manhoos .ucard em { color: rgba(255, 255, 255, 0.72); }
-@keyframes lurk { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) translateY(-2%); } }
-@keyframes arrive { from { transform: scale(0) rotate(-180deg); } }
+/* Mr. Manhoos: two big eyes under a hat, peeking over the board edge, pupils following the play */
+.piece.manhoos { width: calc(100% / var(--cells, 15.4) * 1.6); height: calc(100% / var(--cells, 15.4) * 0.95); transition: left 0.55s ease-in-out, top 0.55s ease-in-out; }
+.piece.manhoos .piece-in { animation: peek 5s ease-in-out infinite; }
+.m-hat { position: absolute; left: -8%; right: -8%; top: 0; height: 52%; border-radius: 50% 50% 10% 10% / 100% 100% 12% 12%; background: #2b2b33; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
+.m-eye { position: absolute; top: 36%; width: 44%; aspect-ratio: 1; border-radius: 50%; background: #fff; border: 2px solid #1d1d1f; overflow: hidden; transition: transform 0.3s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.m-eye.l { left: 3%; }
+.m-eye.r { right: 3%; }
+.m-eye i { position: absolute; left: 50%; top: 50%; width: 48%; height: 48%; margin: -24% 0 0 -24%; border-radius: 50%; background: #1d1d1f; transform: translate(var(--px, 0%), var(--py, 0%)); transition: transform 0.25s; }
+.m-eye i::after { content: ''; position: absolute; left: 55%; top: 15%; width: 30%; height: 30%; border-radius: 50%; background: #fff; }
+.m-eye::after { content: ''; position: absolute; inset: -2px; background: #2b2b33; transform: translateY(-100%); animation: mblink 4.5s infinite; }
+.m-eye.r::after { animation-delay: 0.05s; }
+.piece.manhoos.wide .m-eye { transform: scale(1.4); }
+.piece.manhoos.wide .piece-in { animation: none; }
+@keyframes mblink { 0%, 91%, 100% { transform: translateY(-100%); } 94%, 96% { transform: translateY(0); } }
+@keyframes peek { 0%, 100% { transform: translateY(14%); } 35%, 65% { transform: translateY(0); } }
 .blast-zone { fill: rgba(255, 60, 60, 0.3); stroke: #ff3c3c; stroke-width: 0.05; animation: blink 0.8s ease-in-out infinite; }
 .yard-glow { opacity: 0; transition: opacity 0.3s; }
 .yard-glow.on { opacity: 1; animation: blink 1.1s ease-in-out infinite; }
@@ -528,8 +534,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .dude.stand .d-head { animation: look 1.7s ease-in-out infinite; }
 .dude.stand .d-leg, .dude.stand .d-arm.l { animation: none; transform: translateZ(var(--z)); }
 .dude.stand .d-arm.r { animation: none; transform: translateZ(var(--z)) rotate(-150deg); }
-.d-sword { position: absolute; left: 50%; bottom: -54px; width: 9px; height: 58px; margin-left: -4.5px; background: linear-gradient(90deg, #9aa5b1, #fff 50%, #8e9aa6); clip-path: polygon(50% 0, 100% 12%, 100% 100%, 0 100%, 0 12%); filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)); }
-.d-sword::before { content: ''; position: absolute; left: -7px; right: -7px; bottom: 6px; height: 6px; border-radius: 3px; background: #FFC93C; }
+.d-weapon { position: absolute; left: 50%; bottom: -36px; font-size: 2.1rem; line-height: 1; transform: translateX(-50%) rotate(165deg); filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85)); }
 .dude.bow .dude-in { animation: bow 1s ease-in-out forwards; }
 
 @keyframes swayp { 50% { transform: rotate(6deg) translateY(-3%); } }
@@ -596,6 +601,8 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 @keyframes tumblep { to { transform: rotate(360deg); } }
 @keyframes quake { 15% { transform: translate(-8px, 5px) rotate(-2.5deg) var(--cam); } 30% { transform: translate(8px, -5px) rotate(2.5deg) var(--cam); } 45% { transform: translate(-6px, 3px) rotate(-1.5deg) var(--cam); } 60% { transform: translate(6px, -3px) rotate(1.5deg) var(--cam); } 80% { transform: translate(-2px, 1px) var(--cam); } }
 @keyframes scorchfade { 60% { opacity: 1; } to { opacity: 0; } }
+@keyframes swingw { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(28deg); } }
+@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }

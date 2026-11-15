@@ -5,7 +5,7 @@ Ludo, but with bombs. Make a room, send the link on WhatsApp, and your friends t
 **Play:** https://navdesignit.github.io/ludo/
 
 - **2 to 5 players**, online or pass-and-play on one phone, with optional 🤖 bots. With 5 players the game switches to a pentagon board with five arms (pink is the 5th colour), so the whole gang can play together.
-- **5 characters:** Ajay, Nav, Chechu, Vanshika and Liu. Type one of those names and you *become* that character. Anyone else picks a free one, and the real Nav always gets Nav.
+- **5 characters:** Ajay, Nav, Chechu, Vanshika and Liu, big-eyed and blinking, each with a weapon they kill with (🏏 🔫 🍳 🔨 🖌️). Type one of those names and you *become* that character. Anyone else picks a free one, and the real Nav always gets Nav.
   - 😎 Ajay, 🧠 Nav and 🍛 Chechu are childhood friends from Indore and roast each other in Indori.
   - ⚖️ Vanshika is a Delhi lawyer and Ajay's wife. If you need a 4 to kill her: "4 ni ayega 😌". If you get it anyway: "Toh maar do… haha 😂".
   - 🎨 Liu is an artist and Nav's girlfriend, who learned all her Hindi from Nav ("Chal dalleeeee!", "Yeeeee kuttaaaaa!").
@@ -23,7 +23,7 @@ Normal Ludo:
 The Alquida extras:
 - 💣 **KABOOM (self-destruct):** everyone gets one per game. Before you roll, if an enemy is within 2 squares of one of your tokens, you can blow that token up. Your token goes back to your yard, and so does every enemy within 2 squares. Star squares don't protect anyone from a bomb. It's a whole show: the camera zooms in for a 3-2-1 countdown while the neighbours panic, then a mushroom cloud, flying debris and everyone in range launched into the sky before dropping back into their yards.
 - ❓ **Mystery boxes:** three boxes sit on the track. Stop on one and you get one of these: 🚀 +5 squares · 🍌 slip back 3 · 🌀 swap places with a random enemy · 🛡️ shield for a round · 🎲 free roll · 💤 skip your next turn · 💣 an extra Kaboom · 🎯 sniper (a random enemy goes home) · 🔓 jailbreak (a token walks out free) · 🧊 freeze (an enemy skips a turn) · 🍀 lucky (your next roll is a 6).
-- ☂️ **Mr. Manhoos:** once a round a jinxed little man appears beside a token on the track, drawn to whoever is winning, and leaves a gift. Mostly bad and never a big setback: 🧿 nazar (your next landing can't kill), 🔄 ulta dice (7 minus your roll), 🐌 slow poison (half a roll), 💸 Kaboom chori, 🪳 cockroach (back 2); rarely 🍀 a free 6 or 🛡️ a shield. Host setting, on by default.
+- 👀 **Mr. Manhoos:** a pair of big eyes peeks over the edge of the board, pupils following whoever is playing. Once a round they slide over to a token on the track, drawn to whoever is winning, and slip them a sticky note with a gift. Mostly bad and never a big setback: 🧿 nazar (your next landing can't kill), 🔄 ulta dice (7 minus your roll), 🐌 slow poison (half a roll), 💸 Kaboom chori, 🪳 cockroach (back 2); rarely 🍀 a free 6 or 🛡️ a shield. Host setting, on by default.
 - 💬 **Trash talk** changes with who you're talking to: husband and wife, girlfriend and boyfriend, the Indore boys, and the besties each get their own lines. Edit them in `js/characters.js`.
 - 😂 **Emoji throws** fly across everyone's screen.
 - ⚔️ **Maarega ya chhodega?** Roll a number that could kill and the table holds its breath: the hunter's 3D figure steps up with a sword and looks around, the possible victims gasp and beg. Spare them and you get a "chhod diya, boss hai boss" beat.

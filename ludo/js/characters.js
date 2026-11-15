@@ -34,6 +34,7 @@ export const CHARACTERS = {
     name: 'Ajay',
     title: 'Indore ka Boss',
     emoji: '😎',
+    weapon: '🏏',
     accent: '#FF8A3D',
     aliases: [],
     lines: {
@@ -56,6 +57,7 @@ export const CHARACTERS = {
     name: 'Nav',
     title: 'The Mastermind',
     emoji: '🧠',
+    weapon: '🔫',
     accent: '#4DA3FF',
     aliases: ['navendu', 'navu'],
     lines: {
@@ -78,6 +80,7 @@ export const CHARACTERS = {
     name: 'Chechu',
     title: 'Indori Bhiya',
     emoji: '🍛',
+    weapon: '🍳',
     accent: '#B67CFF',
     aliases: [],
     lines: {
@@ -96,6 +99,7 @@ export const CHARACTERS = {
     name: 'Vanshika',
     title: 'The Lawyer',
     emoji: '⚖️',
+    weapon: '🔨',
     accent: '#FF4FA3',
     aliases: ['vanshi'],
     lines: {
@@ -120,6 +124,7 @@ export const CHARACTERS = {
     name: 'Liu',
     title: 'The Artist',
     emoji: '🎨',
+    weapon: '🖌️',
     accent: '#33CA7F',
     aliases: ['ehan'],
     lines: {
@@ -170,7 +175,9 @@ function head(skin, ears = true) {
     `<circle cx="50" cy="56" r="27" fill="${skin}"/>`;
 }
 const cheeks = '<circle cx="33" cy="66" r="4.5" fill="#ff6b81" opacity=".35"/><circle cx="67" cy="66" r="4.5" fill="#ff6b81" opacity=".35"/>';
-const eye = (x, y = 56) => `<ellipse cx="${x}" cy="${y}" rx="3.6" ry="4.6" fill="${DARK}"/><circle cx="${x + 1.2}" cy="${y - 1.7}" r="1.3" fill="#fff"/>`;
+// Big cartoon eyes; the f-eye group blinks (style.css), staggered per avatar.
+const eye = (x, y = 56, r = 4.6) => `<g class="f-eye"><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r + 1.2}" fill="#fff"/>` +
+  `<ellipse cx="${x}" cy="${y + 0.5}" rx="${(r * 0.62).toFixed(2)}" ry="${(r * 0.82).toFixed(2)}" fill="${DARK}"/><circle cx="${x + 1.4}" cy="${y - 1.8}" r="1.4" fill="#fff"/></g>`;
 const brow = d => `<path d="${d}" fill="none" stroke="${DARK}" stroke-width="2.4" stroke-linecap="round"/>`;
 const star = (x, y, r, fill) => {
   let d = '';
@@ -183,79 +190,73 @@ const star = (x, y, r, fill) => {
 };
 
 const FACES = {
-  ajay: () => {
+  ajay: () => { // Indore ka Boss: mega shades with a glint, toothpick, gold tooth
     const skin = '#C68642';
     return head(skin) +
-      // spiky hair
-      '<path d="M24 52 C22 36 28 26 34 24 L33 15 L41 22 L44 11 L51 21 L57 10 L61 22 L69 14 L68 25 C75 29 78 38 76 52 C70 42 62 38 50 38 C38 38 30 42 24 52Z" fill="#1b1b1b"/>' +
-      brow('M31 46 Q38 43 45 46') + brow('M55 46 Q62 43 69 46') +
-      // stubble + smirk
+      '<path d="M22 52 C20 34 27 24 34 22 L32 10 L41 20 L44 6 L51 19 L58 5 L62 20 L71 10 L69 24 C77 28 80 38 78 52 C71 41 62 37 50 37 C38 37 29 41 22 52Z" fill="#1b1b1b"/>' +
+      brow('M30 45 Q38 41 46 45') + brow('M54 45 Q62 41 70 45') +
       '<path d="M33 67 Q50 90 67 67 Q63 81 50 83 Q37 81 33 67Z" fill="#000" opacity=".13"/>' +
-      '<path d="M41 70 Q51 76 61 67" fill="none" stroke="#5a2a14" stroke-width="2.8" stroke-linecap="round"/>' +
-      // sunglasses
-      '<path d="M30 54 L23 51 M70 54 L77 51" stroke="#111" stroke-width="2.2"/>' +
-      '<rect x="29" y="50" width="18" height="11" rx="4.5" fill="#111"/><rect x="53" y="50" width="18" height="11" rx="4.5" fill="#111"/>' +
-      '<path d="M47 54 h6" stroke="#111" stroke-width="2.6"/>' +
-      '<path d="M32.5 53.5 h6 M56.5 53.5 h6" stroke="#fff" stroke-width="1.8" opacity=".75" stroke-linecap="round"/>';
+      '<path d="M39 70 Q51 78 63 66" fill="none" stroke="#5a2a14" stroke-width="3" stroke-linecap="round"/>' +
+      '<rect x="52" y="70" width="5" height="5" rx="1" fill="#f5b400"/>' +
+      '<path d="M62 68 L79 61" stroke="#d9b38c" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<path d="M28 54 L20 50 M72 54 L80 50" stroke="#111" stroke-width="2.4"/>' +
+      '<rect x="27" y="49" width="21" height="13" rx="5" fill="#111"/><rect x="52" y="49" width="21" height="13" rx="5" fill="#111"/>' +
+      '<path d="M47 54 h6" stroke="#111" stroke-width="2.8"/>' +
+      '<path d="M31 53 h7 M56 53 h7" stroke="#fff" stroke-width="2" opacity=".8" stroke-linecap="round"/>' +
+      star(74, 48, 3.5, '#fff');
   },
-  nav: () => {
+  nav: () => { // The Mastermind: backwards cap, evil-genius brows, buck teeth, a lightbulb
     const skin = '#D9A066';
     return head(skin) +
       '<path d="M24 56 Q22 46 27 41 L31 56Z M76 56 Q78 46 73 41 L69 56Z" fill="#2b1a10"/>' +
-      // backwards cap
       '<path d="M21 49 C21 26 35 17 50 17 C65 17 79 26 79 49 C71 43 61 40 50 40 C39 40 29 43 21 49Z" fill="#2D6CDF"/>' +
       '<path d="M21 49 C29 43 39 40 50 40 C61 40 71 43 79 49" fill="none" stroke="#1a4fb8" stroke-width="3.2"/>' +
       `<rect x="43" y="36.5" width="14" height="6" rx="2.5" fill="${skin}"/>` +
-      '<path d="M41 39.5 h18" stroke="#fff" stroke-width="1.6"/>' +
       '<circle cx="50" cy="18" r="2.8" fill="#1a4fb8"/>' +
-      brow('M33 47 Q39 42.5 45 46') + brow('M55 46 Q61 42.5 67 47') +
+      '<text x="85" y="24" font-size="16" text-anchor="middle">💡</text>' +
+      brow('M32 46 Q38 40 46 45') + brow('M54 45 Q62 40 68 46') +
       eye(40) + eye(60) + cheeks +
-      // big grin
-      '<path d="M37 65 Q50 84 63 65 Z" fill="#fff" stroke="#5a2a14" stroke-width="2.4" stroke-linejoin="round"/>' +
-      '<path d="M44 73.5 Q50 79 56 73.5 Q50 70.5 44 73.5Z" fill="#ff6b81"/>';
+      '<path d="M36 65 Q50 86 64 65 Z" fill="#fff" stroke="#5a2a14" stroke-width="2.4" stroke-linejoin="round"/>' +
+      '<rect x="44" y="65" width="6" height="9" fill="#fff" stroke="#5a2a14" stroke-width="1.2"/><rect x="50" y="65" width="6" height="9" fill="#fff" stroke="#5a2a14" stroke-width="1.2"/>' +
+      '<path d="M44 77 Q50 81 56 77 Q50 74 44 77Z" fill="#ff6b81"/>';
   },
-  chechu: () => {
+  chechu: () => { // Indori foodie: unibrow, a mustache you could sweep the floor with, gold tooth, chain, mirchi
     const skin = '#B5754A';
     return head(skin) +
-      // short side-parted hair
       '<path d="M23 53 C21 33 34 21 51 21 C68 21 80 31 77 51 C74 42 68 37 61 35 C53 40 39 38 30 42 C27 45 25 49 23 53Z" fill="#1a0f0a"/>' +
-      '<path d="M61 35 C56 30 50 26 43 25" fill="none" stroke="#4a3328" stroke-width="1.6" stroke-linecap="round"/>' +
-      brow('M33 47.5 Q39 44.5 45 46.5') + brow('M55 46.5 Q61 44.5 67 47.5') +
+      brow('M32 47 Q50 40 68 47') +
       eye(40) + eye(60) +
-      // big Indori mustache
-      '<path d="M35 66.5 C39 60.5 46 60.5 50 64 C54 60.5 61 60.5 65 66.5 C60 65 55 66.5 50 68 C45 66.5 40 65 35 66.5Z" fill="#1a0f0a"/>' +
-      '<path d="M42 71 Q50 78 58 71" fill="none" stroke="#5a2a14" stroke-width="2.6" stroke-linecap="round"/>' +
-      // gold chain
-      '<path d="M33 85 Q50 97 67 85" fill="none" stroke="#f5b400" stroke-width="2.6"/>' +
-      '<circle cx="50" cy="91" r="2.6" fill="#f5b400"/>';
+      '<path d="M20 70 C30 57 44 60 50 65 C56 60 70 57 80 70 C70 66 58 68 50 71 C42 68 30 66 20 70Z" fill="#1a0f0a"/>' +
+      '<path d="M40 76 Q50 84 60 76" fill="none" stroke="#5a2a14" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<rect x="46" y="76" width="5" height="4" rx="1" fill="#f5b400"/>' +
+      '<path d="M33 85 Q50 97 67 85" fill="none" stroke="#f5b400" stroke-width="2.6"/><circle cx="50" cy="91" r="2.6" fill="#f5b400"/>' +
+      '<text x="82" y="90" font-size="15" text-anchor="middle">🌶️</text>';
   },
-  vanshika: () => {
+  vanshika: () => { // Delhi lawyer: judge's wig, one raised brow, lipstick smile, objection!
     const skin = '#E0AC69';
-    return '<path d="M66 27 C86 24 95 44 89 64 C86 75 80 81 73 85 C80 70 82 55 73 40Z" fill="#3b2416"/>' +
-      head(skin) +
-      '<path d="M23 54 C22 34 36 24 52 24 C68 24 79 34 77 52 C72 40 64 34 54 34 C44 40 32 45 23 54Z" fill="#3b2416"/>' +
-      '<circle cx="72" cy="30" r="3.8" fill="#ff4fa3"/>' +
-      brow('M34 48 Q40 46 45 48') + brow('M55 46 Q61 41.5 66 45.5') +
-      `<path d="M35.5 57 Q40 52.5 44.5 57" fill="none" stroke="${DARK}" stroke-width="2.6" stroke-linecap="round"/>` +
-      eye(60) + cheeks +
-      '<path d="M41 67 Q50 76 59 67" fill="none" stroke="#7a2e2e" stroke-width="2.8" stroke-linecap="round"/>' +
-      '<path d="M46.5 71.5 Q50 79 54 71.5Z" fill="#ff6b81"/>' +
-      star(23, 68, 4, '#f5b400') + star(77, 68, 4, '#f5b400');
+    return head(skin) +
+      '<path d="M22 50 C22 28 36 20 50 20 C64 20 78 28 78 50 L72 48 C72 34 62 28 50 28 C38 28 28 34 28 48Z" fill="#f3f0e6"/>' +
+      '<circle cx="22" cy="54" r="6" fill="#f3f0e6"/><circle cx="22" cy="65" r="6" fill="#f3f0e6"/><circle cx="78" cy="54" r="6" fill="#f3f0e6"/><circle cx="78" cy="65" r="6" fill="#f3f0e6"/>' +
+      brow('M33 49 Q40 47 46 49') + brow('M54 45 Q61 39 67 44') +
+      eye(40, 57, 4) + eye(60, 56, 4.8) +
+      cheeks +
+      '<path d="M40 68 Q50 78 60 68 Q50 73 40 68Z" fill="#c8102e"/>' +
+      star(23, 78, 4, '#f5b400') + star(77, 78, 4, '#f5b400');
   },
-  liu: () => {
+  liu: () => { // Artist: beret, huge round glasses, paint on the cheeks, tongue out while concentrating
     const skin = '#F1C27D';
     return '<path d="M19 72 C15 38 31 22 50 22 C69 22 85 38 81 72 Z" fill="#141414"/>' +
       head(skin, false) +
       '<path d="M24 51 C24 32 36 25 50 25 C64 25 76 32 76 51 L71 48 L66 44 L60 47 L54 43 L48 47 L42 43 L36 47 L30 44 Z" fill="#141414"/>' +
-      // beret
       '<path d="M25 31 C29 16 66 9 79 23 C81 28 75 32 60 32 C46 32 32 35 25 31Z" fill="#E63946"/>' +
       '<path d="M56 13 l2 -4" stroke="#E63946" stroke-width="3" stroke-linecap="round"/>' +
       eye(40, 57) + eye(60, 57) +
-      '<g fill="rgba(255,255,255,.22)" stroke="#222" stroke-width="2.4"><circle cx="40" cy="57" r="7.8"/><circle cx="60" cy="57" r="7.8"/></g>' +
-      '<path d="M47.8 57 h4.4" stroke="#222" stroke-width="2.4"/>' +
+      '<g fill="rgba(255,255,255,.18)" stroke="#222" stroke-width="2.6"><circle cx="40" cy="57" r="10"/><circle cx="60" cy="57" r="10"/></g>' +
+      '<path d="M49.5 57 h1 M30 55 L22 52 M70 55 L78 52" stroke="#222" stroke-width="2.4"/>' +
       cheeks +
-      '<path d="M44 70 Q50 74.5 56 70" fill="none" stroke="#7a2e2e" stroke-width="2.6" stroke-linecap="round"/>' +
-      '<circle cx="69" cy="69" r="2.6" fill="#4392F1"/><circle cx="72.5" cy="71.5" r="1.6" fill="#33CA7F"/>';
+      '<circle cx="70" cy="71" r="4" fill="#4392F1" opacity=".85"/><circle cx="74" cy="75" r="2.4" fill="#33CA7F"/><circle cx="27" cy="73" r="2.6" fill="#ff4fa3"/>' +
+      '<path d="M44 70 Q50 74 56 70" fill="none" stroke="#7a2e2e" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<path d="M50 72 Q54 80 48 79 Q45 75 50 72Z" fill="#ff6b81"/>';
   },
 };
 
@@ -265,10 +266,13 @@ export function faceMarkup(id) {
 }
 
 // A standalone round avatar <svg>. bg defaults to the character's accent colour.
-export function avatar(id, { bg, size } = {}) {
+// A standalone round avatar <svg>. bg defaults to the character's accent colour; the
+// character's weapon pokes into the corner unless weapon: false (board pieces hold their own).
+export function avatar(id, { bg, size, weapon = true } = {}) {
   const c = CHARACTERS[id] || CHARACTERS.nav;
   const dim = size ? ` width="${size}" height="${size}"` : '';
-  return `<svg class="avatar" viewBox="0 0 100 100"${dim} aria-label="${c.name}" role="img">` +
+  return `<svg class="avatar" viewBox="0 0 100 100"${dim} style="--bd:-${(Math.random() * 4).toFixed(2)}s" aria-label="${c.name}" role="img">` +
     `<defs><clipPath id="av-${id}"><circle cx="50" cy="50" r="50"/></clipPath></defs>` +
-    `<g clip-path="url(#av-${id})"><rect width="100" height="100" fill="${bg || c.accent}"/>${faceMarkup(id)}</g></svg>`;
+    `<g clip-path="url(#av-${id})"><rect width="100" height="100" fill="${bg || c.accent}"/>${faceMarkup(id)}</g>` +
+    `${weapon && c.weapon ? `<text class="f-weapon" x="80" y="94" font-size="30" text-anchor="middle">${c.weapon}</text>` : ''}</svg>`;
 }
