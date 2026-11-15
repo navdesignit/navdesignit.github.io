@@ -433,7 +433,8 @@ async function playFx(st, prev, intro) {
         const kill = items[i + 1] && items[i + 1].k === 'kill' && items[i + 1].by === f.c && !f.fast;
         if (kill) endTension(null); // the heartbeat would fight the camera zoom
         await board.walk(f.c, f.t, f.from, f.to, { fast: f.fast, onStep: () => sfx('step'),
-          strike: kill && { onCut: i => { sfx('dhan', i); buzz(50); }, onZoom: () => sfx('slowmo'), onImpact: impactFrames } });
+          strike: kill && { onCut: i => { sfx('dhan', i); buzz(50); }, onZoom: () => sfx('slowmo'), onImpact: impactFrames,
+            weapon: (CHARACTERS[(playerByColor(st, f.c) || {}).char] || {}).weapon } });
         break;
       }
       case 'kill': {
@@ -945,30 +946,30 @@ async function throneFx(oldP, newP) {
 
 // ---------------------------------------------------------------- Mr. Manhoos
 
-const MANHOOS_SAYS = ['Namaste ji… ☂️', 'Main aa gaya 😑', 'Kismat kharab hai aapki', 'Thoda sa dukh le lo', 'Bura mat maanna…', 'Aaj ka din aapka nahi', 'Nazar utaar lena 🧿'];
+const MANHOOS_SAYS = ['Psst… dekh raha hoon 👀', 'Shhh… main yahin tha', 'Nazar rakh raha hoon aap pe', 'Chhota sa tohfa… 🤫', 'Kisi ko batana mat', 'Aapki kismat… meri jeb mein', 'Peeche dekho mat 👀'];
 const MANHOOS_REPLIES = ['Arre nahi! Ye kyun aaya? 😩', 'Manhoos! Door ho ja 🙏', 'Nazar na lage… 🧿', 'Kya yaar 😤', 'Mere paas kyun?! 😭', 'Chal be, aage ja 🫵'];
 
-// Puff of smoke, he reappears beside the token, says something unkind, hands over the gift.
+// He slides along the edge to the token, eyes go wide, a whisper, then a sticky note.
 async function manhoosFx(f, st) {
   const p = player(st, f.uid);
   const g = MANHOOS_GIFTS[f.gift];
-  if (f.from != null) board.pop(f.from, '💨');
-  board.setManhoos(null);
-  sfx('manhoos'); buzz([30, 40, 30]);
-  await sleep(350);
-  board.pop(f.sq, '💨');
-  board.setManhoos(f.sq, true);
+  board.setManhoos(f.sq);
+  board.watchKey = `${f.c}:${f.t}`;
+  sfx('manhoos'); buzz([20, 30, 20]);
+  await sleep(550);
+  if (board.manhoosEl) board.manhoosEl.classList.add('wide');
   npcBubble(pickRandom(MANHOOS_SAYS));
-  await sleep(600);
+  await sleep(500);
   const el = $('#unlock');
   el.className = 'unlock manhoos';
-  el.innerHTML = `<div class="ucard" style="--c:#2b2b33"><div class="ucard-in"><small>☂️ MANHOOS KA TOHFA</small><span class="uicon">${g.icon}</span><b>${g.text}</b><em>${p ? face(p) : ''} ${p ? esc(p.name) : ''} · ${g.hint}</em></div></div>`;
+  el.innerHTML = `<div class="ucard"><div class="ucard-in"><small>👀 psst… Mr. Manhoos</small><span class="uicon">${g.icon}</span><b>${g.text}</b><em>${p ? face(p) : ''} ${p ? esc(p.name) : ''} · ${g.hint}</em></div></div>`;
   el.hidden = false;
   if (p) { chipFx(p.color, f.gift === 'lucky' || f.gift === 'shield' ? 'party' : 'cry', 1800); sayBubble(p.uid, pickRandom(MANHOOS_REPLIES)); }
-  await sleep(1400);
+  await sleep(1300);
   el.classList.add('out');
   await sleep(300);
   el.hidden = true;
+  if (board.manhoosEl) board.manhoosEl.classList.remove('wide');
 }
 
 // A speech bubble from Mr. Manhoos himself (he is not a player).
@@ -1051,7 +1052,7 @@ function dude(p, stand = false) {
   el.className = stand ? 'dude stand' : `dude ${Math.random() < 0.5 ? 'back' : ''}`;
   el.style.setProperty('--c', TEAM[p.color]);
   if (!stand) el.style.top = `${8 + Math.random() * 55}%`;
-  el.innerHTML = `<div class="dude-in"><div class="d-head">${face(p)}</div><div class="d-body"></div><div class="d-arm l"></div><div class="d-arm r">${stand ? '<div class="d-sword"></div>' : ''}</div><div class="d-leg l"></div><div class="d-leg r"></div><div class="d-shadow"></div></div>`;
+  el.innerHTML = `<div class="dude-in"><div class="d-head">${face(p)}</div><div class="d-body"></div><div class="d-arm l"></div><div class="d-arm r">${stand ? `<span class="d-weapon">${(CHARACTERS[p.char] || {}).weapon || '🗡️'}</span>` : ''}</div><div class="d-leg l"></div><div class="d-leg r"></div><div class="d-shadow"></div></div>`;
   $('#floaters').appendChild(el);
   if (!stand) setTimeout(() => el.remove(), 6000);
   return el;
