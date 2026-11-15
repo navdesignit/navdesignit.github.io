@@ -2,10 +2,10 @@
 
 import {
   createRoom, reduce, current, canKaboom, kaboomTokens, blastTargets, botAction, cleanName, moveVictims, playerByColor,
-  BOX_EFFECTS, TIMERS, MAX_PLAYERS, square, isTurn, setArms, armsOf, ARMS, RING,
+  BOX_EFFECTS, MANHOOS_GIFTS, TIMERS, MAX_PLAYERS, square, isTurn, setArms, armsOf, ARMS, RING,
 } from './engine.js';
 import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
-import { Board, TEAM, squareCenter } from './board.js';
+import { Board, TEAM, squareCenter, manhoosAvatar } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
 import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
 import { UNLOCKS } from './unlocks.js';
@@ -280,6 +280,7 @@ function renderSettings(el, settings, editable, showTimer, onChange) {
   const opt = (key, val, label) => `<button class="seg ${settings[key] === val ? 'on' : ''}" data-k="${key}" data-v='${JSON.stringify(val)}' ${editable ? '' : 'disabled'}>${label}</button>`;
   el.innerHTML = `
     <div class="setting"><span>❓ Mystery boxes</span><div class="segs">${opt('boxes', true, 'On')}${opt('boxes', false, 'Off')}</div></div>
+    <div class="setting"><span>☂️ Mr. Manhoos</span><div class="segs">${opt('manhoos', true, 'On')}${opt('manhoos', false, 'Off')}</div></div>
     <div class="setting"><span>🏁 Game ends</span><div class="segs">${opt('finish', 'first', 'First home wins')}${opt('finish', 'all', 'Play till the last')}</div></div>
     ${showTimer ? `<div class="setting"><span>⏱️ Turn timer</span><div class="segs">${TIMERS.map(t => opt('timer', t, t ? `${t}s` : 'Off')).join('')}</div></div>` : ''}`;
   el.onclick = e => {
@@ -502,26 +503,91 @@ async function playFx(st, prev, intro) {
       case 'freeze':
         toast(`🧊 ${nameOf(f.uid, st)} is frozen — next turn skipped`);
         break;
+      case 'manhoos':
+        await manhoosFx(f, st);
+        break;
+      case 'cursed':
+        toast(`${MANHOOS_GIFTS[f.curse].icon} ${nameOf(f.uid, st)} rolled ${f.d0}… ${MANHOOS_GIFTS[f.curse].text}! It's a ${f.d}`);
+        await sleep(500);
+        break;
+      case 'nazar':
+        toast(`🧿 Nazar! ${nameOf(f.uid, st)} ka haath kaanp gaya — no kill`);
+        break;
       default:
         break;
     }
   }
 }
 
+const KABOOM_SAYS = ['Sab saath chalenge! 💣', 'Alvida doston 🫡', 'Mujhe maaf karna… 🙏💣', 'Yeh dosti hum nahi todenge 💥', 'Picture abhi baaki hai 🎬'];
+const KABOOM_LINES = ['Group discount! 💸', 'Sab saath mein ghar gaye 🏠', 'Diwali thodi jaldi aa gayi 🪔', 'Lanka dahan 2.0 🔥', 'Insurance claim reject 📄'];
+const DEBRIS = ['🩴', '🪨', '🦴', '🔥', '💀', '🧱', '🥾', '🧦', '🍌', '🎲'];
+
+// Kaboom: zoom in on the bomber, 3-2-1 while the neighbours panic, then flash, quake,
+// a mushroom cloud and flying debris; everyone in range goes to the moon and drops into their yard.
 async function kaboomFx(f, st) {
   const k = `${f.c}:${f.t}`;
   const el = board.els.get(k);
+  const bomber = player(st, f.uid);
+  const game = $('#game');
+  const n = f.victims.length;
+  endTension(null);
+  board.camera('zoom', f.sq, 2);
   if (el) el.classList.add('fuse');
-  sfx('pop');
-  await sleep(550);
+  if (bomber) { chipFx(bomber.color, 'sword', 3500); sayBubble(bomber.uid, pickRandom(KABOOM_SAYS)); }
+  f.victims.forEach(v => { const p = playerByColor(st, v.c); if (p) chipFx(p.color, 'gasp', 3500); });
+  const cd = $('#countdown');
+  for (let i = 3; i >= 1; i--) {
+    cd.textContent = i;
+    cd.className = 'countdown'; void cd.offsetWidth; cd.classList.add('on');
+    sfx('beep', 3 - i); buzz(40);
+    if (i === 2) f.victims.forEach(v => board.pop(square(v.c, v.from), '😱'));
+    await sleep(480);
+  }
+  cd.className = 'countdown';
   if (el) el.classList.remove('fuse');
   sfx('kaboom'); buzz([120, 60, 250]);
-  const game = $('#game');
-  game.classList.remove('shake'); void game.offsetWidth; game.classList.add('shake');
-  banner(`<span class="kaboom-text">KABOOM!</span><small>${nameOf(f.uid, st)} took ${f.victims.length} with them 💀</small>`, 'kaboom', 1700);
-  await board.boom(f.sq, true);
-  await Promise.all([board.flyHome(f.c, f.t, 650), ...f.victims.map(v => board.flyHome(v.c, v.t, 650))]);
-  await unlockFx(player(st, f.uid), f.victims.length);
+  board.camera(null);
+  await impactFrames(null);
+  game.classList.remove('shake'); void game.offsetWidth; game.classList.add('shake', 'quake');
+  mushroom();
+  debris();
+  board.boom(f.sq, true);
+  board.scorch(f.sq);
+  banner(`<span class="kaboom-text">KABOOM!</span><small>${esc(bomber ? bomber.name : '?')} took ${n} with them 💀 · ${pickRandom(KABOOM_LINES)}</small>`, 'kaboom', 2400);
+  if (bomber) chipFx(bomber.color, 'laugh', 2500);
+  f.victims.forEach(v => { const p = playerByColor(st, v.c); if (p) chipFx(p.color, 'cry', 2500); });
+  await sleep(250);
+  sfx('ravana');
+  await Promise.all([board.launch(f.c, f.t), ...f.victims.map(v => board.launch(v.c, v.t))]);
+  game.classList.remove('quake');
+  await unlockFx(bomber, n);
+}
+
+// A mushroom cloud rises from the middle of the screen and drifts away.
+function mushroom() {
+  const el = document.createElement('div');
+  el.className = 'cloud';
+  $('#floaters').appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// Bits of everything fly out of the blast.
+function debris() {
+  const box = $('#floaters');
+  for (let i = 0; i < 14; i++) {
+    const el = document.createElement('div');
+    el.className = 'debris';
+    el.textContent = pickRandom(DEBRIS);
+    box.appendChild(el);
+    const a = Math.random() * Math.PI * 2, d = 160 + Math.random() * 220;
+    el.animate([
+      { transform: 'translate(-50%, -50%) scale(0.4) rotate(0deg)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d - 80}px)) scale(1.3) rotate(${(Math.random() - 0.5) * 1080}deg)`, opacity: 1, offset: 0.6 },
+      { transform: `translate(calc(-50% + ${Math.cos(a) * d * 1.2}px), calc(-50% + ${Math.sin(a) * d + 260}px)) scale(1) rotate(${(Math.random() - 0.5) * 1440}deg)`, opacity: 0 },
+    ], { duration: 1300 + Math.random() * 400, easing: 'cubic-bezier(0.2, 0.6, 0.4, 1)', fill: 'forwards' });
+    setTimeout(() => el.remove(), 1800);
+  }
 }
 
 // ---------------------------------------------------------------- Ramayana kill show
@@ -808,8 +874,9 @@ setInterval(drive, 200);
 
 
 // Anime impact frames: the heroic sting, and the whole screen inverts twice as the sword lands.
-async function impactFrames() {
-  sfx('hero'); buzz([40, 30, 120]);
+async function impactFrames(sound = 'hero') {
+  if (sound) sfx(sound);
+  buzz([40, 30, 120]);
   const game = $('#game');
   for (let i = 0; i < 2; i++) { game.classList.add('impact'); await sleep(60); game.classList.remove('impact'); await sleep(60); }
 }
@@ -874,6 +941,47 @@ async function throneFx(oldP, newP) {
   banner(`<span class="big-emoji">🤡</span><b>NAYA LANDU!</b><small>${esc(newP.name)}, this is you now 👑${oldP ? ` · ${esc(oldP.name)} is free 🎉` : ''}</small>`, 'box', 2000);
   await sleep(700);
   crown.remove();
+}
+
+// ---------------------------------------------------------------- Mr. Manhoos
+
+const MANHOOS_SAYS = ['Namaste ji… ☂️', 'Main aa gaya 😑', 'Kismat kharab hai aapki', 'Thoda sa dukh le lo', 'Bura mat maanna…', 'Aaj ka din aapka nahi', 'Nazar utaar lena 🧿'];
+const MANHOOS_REPLIES = ['Arre nahi! Ye kyun aaya? 😩', 'Manhoos! Door ho ja 🙏', 'Nazar na lage… 🧿', 'Kya yaar 😤', 'Mere paas kyun?! 😭', 'Chal be, aage ja 🫵'];
+
+// Puff of smoke, he reappears beside the token, says something unkind, hands over the gift.
+async function manhoosFx(f, st) {
+  const p = player(st, f.uid);
+  const g = MANHOOS_GIFTS[f.gift];
+  if (f.from != null) board.pop(f.from, '💨');
+  board.setManhoos(null);
+  sfx('manhoos'); buzz([30, 40, 30]);
+  await sleep(350);
+  board.pop(f.sq, '💨');
+  board.setManhoos(f.sq, true);
+  npcBubble(pickRandom(MANHOOS_SAYS));
+  await sleep(600);
+  const el = $('#unlock');
+  el.className = 'unlock manhoos';
+  el.innerHTML = `<div class="ucard" style="--c:#2b2b33"><div class="ucard-in"><small>☂️ MANHOOS KA TOHFA</small><span class="uicon">${g.icon}</span><b>${g.text}</b><em>${p ? face(p) : ''} ${p ? esc(p.name) : ''} · ${g.hint}</em></div></div>`;
+  el.hidden = false;
+  if (p) { chipFx(p.color, f.gift === 'lucky' || f.gift === 'shield' ? 'party' : 'cry', 1800); sayBubble(p.uid, pickRandom(MANHOOS_REPLIES)); }
+  await sleep(1400);
+  el.classList.add('out');
+  await sleep(300);
+  el.hidden = true;
+}
+
+// A speech bubble from Mr. Manhoos himself (he is not a player).
+function npcBubble(text) {
+  const el = document.createElement('div');
+  el.className = 'say';
+  el.style.setProperty('--c', '#2b2b33');
+  el.innerHTML = `${manhoosAvatar()}<div><b>Mr. Manhoos</b><span>${esc(text)}</span></div>`;
+  const box = $('#says');
+  box.appendChild(el);
+  while (box.children.length > 2) box.firstElementChild.remove();
+  setTimeout(() => el.classList.add('out'), 2600);
+  setTimeout(() => el.remove(), 3000);
 }
 
 // ---------------------------------------------------------------- maarega ya chhodega?
@@ -1066,7 +1174,7 @@ $('#btn-online').onclick = () => {
 };
 $('#btn-local').onclick = () => {
   S.seats = seatDefaults();
-  S.localSettings = { boxes: true, finish: 'first' };
+  S.localSettings = { boxes: true, finish: 'first', manhoos: true };
   renderLocal();
   show('local');
 };
