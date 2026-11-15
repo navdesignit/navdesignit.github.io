@@ -428,7 +428,7 @@ async function playFx(st, prev, intro) {
         const kill = items[i + 1] && items[i + 1].k === 'kill' && items[i + 1].by === f.c && !f.fast;
         if (kill) endTension(null); // the heartbeat would fight the camera zoom
         await board.walk(f.c, f.t, f.from, f.to, { fast: f.fast, onStep: () => sfx('step'),
-          strike: kill && { onZoom: () => sfx('slowmo'), onImpact: () => { sfx('hero'); buzz([40, 30, 120]); } } });
+          strike: kill && { onCut: i => { sfx('dhan', i); buzz(50); }, onZoom: () => sfx('slowmo'), onImpact: impactFrames } });
         break;
       }
       case 'kill': {
@@ -565,7 +565,7 @@ async function killShow(victims, st) {
   victims.forEach(v => chipFx(v.c, 'cry', 3200));
   sfx('ravana'); buzz([50, 40, 50, 40, 50]);
   await sleep(150);
-  for (const h of $$('.rhead:not(.mid)', show)) { h.classList.add('on'); sfx('head'); await sleep(45); }
+  for (const h of $$('.rhead:not(.mid)', show)) { h.classList.add('on'); sfx('head'); await sleep(40); }
   await sleep(120);
   show.classList.add('strike');
   sfx(d.sound);
@@ -577,6 +577,7 @@ async function killShow(victims, st) {
   await sleep(280);
   show.hidden = true;
   board.camera(null);
+  sfx('whistle');
   await Promise.all(victims.map(v => board.flyHome(v.c, v.t)));
   victims.forEach(v => { const el = board.els.get(`${v.c}:${v.t}`); if (el) el.classList.remove('hit'); });
 }
@@ -799,6 +800,13 @@ function drive() {
 }
 setInterval(drive, 200);
 
+
+// Anime impact frames: the heroic sting, and the whole screen inverts twice as the sword lands.
+async function impactFrames() {
+  sfx('hero'); buzz([40, 30, 120]);
+  const game = $('#game');
+  for (let i = 0; i < 2; i++) { game.classList.add('impact'); await sleep(60); game.classList.remove('impact'); await sleep(60); }
+}
 
 // ---------------------------------------------------------------- maarega ya chhodega?
 

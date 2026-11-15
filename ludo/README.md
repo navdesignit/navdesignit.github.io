@@ -26,7 +26,8 @@ The Alquida extras:
 - 💬 **Trash talk** changes with who you're talking to: husband and wife, girlfriend and boyfriend, the Indore boys, and the besties each get their own lines. Edit them in `js/characters.js`.
 - 😂 **Emoji throws** fly across everyone's screen.
 - ⚔️ **Maarega ya chhodega?** Roll a number that could kill and the table holds its breath: the hunter's 3D figure steps up with a sword and looks around, the possible victims gasp and beg. Spare them and you get a "chhod diya, boss hai boss" beat.
-- 😈 **Ravana mode:** a kill is a zoom cut and a slow-motion sword strike with a heroic sting, then the killer sprouts Ravana's 10 heads and the victim gets one of 16 filmi deaths (pathar, chappal, Ram-baan, Lanka dahan, Indori auto…). Leave the game alone for a bit and the gang strolls across the screen in 3D.
+- 🎥 **3D board:** the board sits tilted like a table with the characters standing on it as little figures.
+- 😈 **Ravana mode:** a kill opens with three TV-serial camera cuts (dhan, dhan, DHAN!), then a slow-motion sword strike with a heroic sting and anime impact frames, then the killer sprouts Ravana's 10 heads and the victim gets one of 16 filmi deaths (pathar, chappal, Ram-baan, Lanka dahan, Indori auto…). Leave the game alone for a bit and the gang strolls across the screen in 3D.
 - 🤡 **The Landu badge** goes to whoever has been killed the most. End-of-game awards: Assassin, Biggest Landu, Kaboom King, Sleepyhead and 💔 Backstabber.
 - ⏱️ **Turn timer** (host setting). If someone's phone goes to sleep or they leave, the game plays their turn for them.
 

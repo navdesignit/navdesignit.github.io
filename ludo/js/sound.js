@@ -110,6 +110,9 @@ const SOUNDS = {
   slowmo() { tone(600, 0.9, { vol: 0.1, to: 80 }); noise(0.9, { vol: 0.2, cutoff: 900 }); },
   hero() { [110, 165, 220, 277, 330].forEach(f => tone(f, 1.1, { type: 'sawtooth', vol: 0.07 })); noise(1.4, { vol: 0.4, cutoff: 7000 }); tone(55, 1.2, { vol: 0.5, to: 30 }); },
   spare() { [262, 330, 392, 523, 659].forEach((f, i) => tone(f, 0.9, { type: 'triangle', vol: 0.09, at: i * 0.12 })); },
+  // TV serial sting: three tom hits with a tense chord, each a bit higher. Whistle: the loser slides home.
+  dhan(i = 0) { const f = [72, 80, 92][i] || 92; noise(0.25, { vol: 0.9, cutoff: 420 }); tone(f, 0.7, { vol: 0.6, to: f * 0.5 }); [220, 262, 311].forEach(h => tone(h * (1 + i * 0.06), i === 2 ? 0.9 : 0.45, { type: 'sawtooth', vol: 0.06 })); },
+  whistle() { tone(300, 0.7, { vol: 0.12, to: 1400 }); tone(220, 0.1, { vol: 0.15, to: 60, at: 0.72 }); },
   tense() { tone(55, 1.6, { type: 'sawtooth', vol: 0.12 }); tone(58, 1.6, { type: 'sawtooth', vol: 0.1 }); [0, 0.25, 0.9, 1.15].forEach(at => tone(50, 0.18, { vol: 0.5, to: 30, at })); },
   box() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, { type: 'triangle', vol: 0.12, at: i * 0.07 })); },
   home() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.25, { vol: 0.14, at: i * 0.09 })); },
@@ -119,9 +122,9 @@ const SOUNDS = {
   win() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, 0.22, { type: 'square', vol: 0.08, at: i * 0.13 })); },
 };
 
-export function sfx(name) {
+export function sfx(name, ...args) {
   if (muted || !ctx || !SOUNDS[name]) return;
-  try { SOUNDS[name](); } catch (e) { /* never let sound break the game */ }
+  try { SOUNDS[name](...args); } catch (e) { /* never let sound break the game */ }
 }
 
 // Soundboard: play meme clip i.
