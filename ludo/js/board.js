@@ -3,7 +3,7 @@
 // green, yellow, blue.
 
 import { COLORS, START, SAFE, YARD, HOME, LAST_TRACK, square } from './engine.js';
-import { CHAR_IDS, faceMarkup } from './characters.js';
+import { avatar } from './characters.js';
 
 export const TEAM = { red: '#E5383B', green: '#1FA45B', yellow: '#F2B705', blue: '#1F6FEB', pink: '#E040A0' };
 export const TINT = { red: '#FDD5D5', green: '#C9EED8', yellow: '#FFEDB8', blue: '#D2E3FD', pink: '#FBD3EA' };
@@ -167,8 +167,7 @@ const SWORD = '<path d="M-0.09 0 L0.09 0 L0.06 -1.5 L0 -1.75 L-0.06 -1.5Z" fill=
   '<circle cy="0.58" r="0.09" fill="#FFC93C"/>';
 
 function defs() {
-  const faces = CHAR_IDS.map(id => `<symbol id="face-${id}" viewBox="0 0 100 100">${faceMarkup(id)}</symbol>`).join('');
-  return `<defs>${faces}<clipPath id="tok-clip"><circle r="0.4"/></clipPath>` +
+  return '<defs>' +
     '<linearGradient id="blade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b8c2cc"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#8e9aa6"/></linearGradient>' +
     '<radialGradient id="boom-grad"><stop offset="0" stop-color="#fff7c2"/><stop offset=".35" stop-color="#FFC93C"/><stop offset=".7" stop-color="#FF6B35"/><stop offset="1" stop-color="#E5383B" stop-opacity="0"/></radialGradient></defs>';
 }
@@ -186,17 +185,20 @@ export class Board {
     this.svg = svg;
     this.onTap = onTap;
     this.speed = 1;
-    svg.innerHTML = defs() + '<g class="static"></g><g class="boxes"></g><g class="marks"></g><g class="tokens"></g><g class="fxl"></g>';
+    svg.innerHTML = defs() + '<g class="static"></g><g class="boxes"></g><g class="marks"></g><g class="fxl"></g>';
     this.staticG = svg.querySelector('.static');
+    // Tokens are HTML "pieces" standing on the tilted board, so they can live in 3D.
+    this.piecesEl = document.createElement('div');
+    this.piecesEl.className = 'pieces';
+    svg.parentElement.appendChild(this.piecesEl);
     this.useArms(4);
     this.boxesG = svg.querySelector('.boxes');
     this.marksG = svg.querySelector('.marks');
-    this.tokensG = svg.querySelector('.tokens');
     this.fxG = svg.querySelector('.fxl');
-    this.els = new Map();   // "red:0" → <g>
-    this.pos = new Map();   // "red:0" → {x, y, s}
+    this.els = new Map();   // "red:0" → <div class="piece">
+    this.pos = new Map();   // "red:0" → {x, y, s, lift}
     this.targets = [];      // tappable tokens [{c, t}]
-    svg.addEventListener('pointerup', e => this.tap(e));
+    svg.parentElement.parentElement.addEventListener('pointerup', e => this.tap(e));
   }
 
   // Classic board for 2–4 players, the 5-arm one for 5.
@@ -205,6 +207,7 @@ export class Board {
     this.arms = n;
     G = n === 5 ? PENTA : CLASSIC;
     this.svg.setAttribute('viewBox', G.view);
+    this.piecesEl.style.setProperty('--cells', G.view.split(' ')[2]); // piece size = one cell
     this.staticG.innerHTML = G.draw();
   }
 
@@ -213,32 +216,33 @@ export class Board {
     const sig = players.map(p => `${p.color}${p.char}`).join();
     if (sig === this.sig) return;
     this.sig = sig;
-    this.tokensG.innerHTML = '';
+    this.piecesEl.innerHTML = '';
     this.els.clear(); this.pos.clear();
     for (const p of players) {
       if (!p.color) continue;
       for (let t = 0; t < 4; t++) {
-        const g = document.createElementNS(SVGNS, 'g');
-        g.setAttribute('class', 'tok');
-        g.style.setProperty('--d', `${-t * 0.65}s`); // staggers the idle sway
-        g.innerHTML = '<g class="tok-in">' +
-          '<ellipse cx="0" cy="0.36" rx="0.34" ry="0.11" fill="rgba(0,0,0,.28)"/>' +
-          `<circle class="tok-ring" r="0.47" fill="${TEAM[p.color]}" stroke="#fff" stroke-width="0.07"/>` +
-          `<g clip-path="url(#tok-clip)"><circle r="0.4" fill="${TINT[p.color]}"/><use href="#face-${p.char}" xlink:href="#face-${p.char}" x="-0.46" y="-0.5" width="0.92" height="0.92"/></g>` +
-          '<circle class="tok-hi" r="0.58" fill="none" stroke="#fff" stroke-width="0.09" stroke-dasharray="0.22 0.12"/>' +
-          '<text class="tok-shield" x="0.3" y="-0.22" font-size="0.36" text-anchor="middle">🛡️</text>' +
-          '</g>';
-        this.tokensG.appendChild(g);
-        this.els.set(`${p.color}:${t}`, g);
+        const el = document.createElement('div');
+        el.className = 'piece';
+        el.style.setProperty('--c', TEAM[p.color]);
+        el.style.setProperty('--d', `${-t * 0.65}s`); // staggers the idle sway
+        el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-body"></div><div class="p-head">${avatar(p.char, { bg: TINT[p.color] })}</div><div class="p-ring"></div><span class="p-shield">🛡️</span></div>`;
+        this.piecesEl.appendChild(el);
+        this.els.set(`${p.color}:${t}`, el);
       }
     }
   }
 
-  place(k, { x, y, s }) {
+  // Board units → percentages of the board box. `lift` is a jump height in cells,
+  // drawn up the screen rather than up the board so hops read in 3D.
+  place(k, at) {
     const el = this.els.get(k);
     if (!el) return;
-    this.pos.set(k, { x, y, s });
-    el.setAttribute('transform', `translate(${x.toFixed(3)} ${y.toFixed(3)}) scale(${s.toFixed(3)})`);
+    this.pos.set(k, at);
+    const vb = this.svg.viewBox.baseVal;
+    el.style.left = `${(((at.x - vb.x) / vb.width) * 100).toFixed(3)}%`;
+    el.style.top = `${(((at.y - vb.y) / vb.height) * 100).toFixed(3)}%`;
+    el.style.setProperty('--s', (at.s == null ? 1 : at.s).toFixed(3));
+    el.style.setProperty('--lift', (at.lift || 0).toFixed(3));
   }
 
   // Snap everything to where the state says it is (with stacking for shared squares).
@@ -264,7 +268,7 @@ export class Board {
     }
     // Draw tokens further down the board on top, so stacks read naturally.
     [...this.els.entries()].sort((a, b) => (this.pos.get(a[0])?.y || 0) - (this.pos.get(b[0])?.y || 0))
-      .forEach(([, el]) => this.tokensG.appendChild(el));
+      .forEach(([, el]) => this.piecesEl.appendChild(el));
     this.boxesG.innerHTML = (state.boxes || []).map(boxMarkup).join('');
     const live = (state.phase === 'roll' || state.phase === 'move') && state.players[state.turn] ? `${state.players[state.turn].color}:` : '-';
     for (const [k, el] of this.els) {
@@ -295,18 +299,17 @@ export class Board {
     }
   }
 
+  // The board is tilted in 3D, so hit-test with the pieces' on-screen boxes (which the
+  // browser projects for us) instead of mapping the tap back into board units.
   tap(e) {
     if (!this.targets.length || !this.onTap) return;
-    const pt = this.svg.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const m = this.svg.getScreenCTM();
-    if (!m) return;
-    const p = pt.matrixTransform(m.inverse());
-    let best = null, bestD = 1.3;
+    const cell = this.svg.getBoundingClientRect().width / this.svg.viewBox.baseVal.width;
+    let best = null, bestD = 1.4 * cell;
     for (const o of this.targets) {
-      const at = this.pos.get(`${o.c}:${o.t}`);
-      if (!at) continue;
-      const d = Math.hypot(at.x - p.x, at.y - p.y);
+      const el = this.els.get(`${o.c}:${o.t}`);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      const d = Math.hypot(r.left + r.width / 2 - e.clientX, r.top + r.height * 0.4 - e.clientY);
       if (d < bestD) { bestD = d; best = o; }
     }
     if (best) this.onTap(best);
@@ -332,15 +335,16 @@ export class Board {
   async hop(k, to, ms = 150, height = 0.35) {
     const el = this.els.get(k);
     if (!el) return;
-    this.tokensG.appendChild(el);
+    this.piecesEl.appendChild(el);
     const from = this.pos.get(k) || to;
     const ease = u => 1 - (1 - u) * (1 - u);
     await this.tween(ms, u => {
       const e = ease(u);
       this.place(k, {
         x: from.x + (to.x - from.x) * e,
-        y: from.y + (to.y - from.y) * e - Math.sin(Math.PI * u) * height,
+        y: from.y + (to.y - from.y) * e,
         s: from.s + (to.s - from.s) * e,
+        lift: Math.sin(Math.PI * u) * height,
       });
     });
   }
@@ -368,23 +372,35 @@ export class Board {
     await this.hop(`${c}:${t}`, spot(c, to, t), 700, 2.5);
   }
 
-  // Cinematic camera on the board: 'zoom' pushes in on square sq, null pulls back out.
-  camera(mode, sq) {
+  // Cinematic camera: 'zoom' glides in on square sq, 'cut' jumps there like a TV serial
+  // (hard cut, then a slow push-in), null returns to the resting 3D view. The origin stays
+  // centred and a translate brings the square to the middle, so moves between shots stay smooth.
+  camera(mode, sq, zoom = 2.3, rz = 0) {
     const el = this.svg.parentElement;
-    if (mode !== 'zoom') { el.style.transform = ''; return; }
+    el.classList.remove('cut');
+    if (!mode) { el.style.removeProperty('--cam'); return; }
     const { x, y } = squareCenter(sq);
     const vb = this.svg.viewBox.baseVal;
-    el.style.transformOrigin = `${(((x - vb.x) / vb.width) * 100).toFixed(2)}% ${(((y - vb.y) / vb.height) * 100).toFixed(2)}%`;
-    el.style.transform = 'perspective(700px) rotateX(28deg) scale(2.3)';
+    const dx = 50 - ((x - vb.x) / vb.width) * 100, dy = 50 - ((y - vb.y) / vb.height) * 100;
+    el.style.setProperty('--cam', `perspective(800px) rotateX(26deg) rotateZ(${rz}deg) scale(${zoom}) translate(${dx.toFixed(2)}%, ${dy.toFixed(2)}%)`);
+    if (mode === 'cut') { void el.offsetWidth; el.classList.add('cut'); }
   }
 
   // Zoom in, take the last step in slow motion, then a sword comes down with a flash of light.
-  async strike(c, t, to, { onZoom, onImpact } = {}) {
+  async strike(c, t, to, { onCut, onZoom, onImpact } = {}) {
     const sq = square(c, to);
+    // Indian TV serial: three hard cuts pushing in — on the hunter, on the prey, then closer. Dhan, dhan, DHAN!
+    const cuts = [[square(c, to - 1), 1.6, -7], [sq, 2.1, 6], [sq, 2.6, 0]];
+    for (let i = 0; i < cuts.length; i++) {
+      this.camera('cut', ...cuts[i]);
+      onCut && onCut(i);
+      if (i === 1) this.pop(sq, '😱');
+      await this.wait(380);
+    }
     this.camera('zoom', sq);
     onZoom && onZoom();
-    await this.wait(380);
-    await this.hop(`${c}:${t}`, spot(c, to, t), 650, 0.7);
+    await this.wait(200);
+    await this.hop(`${c}:${t}`, spot(c, to, t), 550, 0.7);
     const { x, y } = squareCenter(sq);
     const g = document.createElementNS(SVGNS, 'g');
     g.setAttribute('transform', `translate(${x} ${y})`);
@@ -392,12 +408,12 @@ export class Board {
       [0, 1, 2].map(i => `<path class="slashline" d="M-1 -0.6 L1 0.6" stroke="#fff" stroke-width="0.1" stroke-linecap="round" opacity="0" transform="rotate(${-28 + i * 24})"/>`).join('');
     this.fxG.appendChild(g);
     const sword = g.querySelector('.sword'), flash = g.querySelector('.flash'), lines = g.querySelectorAll('.slashline');
-    await this.tween(420, u => { // raised at the upper right, then swung down through the token
+    await this.tween(380, u => { // raised at the upper right, then swung down through the token
       const e = u * u * u;
       sword.setAttribute('transform', `translate(${(1.1 - 0.35 * e).toFixed(3)} ${(-1.2 + 0.45 * e).toFixed(3)}) rotate(${(20 - 155 * e).toFixed(1)})`);
     });
     onImpact && onImpact();
-    await this.tween(520, u => {
+    await this.tween(450, u => {
       flash.setAttribute('r', (2.6 * Math.sqrt(u)).toFixed(3));
       flash.setAttribute('opacity', (1 - u).toFixed(3));
       lines.forEach(l => { l.setAttribute('opacity', (u < 0.6 ? 1 : 1 - (u - 0.6) / 0.4).toFixed(3)); l.setAttribute('stroke-width', (0.14 * (1 - u) + 0.02).toFixed(3)); });
