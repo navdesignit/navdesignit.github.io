@@ -40,6 +40,8 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 
 const YARD_R = 2.4;
 const FOOT = 0.42;
+// How high each character bounces per step: Liu skips, Chechu barely leaves the ground.
+const BOUNCE = { ajay: 1, nav: 0.8, chechu: 0.45, vanshika: 0.7, liu: 1.7 };
 const CLASSIC = { TRACK, LANE, YARD_AT, GOAL, ANG: TRACK.map(() => 0), view: '-0.2 -0.2 15.4 15.4', draw: () => staticBoard() };
 
 // 5-player board: five 3×6 arms around a pentagon centred on (0,0), red pointing
@@ -225,17 +227,19 @@ export class Board {
       for (let t = 0; t < 4; t++) {
         const el = document.createElement('div');
         el.className = 'piece';
+        el.dataset.ch = p.char || '';
         el.style.setProperty('--c', TEAM[p.color]);
         el.style.setProperty('--d', `${-t * 0.65}s`); // staggers the idle sway
-        el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-body"></div><div class="p-head">${avatar(p.char, { bg: TINT[p.color], weapon: false })}</div><div class="p-ring"></div><span class="p-weapon">${(CHARACTERS[p.char] || {}).weapon || ''}</span><span class="p-shield">🛡️</span><span class="p-landu">🤡</span></div>`;
+        el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-legs"><i class="p-leg l"><b class="p-shoe"></b></i><i class="p-leg r"><b class="p-shoe"></b></i></div><div class="p-body"></div><div class="p-head">${avatar(p.char, { bg: TINT[p.color], weapon: false })}</div><div class="p-ring"></div><span class="p-weapon">${(CHARACTERS[p.char] || {}).weapon || ''}</span><span class="p-shield">🛡️</span><span class="p-landu">🤡</span></div>`;
         this.piecesEl.appendChild(el);
         this.els.set(`${p.color}:${t}`, el);
       }
     }
   }
 
-  // Board units → percentages of the board box. `lift` is a jump height in cells,
-  // drawn up the screen rather than up the board so hops read in 3D.
+  // Put a piece at board units `at`. `lift` is a jump height in cells, drawn up the screen
+  // rather than up the board so hops read in 3D. Only CSS variables that feed the piece's
+  // transform change (see .piece in style.css), so moving never triggers layout: smooth on phones.
   // A figure stands upright and is taller than a square, so its feet go FOOT cells below
   // the spot's centre: that keeps its face over its own square, not the one behind it.
   place(k, at) {
@@ -244,8 +248,8 @@ export class Board {
     this.pos.set(k, at);
     const vb = this.svg.viewBox.baseVal;
     const s = at.s == null ? 1 : at.s;
-    el.style.left = `${(((at.x - vb.x) / vb.width) * 100).toFixed(3)}%`;
-    el.style.top = `${(((at.y + FOOT * s - vb.y) / vb.height) * 100).toFixed(3)}%`;
+    el.style.setProperty('--x', (at.x - vb.x).toFixed(3));
+    el.style.setProperty('--y', (at.y + FOOT * s - vb.y).toFixed(3));
     el.style.setProperty('--s', s.toFixed(3));
     el.style.setProperty('--lift', (at.lift || 0).toFixed(3));
   }
@@ -342,7 +346,9 @@ export class Board {
     if (!el) return;
     this.piecesEl.appendChild(el);
     const from = this.pos.get(k) || to;
-    const ease = u => 1 - (1 - u) * (1 - u);
+    const ease = u => u * u * (3 - 2 * u); // smooth take-off and landing, so each step reads clearly
+    const own = !el.classList.contains('hop'); // a walk keeps 'hop' on for all its steps
+    if (own) el.classList.add('hop');
     await this.tween(ms, u => {
       const e = ease(u);
       this.place(k, {
@@ -352,23 +358,32 @@ export class Board {
         lift: Math.sin(Math.PI * u) * height,
       });
     });
+    if (own) el.classList.remove('hop');
   }
 
   // Walk a token from step `from` to step `to`, one square at a time.
   // `strike` (a kill is coming): the last step is a zoomed-in slow-motion sword strike.
   async walk(c, t, from, to, { fast = false, onStep, strike = null } = {}) {
     const k = `${c}:${t}`;
-    this.place(k, from === YARD ? spot(c, YARD, t) : spot(c, from, t));
-    if (from === YARD) { onStep && onStep(); return this.hop(k, spot(c, to, t), 320, 1.2); }
-    const dir = to > from ? 1 : -1;
     const el = this.els.get(k);
-    if (el) el.classList.add('walking');
+    this.place(k, from === YARD ? spot(c, YARD, t) : spot(c, from, t));
+    if (from === YARD) {
+      onStep && onStep();
+      if (el) el.classList.add('jump');
+      await this.hop(k, spot(c, to, t), 320, 1.2);
+      if (el) el.classList.remove('jump');
+      return;
+    }
+    const dir = to > from ? 1 : -1;
+    // One leg step per square: the CSS walk cycles last two steps (left foot, right foot).
+    if (el) { el.style.setProperty('--step', `${Math.round((fast ? 70 : 150) / this.speed)}ms`); el.classList.add('walking', 'hop'); }
     const last = strike && to > from ? to - 1 : to;
+    const bounce = (el && BOUNCE[el.dataset.ch]) || 1;
     for (let p = from + dir; dir > 0 ? p <= last : p >= last; p += dir) {
       onStep && onStep();
-      await this.hop(k, spot(c, p, t), fast ? 70 : 150, fast ? 0.15 : 0.35);
+      await this.hop(k, spot(c, p, t), fast ? 70 : 150, (fast ? 0.15 : 0.35) * bounce);
     }
-    if (el) el.classList.remove('walking');
+    if (el) el.classList.remove('walking', 'hop');
     if (last !== to) await this.strike(c, t, to, strike);
   }
 
