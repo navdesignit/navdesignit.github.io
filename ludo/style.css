@@ -284,8 +284,8 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 /* ---------- pieces: the characters stand on the board in 3D ---------- */
 .pieces { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; font-size: 11px; }
 .piece {
-  position: absolute; width: calc(100% / var(--cells, 15.4) * 1.08); height: calc(100% / var(--cells, 15.4) * 1.6);
-  transform-origin: 50% 100%; transform: translate(-50%, -100%) translateY(calc(var(--lift, 0) * -62%)) rotateX(var(--stand)) scale(var(--s, 1));
+  position: absolute; width: calc(100% / var(--cells, 15.4) * 0.96); height: calc(100% / var(--cells, 15.4) * 1.2);
+  transform-origin: 50% 100%; transform: translate(-50%, -100%) translateY(calc(var(--lift, 0) * -82.7%)) rotateX(var(--stand)) scale(var(--s, 1));
 }
 .piece-in { position: absolute; inset: 0; transform-origin: 50% 100%; }
 .p-shadow { position: absolute; left: 12%; right: 12%; bottom: -5%; height: 14%; border-radius: 50%; background: rgba(0, 0, 0, 0.38); filter: blur(1px); transform-origin: 50% 100%; transform: rotateX(calc(-1 * var(--stand))); }
