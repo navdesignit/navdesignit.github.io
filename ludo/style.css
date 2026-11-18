@@ -283,22 +283,87 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 
 /* ---------- pieces: the characters stand on the board in 3D ---------- */
 .pieces { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; font-size: 11px; }
+/* board.js sets --x/--y (where the feet go, in cells from the board's top-left), --s and --lift.
+   Everything is one transform in percentages of the piece's own box, so moving a piece never
+   triggers layout: steps stay smooth at full frame rate.
+   --pw/--ph: the figure's size in cells. --bw: the piece's box width. It is twice the figure's, and
+   the figure, its weapon and its kicks all stay inside it, because Chrome clips animated content
+   that pokes out of a piece (or out of any wrapper inside it). The box can't be taller than the
+   figure (Chrome then sinks the piece into the board), so animations never stretch or move the
+   figure upwards: hops come from --lift instead. --k converts figure percentages to box ones. */
+@property --x { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --y { syntax: '<number>'; inherits: false; initial-value: 0; }
 .piece {
-  position: absolute; width: calc(100% / var(--cells, 15.4) * 0.96); height: calc(100% / var(--cells, 15.4) * 1.2);
-  transform-origin: 50% 100%; transform: translate(-50%, -100%) translateY(calc(var(--lift, 0) * -82.7%)) rotateX(var(--stand)) scale(var(--s, 1));
+  --pw: 0.96; --ph: 1.2; --bw: 1.92; --bh: 1.2; --k: 0.5;
+  position: absolute; left: 0; top: 0; width: calc(100% / var(--cells, 15.4) * var(--bw)); height: calc(100% / var(--cells, 15.4) * var(--bh));
+  transform-origin: 50% 100%;
+  /* After standing up (rotateX), --lift raises the piece straight up the screen and --z (3px on a
+     piece that is hopping) brings it toward the camera, so a walker is always drawn in front of
+     the pieces it passes instead of ducking behind them. */
+  transform: translate(calc(var(--x, 0) / var(--bw) * 100%), calc(var(--y, 0) / var(--bh) * 100%)) translate(-50%, -100%)
+    rotateX(var(--stand)) translateZ(var(--z, 0px)) translateY(calc(var(--lift, 0) * -99.2% / var(--bh))) scale(var(--s, 1));
 }
+.piece.hop { --z: 3px; }
 .piece-in { position: absolute; inset: 0; transform-origin: 50% 100%; }
-.p-shadow { position: absolute; left: 12%; right: 12%; bottom: -5%; height: 14%; border-radius: 50%; background: rgba(0, 0, 0, 0.38); filter: blur(1px); transform-origin: 50% 100%; transform: rotateX(calc(-1 * var(--stand))); }
-.p-body { position: absolute; left: 26%; right: 26%; bottom: 3%; height: 40%; border-radius: 45% 45% 35% 35%; background: var(--c); box-shadow: inset -5px 0 8px rgba(0, 0, 0, 0.3), 0 2px 3px rgba(0, 0, 0, 0.3); }
-.p-head { position: absolute; left: 3%; right: 3%; top: 0; aspect-ratio: 1; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px var(--c), 0 3px 6px rgba(0, 0, 0, 0.45); overflow: hidden; background: #fff; }
+.p-shadow { position: absolute; left: 31%; right: 31%; bottom: -5%; height: 14%; border-radius: 50%; background: rgba(0, 0, 0, 0.38); filter: blur(1px); transform-origin: 50% 100%; transform: rotateX(calc(-1 * var(--stand))); }
+.p-body { position: absolute; left: 38.5%; right: 38.5%; bottom: 22%; height: 25%; border-radius: 45% 45% 40% 40%; background: var(--c); box-shadow: inset -4px 0 6px rgba(0, 0, 0, 0.3), 0 2px 3px rgba(0, 0, 0, 0.3); }
+.p-head { position: absolute; left: 30%; right: 30%; top: 0; aspect-ratio: 1; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px var(--c), 0 3px 6px rgba(0, 0, 0, 0.45); overflow: hidden; background: #fff; }
 .p-head .avatar { width: 100%; height: 100%; display: block; }
-.p-ring { position: absolute; left: -9%; right: -9%; top: -10%; aspect-ratio: 1; border-radius: 50%; border: 2px dashed #fff; display: none; }
-.p-shield { position: absolute; right: -14%; top: -16%; display: none; line-height: 1; }
+
+/* Legs: two stubby legs with oversized shoes, hips tucked under the body. --dir mirrors every
+   animation for the right leg. Each character sets its look and its walk with variables below. */
+.p-legs { position: absolute; left: 0; right: 0; bottom: 3%; height: 27%; }
+.p-leg {
+  --dir: 1; box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.25); position: absolute; top: 0; bottom: 0; display: block; width: calc(var(--lw, 12%) * var(--k)); left: calc(50% - (var(--lgap, 6%) + var(--lw, 12%)) * var(--k));
+  transform-origin: 50% 8%; background: var(--leg, #2b2d42); border-radius: 999px 999px 40% 40%;
+}
+.p-leg.r { --dir: -1; left: calc(50% + var(--lgap, 6%) * var(--k)); }
+.p-shoe {
+  position: absolute; bottom: var(--sb, -18%); right: -40%; width: var(--sw, 250%); height: var(--sh, 34%); display: block;
+  background: var(--shoe, #1b1b1f); border-radius: 80% 30% 24% 24% / 100% 60% 24% 24%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 calc(-1 * var(--sole, 0px)) 0 var(--sole-c, transparent);
+}
+.p-leg.r .p-shoe { right: auto; left: -40%; scale: -1 1; }
+
+/* Ajay: boss in skinny jeans and huge white kicks, swaggers like he owns Indore */
+.piece[data-ch="ajay"] { --leg: linear-gradient(90deg, #2c4f86 0 55%, #4471b8 55%); --shoe: #fff; --sole: 1.5px; --sole-c: #FF8A3D; --sw: 290%; --sh: 40%; --walk-leg: legswag; --walk-body: bodyswag; --idle-leg: legtap; }
+/* Nav: noodle legs, tube socks, one red shoe and one blue, sneaks around like a cartoon villain */
+.piece[data-ch="nav"] { --leg: linear-gradient(#f0c18f 0 52%, #fff 52% 62%, #E5383B 62% 70%, #fff 70%); --lw: 7%; --lgap: 7%; --shoe: #E5383B; --sw: 300%; --sh: 40%; --sole: 1.5px; --sole-c: #fff; --walk-leg: legnoodle; --walk-body: bodysneak; --idle-leg: legknock; }
+.piece[data-ch="nav"] .p-leg.r { --leg: linear-gradient(#f0c18f 0 52%, #fff 52% 62%, #1F6FEB 62% 70%, #fff 70%); --shoe: #1F6FEB; }
+/* Chechu: short hairy legs under a lungi, blue hawai chappals that slap, waddles like a penguin */
+.piece[data-ch="chechu"] { --leg: #8a5a3c; --lw: 15%; --lgap: 3%; --shoe: #2f6fd8; --sw: 220%; --sh: 24%; --sb: -10%; --walk-leg: legwaddle; --walk-body: bodywaddle; --idle-leg: legscratch; }
+.piece[data-ch="chechu"] .p-leg { background: repeating-linear-gradient(115deg, transparent 0 1.4px, rgba(30, 14, 4, 0.6) 1.4px 2.3px), var(--leg); }
+.piece[data-ch="chechu"] .p-shoe { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 1.5px 0 #fff; border-radius: 50%; }
+.piece[data-ch="chechu"] .p-body::after { content: ''; position: absolute; left: -24%; right: -24%; top: 52%; height: 78%; border-radius: 12% 12% 34% 34%; background: #f7f3e8; box-shadow: inset 0 -2px 0 #2f6fd8, 0 1px 2px rgba(0, 0, 0, 0.3); }
+/* Vanshika: black suit, red stilettos, walks every square like it's a runway */
+.piece[data-ch="vanshika"] { --leg: #1d1d24; --lw: 9%; --lgap: 5%; --shoe: #e0102f; --sw: 230%; --sh: 30%; --sb: 8%; --walk-leg: legcatwalk; --walk-body: bodycatwalk; --idle-leg: legheel; }
+.piece[data-ch="vanshika"] .p-shoe { border-radius: 100% 10% 30% 70% / 100% 30% 30% 70%; }
+.piece[data-ch="vanshika"] .p-shoe::after { content: ''; position: absolute; right: 4%; top: 80%; width: 13%; height: 115%; border-radius: 1px; background: var(--shoe); }
+/* Liu: rainbow stockings and giant green clown shoes, skips everywhere */
+.piece[data-ch="liu"] { --leg: linear-gradient(#ff5d8f 0 25%, #ffd23f 25% 50%, #3ec1d3 50% 75%, #9b6cf3 75%); --lw: 12%; --lgap: 5%; --shoe: #33CA7F; --sw: 330%; --sh: 48%; --sole: 2px; --sole-c: #1e8a52; --walk-leg: legskip; --walk-body: bodyskip; --idle-leg: legjig; }
+.piece[data-ch="liu"] .p-shoe { border-radius: 60% 45% 40% 40% / 90% 70% 40% 40%; }
+
+/* Leg moves. One walk cycle = two steps (--step each, set by board.js), the right leg half a cycle behind. */
+.piece.turn .p-leg { animation: var(--idle-leg, none) 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.piece.turn .p-leg.r { animation-delay: calc(var(--d, 0s) - 0.2s); }
+.piece.can .p-leg { animation: legrun 0.26s ease-in-out infinite; }
+.piece.can .p-leg.r { animation-delay: -0.13s; }
+.piece.walking .piece-in { animation: var(--walk-body, bodyswag) calc(var(--step, 150ms) * 2) ease-in-out infinite; }
+.piece.walking .p-leg { animation: var(--walk-leg, legswag) calc(var(--step, 150ms) * 2) ease-in-out infinite; }
+.piece.walking .p-leg.r { animation-delay: calc(var(--step, 150ms) * -1); }
+.piece.walking[data-ch="chechu"] .p-shoe { animation: flap calc(var(--step, 150ms) * 2) ease-in-out infinite; animation-delay: inherit; }
+.piece.jump .p-leg { animation: none; transform: rotate(calc(40deg * var(--dir))) scaleY(0.55); }
+.piece.flip .p-leg { animation: legjig 0.85s ease-in-out; }
+.piece.fuse .p-leg { animation: legshake 0.08s linear infinite alternate; }
+.piece.hit .p-leg { animation: legtwitch 0.3s ease-in-out infinite alternate; }
+.piece.spinning .p-leg { animation: legflail 0.12s linear infinite alternate; }
+.piece.spinning .p-leg.r { animation-delay: -0.06s; }
+.p-ring { position: absolute; z-index: -1; left: 26%; right: 26%; top: -4%; aspect-ratio: 1; border-radius: 50%; border: 2px dashed #fff; display: none; } /* behind the figure: a halo, not a line across the body */
+.p-shield { position: absolute; right: 20%; top: 0; display: none; line-height: 1; }
 .piece.shielded .p-shield { display: block; }
-.p-weapon { position: absolute; right: -40%; top: 28%; font-size: 1.2em; line-height: 1; transform-origin: 20% 90%; animation: swingw 2.2s ease-in-out infinite; animation-delay: var(--d, 0s); filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
+.p-weapon { position: absolute; right: 5%; top: 28%; font-size: 1.2em; line-height: 1; transform-origin: 20% 90%; animation: swingw 2.2s ease-in-out infinite; animation-delay: var(--d, 0s); filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
 .f-eye { transform-box: fill-box; transform-origin: center; animation: blink 4.2s ease-in-out infinite; animation-delay: var(--bd, 0s); }
 .piece.turn .piece-in { animation: swayp 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
-.piece.walking .piece-in { animation: waddlep 0.16s ease-in-out infinite; }
 .piece.flip .piece-in { animation: flipp 0.85s ease-in-out; }
 .piece.hit .piece-in { filter: grayscale(1) brightness(0.8); transform: rotate(28deg); transition: transform 0.3s; }
 .piece.can .p-ring, .piece.aim .p-ring { display: block; animation: spin 1.8s linear infinite; }
@@ -522,10 +587,33 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .d-weapon { position: absolute; left: 50%; bottom: -36px; font-size: 2.1rem; line-height: 1; transform: translateX(-50%) rotate(165deg); filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85)); }
 .dude.bow .dude-in { animation: bow 1s ease-in-out forwards; }
 
-@keyframes swayp { 50% { transform: rotate(6deg) translateY(-3%); } }
-@keyframes waddlep { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
-@keyframes flipp { 40% { transform: translateY(-60%) rotate(200deg); } 100% { transform: rotate(360deg); } }
-@keyframes bobp { 50% { transform: translateY(-14%) scale(1.06); } }
+/* Walks: 0% and 50% are landings (squash), 25% and 75% mid-hop. Nothing here moves or stretches the
+   figure upwards (see .piece): the hop itself comes from board.js, its height set per character. */
+@keyframes legswag { 0%, 50%, 100% { transform: none; } 25% { transform: rotate(calc(34deg * var(--dir))) scaleY(0.8); } 75% { transform: rotate(calc(-6deg * var(--dir))); } }
+@keyframes bodyswag { 0%, 100% { transform: rotate(-6deg) scale(1.08, 0.9); } 25% { transform: rotate(-11deg); } 50% { transform: rotate(6deg) scale(1.08, 0.9); } 75% { transform: rotate(11deg); } }
+@keyframes legnoodle { 0%, 50%, 100% { transform: none; } 15% { transform: rotate(calc(-22deg * var(--dir))) skewX(calc(28deg * var(--dir))) scaleY(0.7); } 35% { transform: rotate(calc(26deg * var(--dir))) skewX(calc(-22deg * var(--dir))) scaleY(0.85); } 75% { transform: skewX(calc(10deg * var(--dir))); } }
+@keyframes bodysneak { 0%, 100% { transform: rotate(-4deg) translateX(-3%) scale(1.06, 0.92); } 25% { transform: rotate(8deg); } 50% { transform: rotate(4deg) translateX(3%) scale(1.06, 0.92); } 75% { transform: rotate(-8deg); } }
+@keyframes legwaddle { 0%, 50%, 100% { transform: none; } 25% { transform: rotate(calc(14deg * var(--dir))) translateY(-16%); } }
+@keyframes bodywaddle { 0%, 100% { transform: rotate(-16deg) scale(1.1, 0.88); } 25%, 75% { transform: none; } 50% { transform: rotate(16deg) scale(1.1, 0.88); } }
+@keyframes flap { 0%, 40%, 100% { transform: none; } 50% { transform: translateY(40%) scaleY(0.5); } 58% { transform: scaleY(1.2); } }
+@keyframes legcatwalk { 0%, 50%, 100% { transform: none; } 25% { transform: translateX(calc(130% * var(--dir))) rotate(calc(-12deg * var(--dir))) scaleY(0.85); } }
+@keyframes bodycatwalk { 0%, 100% { transform: rotate(-9deg) translateX(-3%) scale(1.04, 0.95); } 25%, 75% { transform: none; } 50% { transform: rotate(9deg) translateX(3%) scale(1.04, 0.95); } }
+@keyframes legskip { 0%, 50%, 100% { transform: none; } 22% { transform: rotate(calc(50deg * var(--dir))) scaleY(0.7); } }
+@keyframes bodyskip { 0%, 50%, 100% { transform: scale(1.15, 0.84); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+/* Waiting for their turn */
+@keyframes legtap { 0%, 60%, 70%, 80%, 100% { transform: none; } 65%, 75% { transform: rotate(calc(-14deg * var(--dir))) translateY(-14%); } }
+@keyframes legknock { 0%, 55%, 85%, 100% { transform: none; } 60%, 70%, 80% { transform: rotate(calc(-14deg * var(--dir))); } 65%, 75% { transform: rotate(calc(6deg * var(--dir))); } }
+@keyframes legscratch { 0%, 50%, 90%, 100% { transform: none; } 58%, 74% { transform: translateX(calc(80% * var(--dir))) translateY(-28%) rotate(calc(-18deg * var(--dir))); } 66%, 82% { transform: translateX(calc(80% * var(--dir))) translateY(-6%) rotate(calc(-18deg * var(--dir))); } }
+@keyframes legheel { 0%, 50%, 60%, 70%, 80%, 100% { transform: none; } 55%, 65%, 75% { transform: translateY(-16%) rotate(calc(8deg * var(--dir))); } }
+@keyframes legjig { 0%, 45%, 100% { transform: none; } 20% { transform: rotate(calc(34deg * var(--dir))) scaleY(0.8); } }
+/* Pick me, pick me / about to blow / just got hit / flying off the board */
+@keyframes legrun { 50% { transform: translateY(-30%) scaleY(0.6); } }
+@keyframes legshake { from { transform: rotate(calc(-12deg * var(--dir))); } to { transform: rotate(calc(12deg * var(--dir))); } }
+@keyframes legtwitch { from { transform: rotate(calc(25deg * var(--dir))); } to { transform: rotate(calc(55deg * var(--dir))) scaleY(0.85); } }
+@keyframes legflail { from { transform: rotate(calc(-60deg * var(--dir))); } to { transform: rotate(calc(60deg * var(--dir))); } }
+@keyframes swayp { 50% { transform: rotate(6deg); } }
+@keyframes flipp { 30% { transform: scale(1.1, 0.85); } 50% { transform: scaleX(-1); } 70% { transform: scale(1.1, 0.85); } }
+@keyframes bobp { 50% { transform: scale(1.1, 0.88); } }
 @keyframes jitterp { 25% { transform: translate(1px, -1px) rotate(4deg); } 75% { transform: translate(-1px, 1px) rotate(-4deg); } }
 @keyframes pushin { from { transform: var(--cam); } to { transform: scale(1.14) var(--cam); } }
 @keyframes rsway { 50% { transform: rotateY(16deg) rotateX(5deg); } }
@@ -564,7 +652,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; backgroun
 .collection .locked { background: none; border: 2px dashed rgba(0, 0, 0, 0.15); color: #6b6280; }
 .sheet h4 .avatar { vertical-align: middle; border-radius: 50%; }
 .crown-fly { position: fixed; left: -1.3rem; top: -1.3rem; font-size: 2.6rem; line-height: 1; z-index: 50; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.4)); }
-.p-landu { position: absolute; left: -18%; top: -22%; display: none; line-height: 1; }
+.p-landu { position: absolute; left: 16%; top: 20%; display: none; line-height: 1; }
 .piece.landu .p-landu { display: block; animation: bounce 1s ease-in-out infinite; }
 @keyframes cardflip { from { transform: rotateY(90deg) scale(0.6); opacity: 0; } }
 @keyframes cardout { to { transform: translateY(-30px) scale(0.8); opacity: 0; } }
