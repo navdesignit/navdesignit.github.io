@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRoom, reduce, botAction, blastTargets, kaboomTokens, square, current, bestMove, moveVictims,
-  YARD, HOME, SAFE, setArms, MANHOOS_GIFTS,
+  YARD, HOME, SAFE, setArms,
 } from '../js/engine.js';
 import { charForName, pickLine, CHARACTERS } from '../js/characters.js';
 
@@ -347,50 +347,6 @@ test('pity six: five dead rolls stuck in the yard, then a guaranteed 6', () => {
   s = setup(started(['Ajay', 'Nav']), { red: [54, YARD, YARD, YARD] });
   s = reduce(s, { type: 'roll', uid: 'u0' }, dice(5));
   assert.equal(s.players[0].dry, 0);
-});
-
-test('Mr. Manhoos: visits once a round, drawn to the leader, gifts work', () => {
-  // Red is far ahead. After a full round he shows up beside someone on the track.
-  let s = setup(started(['Ajay', 'Nav']), { red: [30, YARD, YARD, YARD], yellow: [3, YARD, YARD, YARD] });
-  s = reduce(s, { type: 'roll', uid: 'u0' }, dice(1));
-  assert.ok(!s.fx.items.some(f => f.k === 'manhoos'), 'no visit mid-round');
-  const mid = s;
-  s = reduce(s, { type: 'roll', uid: 'u1' }, dice(1));
-  const v = s.fx.items.find(f => f.k === 'manhoos');
-  assert.ok(v, 'he visits when the turn wraps around');
-  assert.equal(s.manhoos, v.sq);
-  assert.ok(Object.keys(MANHOOS_GIFTS).includes(v.gift));
-  // Over many rounds he picks the leader (red) most of the time.
-  let red = 0, visits = 0;
-  for (let i = 1; i <= 120; i++) {
-    let seed = i * 7919;
-    const rng = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-    const f = reduce(mid, { type: 'roll', uid: 'u1' }, rng).fx.items.find(f => f.k === 'manhoos');
-    if (f) { visits++; if (f.c === 'red') red++; }
-  }
-  assert.ok(visits > 60 && red / visits > 0.55, `leader weighting: ${red}/${visits}`);
-  // Switched off by the host: no visits.
-  let off = setup(started(['Ajay', 'Nav'], { manhoos: false }), { red: [30, YARD, YARD, YARD], yellow: [3, YARD, YARD, YARD] });
-  off = reduce(reduce(off, { type: 'roll', uid: 'u0' }, dice(1)), { type: 'roll', uid: 'u1' }, dice(1));
-  assert.ok(!off.fx.items.some(f => f.k === 'manhoos'));
-
-  // Curses. Ulta: a 6 becomes a 1. Slow: a 5 becomes a 3. Nazar: the landing does not kill.
-  const c = setup(started(['Ajay', 'Nav']), { red: [10, YARD, YARD, YARD], yellow: [20, YARD, YARD, YARD] });
-  c.players[0].curse = 'ulta';
-  let r = reduce(c, { type: 'roll', uid: 'u0' }, dice(6));
-  assert.equal(r.fx.items.find(f => f.k === 'dice').d, 1);
-  assert.ok(r.fx.items.some(f => f.k === 'cursed' && f.d0 === 6 && f.d === 1));
-  assert.equal(r.players[0].curse, null, 'a curse is used up');
-  c.players[0].curse = 'slow';
-  r = reduce(c, { type: 'roll', uid: 'u0' }, dice(5));
-  assert.equal(r.fx.items.find(f => f.k === 'dice').d, 3);
-  c.players[0].curse = 'nazar';
-  c.tokens.yellow[0] = 38; // the square red lands on with a 2
-  r = reduce(c, { type: 'roll', uid: 'u0' }, dice(2));
-  assert.equal(r.tokens.yellow[0], 38, 'nazar: the enemy survives');
-  assert.ok(r.fx.items.some(f => f.k === 'nazar'));
-  assert.equal(r.players[0].kills, 0);
-  assert.equal(r.players[0].curse, null);
 });
 
 test('simulation: 600 random games always finish cleanly', () => {

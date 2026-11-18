@@ -159,14 +159,6 @@ function staticBoard5(P) {
   return g + `<g transform="translate(0 0.05)">${BOMB}</g>`;
 }
 
-// Mr. Manhoos: a pair of big eyes under a dark hat. He is only ever seen watching.
-const MANHOOS_FACE = '<rect width="100" height="100" fill="#2b2b33"/>' +
-  '<path d="M6 60 C6 24 94 24 94 60Z" fill="#1d1d1f"/>' +
-  '<circle cx="35" cy="64" r="16" fill="#fff"/><circle cx="65" cy="64" r="16" fill="#fff"/>' +
-  '<circle cx="38" cy="66" r="7.5" fill="#1d1d1f"/><circle cx="68" cy="66" r="7.5" fill="#1d1d1f"/>' +
-  '<circle cx="40.5" cy="63" r="2.2" fill="#fff"/><circle cx="70.5" cy="63" r="2.2" fill="#fff"/>';
-export const manhoosAvatar = () => `<svg class="avatar" viewBox="0 0 100 100" role="img" aria-label="Mr. Manhoos"><defs><clipPath id="av-manhoos"><circle cx="50" cy="50" r="50"/></clipPath></defs><g clip-path="url(#av-manhoos)">${MANHOOS_FACE}</g></svg>`;
-
 // The hero's sword, hilt at the origin, tip pointing up.
 const SWORD = '<path d="M-0.09 0 L0.09 0 L0.06 -1.5 L0 -1.75 L-0.06 -1.5Z" fill="url(#blade)"/>' +
   '<path d="M-0.02 0 L0.02 0 L0.02 -1.45 L-0.02 -1.45Z" fill="#fff" opacity=".7"/>' +
@@ -208,7 +200,6 @@ export class Board {
     this.pos = new Map();   // "red:0" → {x, y, s, lift}
     this.targets = [];      // tappable tokens [{c, t}]
     svg.parentElement.parentElement.addEventListener('pointerup', e => this.tap(e));
-    setInterval(() => this.lookAround(), 250);
   }
 
   // Classic board for 2–4 players, the 5-arm one for 5.
@@ -228,7 +219,6 @@ export class Board {
     this.sig = sig;
     this.piecesEl.innerHTML = '';
     this.els.clear(); this.pos.clear();
-    this.manhoosEl = null;
     for (const p of players) {
       if (!p.color) continue;
       for (let t = 0; t < 4; t++) {
@@ -281,17 +271,6 @@ export class Board {
     [...this.els.entries()].sort((a, b) => (this.pos.get(a[0])?.y || 0) - (this.pos.get(b[0])?.y || 0))
       .forEach(([, el]) => this.piecesEl.appendChild(el));
     this.boxesG.innerHTML = (state.boxes || []).map(boxMarkup).join('');
-    this.setManhoos(state.manhoos == null ? null : state.manhoos);
-    // His eyes follow the player whose turn it is (their furthest token), else the furthest token out.
-    const cur = state.players[state.turn];
-    let best = null, bestScore = -1;
-    for (const c of Object.keys(state.tokens || {})) {
-      state.tokens[c].forEach((p, t) => {
-        const score = p >= 0 && p <= LAST_TRACK ? p + (cur && cur.color === c ? 100 : 0) : -1;
-        if (score > bestScore) { bestScore = score; best = `${c}:${t}`; }
-      });
-    }
-    this.watchKey = best;
     const live = (state.phase === 'roll' || state.phase === 'move') && state.players[state.turn] ? `${state.players[state.turn].color}:` : '-';
     for (const [k, el] of this.els) {
       el.classList.toggle('shielded', !!(state.shields && state.shields[k]));
@@ -301,41 +280,6 @@ export class Board {
       const cur = state.players[state.turn];
       g.classList.toggle('on', (state.phase === 'roll' || state.phase === 'move') && !!cur && cur.color === g.dataset.c);
     });
-  }
-
-  // Mr. Manhoos peeks over the board edge nearest square sq (null: gone). He slides along the
-  // edge between visits (CSS transition) and his pupils follow `watchKey` (see lookAround).
-  setManhoos(sq) {
-    if (sq == null) { if (this.manhoosEl) this.manhoosEl.remove(); this.manhoosEl = null; this.els.delete('manhoos'); return; }
-    if (!this.manhoosEl) {
-      const el = document.createElement('div');
-      el.className = 'piece manhoos';
-      el.innerHTML = '<div class="piece-in"><div class="m-hat"></div><div class="m-eye l"><i></i></div><div class="m-eye r"><i></i></div></div>';
-      this.piecesEl.appendChild(el);
-      this.manhoosEl = el;
-      this.els.set('manhoos', el);
-    }
-    const vb = this.svg.viewBox.baseVal;
-    const { x, y } = squareCenter(sq);
-    const edge = [[x - vb.x, { x: vb.x + 0.3, y }], [vb.x + vb.width - x, { x: vb.x + vb.width - 0.3, y }],
-      [y - vb.y, { x, y: vb.y + 0.3 }], [vb.y + vb.height - y, { x, y: vb.y + vb.height - 0.3 }]].sort((a, b) => a[0] - b[0])[0][1];
-    this.place('manhoos', { ...edge, s: 1.25 });
-  }
-
-  // Point Mr. Manhoos's pupils at the piece he is watching.
-  lookAround() {
-    const eyes = this.manhoosEl;
-    if (!eyes) return;
-    const tgt = this.watchKey && this.els.get(this.watchKey);
-    let dx = 0, dy = 0;
-    if (tgt) {
-      const a = eyes.getBoundingClientRect(), b = tgt.getBoundingClientRect();
-      const vx = b.left + b.width / 2 - (a.left + a.width / 2), vy = b.top + b.height / 2 - (a.top + a.height / 2);
-      const n = Math.hypot(vx, vy) || 1;
-      dx = vx / n; dy = vy / n;
-    }
-    eyes.style.setProperty('--px', `${(dx * 30).toFixed(1)}%`);
-    eyes.style.setProperty('--py', `${(dy * 30).toFixed(1)}%`);
   }
 
   // Tokens the local player may tap right now. mode: 'move' | 'kaboom' | null
