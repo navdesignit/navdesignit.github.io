@@ -39,6 +39,7 @@ const GOAL_SPOTS = [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]];
 const SVGNS = 'http://www.w3.org/2000/svg';
 
 const YARD_R = 2.4;
+const FOOT = 0.42;
 const CLASSIC = { TRACK, LANE, YARD_AT, GOAL, ANG: TRACK.map(() => 0), view: '-0.2 -0.2 15.4 15.4', draw: () => staticBoard() };
 
 // 5-player board: five 3×6 arms around a pentagon centred on (0,0), red pointing
@@ -235,14 +236,17 @@ export class Board {
 
   // Board units → percentages of the board box. `lift` is a jump height in cells,
   // drawn up the screen rather than up the board so hops read in 3D.
+  // A figure stands upright and is taller than a square, so its feet go FOOT cells below
+  // the spot's centre: that keeps its face over its own square, not the one behind it.
   place(k, at) {
     const el = this.els.get(k);
     if (!el) return;
     this.pos.set(k, at);
     const vb = this.svg.viewBox.baseVal;
+    const s = at.s == null ? 1 : at.s;
     el.style.left = `${(((at.x - vb.x) / vb.width) * 100).toFixed(3)}%`;
-    el.style.top = `${(((at.y - vb.y) / vb.height) * 100).toFixed(3)}%`;
-    el.style.setProperty('--s', (at.s == null ? 1 : at.s).toFixed(3));
+    el.style.top = `${(((at.y + FOOT * s - vb.y) / vb.height) * 100).toFixed(3)}%`;
+    el.style.setProperty('--s', s.toFixed(3));
     el.style.setProperty('--lift', (at.lift || 0).toFixed(3));
   }
 
