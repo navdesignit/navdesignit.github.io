@@ -42,6 +42,13 @@ const YARD_R = 2.4;
 const FOOT = 0.42;
 // How high each character bounces per step: Liu skips, Chechu barely leaves the ground.
 const BOUNCE = { ajay: 1, nav: 0.8, chechu: 0.45, vanshika: 0.7, liu: 1.7 };
+// A piece's box in cells (keep in step with --bw/--bh on .piece in style.css). Pieces are flat
+// standees drawn on the tilted board, stretched by UPRIGHT (1 / cos 24°) so they keep their height.
+const BW = 1.92, BH = 1.2, UPRIGHT = 1.095;
+const STEP_SAMPLES = 8; // keyframes per hop: enough for a smooth arc at 60–120 fps
+// On a phone a piece is ~25px tall, too small to see legs move. So a walker pops up to GROW times
+// its size, takes slower steps, and stays big for its landing pose before settling back.
+const GROW = 2, STEP_MS = 200, FAST_STEP_MS = 80, POSE_MS = 700;
 const CLASSIC = { TRACK, LANE, YARD_AT, GOAL, ANG: TRACK.map(() => 0), view: '-0.2 -0.2 15.4 15.4', draw: () => staticBoard() };
 
 // 5-player board: five 3×6 arms around a pentagon centred on (0,0), red pointing
@@ -237,21 +244,73 @@ export class Board {
     }
   }
 
-  // Put a piece at board units `at`. `lift` is a jump height in cells, drawn up the screen
-  // rather than up the board so hops read in 3D. Only CSS variables that feed the piece's
-  // transform change (see .piece in style.css), so moving never triggers layout: smooth on phones.
-  // A figure stands upright and is taller than a square, so its feet go FOOT cells below
-  // the spot's centre: that keeps its face over its own square, not the one behind it.
+  // The transform that stands a piece at board units `at` ({x, y, s, lift}). Percentages of the
+  // piece's own box, so it only ever changes `transform`: no layout, and the GPU can animate it.
+  // A figure is taller than a square, so its feet go FOOT cells below the spot's centre: that
+  // keeps its face over its own square, not the one behind it. `lift` is a jump height in cells.
+  pieceTransform(at) {
+    const vb = this.svg.viewBox.baseVal;
+    const s = at.s == null ? 1 : at.s;
+    const x = ((at.x - vb.x) / BW) * 100, y = ((at.y + FOOT * s - vb.y) / BH) * 100;
+    const lift = (-(at.lift || 0) / BH) * 100;
+    return `translate(${x.toFixed(2)}%, ${y.toFixed(2)}%) translate(-50%, -100%) translateY(${lift.toFixed(2)}%) scale(${(s).toFixed(3)}, ${(s * UPRIGHT).toFixed(3)})`;
+  }
+
   place(k, at) {
     const el = this.els.get(k);
     if (!el) return;
     this.pos.set(k, at);
-    const vb = this.svg.viewBox.baseVal;
-    const s = at.s == null ? 1 : at.s;
-    el.style.setProperty('--x', (at.x - vb.x).toFixed(3));
-    el.style.setProperty('--y', (at.y + FOOT * s - vb.y).toFixed(3));
-    el.style.setProperty('--s', s.toFixed(3));
-    el.style.setProperty('--lift', (at.lift || 0).toFixed(3));
+    el.style.transform = this.pieceTransform(at);
+  }
+
+  // Hop piece k through `stops` (board units, the first is where it starts), one hop per stop,
+  // `ms` each. The whole path is a single Web Animation, so the GPU plays it: it stays smooth
+  // even while the phone is busy with sounds and speech bubbles. onStep fires as each hop starts.
+  // grow: how much bigger the piece gets while it travels (it grows on the first hop). hold: ms it
+  // stays big after landing, then shrinks back; with no hold it shrinks during the last hop.
+  // onArrive fires on the last landing.
+  async glide(k, stops, ms, height, { onStep, onArrive, grow = 1, hold = 0 } = {}) {
+    const el = this.els.get(k);
+    if (!el || stops.length < 2) return;
+    this.piecesEl.appendChild(el); // drawn on top of the pieces it passes
+    const n = stops.length - 1, last = stops[n];
+    ms /= this.speed; hold /= this.speed;
+    if (document.hidden || !el.animate || ms < 5) {
+      for (let i = 0; i < n; i++) onStep && onStep();
+      onArrive && onArrive();
+      this.place(k, last);
+      return;
+    }
+    const walk = n * ms, total = walk + hold;
+    const ease = u => u * u * (3 - 2 * u);
+    const clamp = u => Math.max(0, Math.min(1, u));
+    const size = t => 1 + (grow - 1) * Math.min(ease(clamp(t / (0.6 * ms))), hold ? 1 : ease(clamp((walk - t) / (0.6 * ms))));
+    const frames = [];
+    for (let i = 0; i < n; i++) {
+      const a = stops[i], b = stops[i + 1], sa = a.s == null ? 1 : a.s, sb = b.s == null ? 1 : b.s;
+      for (let j = 0; j < STEP_SAMPLES; j++) {
+        const u = j / STEP_SAMPLES, e = ease(u), t = (i + u) * ms; // smooth take-off and landing
+        frames.push({ offset: t / total, transform: this.pieceTransform({
+          x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, s: (sa + (sb - sa) * e) * size(t), lift: Math.sin(Math.PI * u) * height,
+        }) });
+      }
+    }
+    const ls = last.s == null ? 1 : last.s;
+    if (hold) {
+      frames.push({ offset: walk / total, transform: this.pieceTransform({ ...last, s: ls * grow }) });
+      frames.push({ offset: (walk + hold * 0.6) / total, transform: this.pieceTransform({ ...last, s: ls * grow }), easing: 'cubic-bezier(0.3, 1.5, 0.6, 1)' });
+    }
+    frames.push({ offset: 1, transform: this.pieceTransform(last) });
+    const anim = el.animate(frames, { duration: total, easing: 'linear' });
+    const timers = [];
+    for (let i = 0; i < n && onStep; i++) {
+      if (i === 0) onStep(); else timers.push(setTimeout(onStep, ms * i));
+    }
+    if (onArrive) timers.push(setTimeout(onArrive, walk));
+    await Promise.race([anim.finished.catch(() => {}), new Promise(r => setTimeout(r, total + 300))]);
+    timers.forEach(clearTimeout);
+    this.place(k, last);
+    anim.cancel();
   }
 
   // Snap everything to where the state says it is (with stacking for shared squares).
@@ -341,50 +400,41 @@ export class Board {
     });
   }
 
-  async hop(k, to, ms = 150, height = 0.35) {
-    const el = this.els.get(k);
-    if (!el) return;
-    this.piecesEl.appendChild(el);
-    const from = this.pos.get(k) || to;
-    const ease = u => u * u * (3 - 2 * u); // smooth take-off and landing, so each step reads clearly
-    const own = !el.classList.contains('hop'); // a walk keeps 'hop' on for all its steps
-    if (own) el.classList.add('hop');
-    await this.tween(ms, u => {
-      const e = ease(u);
-      this.place(k, {
-        x: from.x + (to.x - from.x) * e,
-        y: from.y + (to.y - from.y) * e,
-        s: from.s + (to.s - from.s) * e,
-        lift: Math.sin(Math.PI * u) * height,
-      });
-    });
-    if (own) el.classList.remove('hop');
+  async hop(k, to, ms = 150, height = 0.35, opts = {}) {
+    await this.glide(k, [this.pos.get(k) || to, to], ms, height, opts);
   }
 
   // Walk a token from step `from` to step `to`, one square at a time.
   // `strike` (a kill is coming): the last step is a zoomed-in slow-motion sword strike.
-  async walk(c, t, from, to, { fast = false, onStep, strike = null } = {}) {
+  async walk(c, t, from, to, { fast = false, onStep, onLand, strike = null } = {}) {
     const k = `${c}:${t}`;
     const el = this.els.get(k);
     this.place(k, from === YARD ? spot(c, YARD, t) : spot(c, from, t));
     if (from === YARD) {
       onStep && onStep();
       if (el) el.classList.add('jump');
-      await this.hop(k, spot(c, to, t), 320, 1.2);
+      await this.hop(k, spot(c, to, t), 420, 1.3, { grow: 1.5, hold: 250 }); // out of the yard, frog legs
       if (el) el.classList.remove('jump');
       return;
     }
     const dir = to > from ? 1 : -1;
+    const ms = fast ? FAST_STEP_MS : STEP_MS;
     // One leg step per square: the CSS walk cycles last two steps (left foot, right foot).
-    if (el) { el.style.setProperty('--step', `${Math.round((fast ? 70 : 150) / this.speed)}ms`); el.classList.add('walking', 'hop'); }
+    if (el) { el.style.setProperty('--step', `${Math.round(ms / this.speed)}ms`); el.classList.add('walking'); }
     const last = strike && to > from ? to - 1 : to;
     const bounce = (el && BOUNCE[el.dataset.ch]) || 1;
-    for (let p = from + dir; dir > 0 ? p <= last : p >= last; p += dir) {
-      onStep && onStep();
-      await this.hop(k, spot(c, p, t), fast ? 70 : 150, (fast ? 0.15 : 0.35) * bounce);
-    }
-    if (el) el.classList.remove('walking', 'hop');
-    if (last !== to) await this.strike(c, t, to, strike);
+    const stops = [this.pos.get(k)];
+    for (let p = from + dir; dir > 0 ? p <= last : p >= last; p += dir) stops.push(spot(c, p, t));
+    const pose = !fast && !strike;
+    // Arrived: stop walking and strike a pose in character (.piece.land in style.css), still big.
+    const onArrive = () => {
+      if (!el) return;
+      el.classList.remove('walking');
+      if (pose) { el.classList.remove('land'); void el.offsetWidth; el.classList.add('land'); setTimeout(() => el.classList.remove('land'), POSE_MS / this.speed); onLand && onLand(); }
+    };
+    await this.glide(k, stops, ms, (fast ? 0.18 : 0.45) * bounce, { onStep, onArrive, grow: fast ? 1.3 : GROW, hold: pose ? POSE_MS : 0 });
+    if (el) el.classList.remove('walking');
+    if (last !== to) return this.strike(c, t, to, strike);
   }
 
   // Teleport-style flight straight to step `to` (mystery box swaps).
@@ -448,11 +498,20 @@ export class Board {
     if (!el) return;
     el.classList.add('spinning');
     const from = this.pos.get(k) || spot(c, YARD, t);
-    await this.tween(650, u => this.place(k, { ...from, lift: u * u * 16 }));
-    await this.wait(200);
     const home = spot(c, YARD, t);
-    this.place(k, { ...home, lift: 16 });
-    await this.tween(550, u => this.place(k, { ...home, lift: 16 * (1 - u * u) }));
+    const fly = async (a, b, ms) => {
+      if (!el.animate || document.hidden) return;
+      const anim = el.animate([{ transform: this.pieceTransform(a) }, { transform: this.pieceTransform(b) }],
+        { duration: ms / this.speed, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' }); // speeding up, like gravity
+      await Promise.race([anim.finished.catch(() => {}), this.wait(ms + 300)]);
+      return anim;
+    };
+    const up = await fly(from, { ...from, lift: 16 }, 650);
+    await this.wait(200);
+    const down = await fly({ ...home, lift: 16 }, home, 550);
+    this.place(k, home);
+    if (up) up.cancel();
+    if (down) down.cancel();
     el.classList.remove('spinning');
   }
 

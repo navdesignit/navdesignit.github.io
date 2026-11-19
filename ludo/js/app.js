@@ -431,7 +431,9 @@ async function playFx(st, prev, intro) {
       case 'move': {
         const kill = items[i + 1] && items[i + 1].k === 'kill' && items[i + 1].by === f.c && !f.fast;
         if (kill) endTension(null); // the heartbeat would fight the camera zoom
-        await board.walk(f.c, f.t, f.from, f.to, { fast: f.fast, onStep: () => sfx('step'),
+        const ch = (playerByColor(st, f.c) || {}).char;
+        await board.walk(f.c, f.t, f.from, f.to, { fast: f.fast, onStep: () => sfx('step', ch),
+          onLand: () => { if (f.to - f.from >= 3 || Math.random() < 0.3) sfx('land', ch); }, // a sting on big moves, sometimes on small ones
           strike: kill && { onCut: i => { sfx('dhan', i); buzz(50); }, onZoom: () => sfx('slowmo'), onImpact: impactFrames,
             weapon: (CHARACTERS[(playerByColor(st, f.c) || {}).char] || {}).weapon } });
         break;

@@ -92,9 +92,33 @@ function memeClip(i = Math.floor(Math.random() * MEMES.length)) {
   memeSrc.start(0, from, to - from);
 }
 
+let stepN = 0;
+
 const SOUNDS = {
   roll() { for (let i = 0; i < 7; i++) noise(0.04, { vol: 0.25, at: i * 0.06, cutoff: 3000 }); },
-  step() { tone(520 + Math.random() * 80, 0.06, { type: 'triangle', vol: 0.12 }); },
+  // Footsteps, one per square: everyone sounds like their shoes.
+  step(ch) {
+    stepN += 1;
+    switch (ch) {
+      case 'ajay': tone(92, 0.16, { vol: 0.4, to: 48 }); noise(0.03, { vol: 0.15, cutoff: 3000 }); break; // dhol thump: the boss walks in
+      case 'nav': tone([392, 330, 392, 262][stepN % 4], 0.08, { type: 'triangle', vol: 0.15 }); break; // sneaky tiptoe pizzicato
+      case 'chechu': noise(0.06, { vol: 0.55, cutoff: 5200 }); tone(170, 0.05, { type: 'square', vol: 0.05, to: 110 }); break; // hawai chappal: chapak
+      case 'vanshika': tone(2200, 0.03, { type: 'square', vol: 0.06 }); noise(0.025, { vol: 0.3, cutoff: 9000 }); break; // heels: tak
+      case 'liu': tone(stepN % 2 ? 800 : 1150, 0.1, { vol: 0.13, to: stepN % 2 ? 1500 : 620 }); break; // squeaky clown shoes
+      default: tone(520 + Math.random() * 80, 0.06, { type: 'triangle', vol: 0.12 });
+    }
+  },
+  // A meme sting when someone lands.
+  land(ch) {
+    switch (ch) {
+      case 'ajay': tone(68, 1, { vol: 0.65, to: 36 }); tone(136, 0.35, { type: 'triangle', vol: 0.18, to: 68 }); noise(0.3, { vol: 0.45, cutoff: 260 }); break; // vine boom
+      case 'nav': [[196, 0, 0.18], [185, 0.22, 0.18], [147, 0.44, 1]].forEach(([f, at, d]) => { tone(f, d, { type: 'sawtooth', vol: 0.09, at }); tone(f / 2, d, { type: 'sawtooth', vol: 0.07, at }); }); break; // dun dun DUNNN
+      case 'chechu': tone(1500, 0.8, { vol: 0.07, to: 2500 }); noise(0.85, { vol: 0.28, cutoff: 7500 }); break; // pressure cooker whistle
+      case 'vanshika': [0, 0.17].forEach(at => { tone(330, 0.09, { type: 'square', vol: 0.12, to: 210, at }); noise(0.05, { vol: 0.45, cutoff: 2200, at }); }); break; // gavel: order, order
+      case 'liu': tone(170, 0.28, { vol: 0.28, to: 720 }); tone(720, 0.32, { vol: 0.22, to: 230, at: 0.27 }); break; // boing
+      default: break;
+    }
+  },
   six() { tone(880, 0.12, { type: 'square', vol: 0.08 }); tone(1320, 0.2, { type: 'square', vol: 0.08, at: 0.1 }); },
   kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); memeClip(); },
   danger() { memeClip(); },
