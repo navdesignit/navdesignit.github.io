@@ -9,6 +9,7 @@ import { Board, TEAM, squareCenter } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
 import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
 import { UNLOCKS } from './unlocks.js';
+import { playFinisher, KABOOMS, setFinisherEnv } from './finishers.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -46,6 +47,7 @@ if (!S.me) { S.me = 'u' + Math.random().toString(36).slice(2, 10); store.set('al
 
 const board = new Board($('#board'), { onTap: onTokenTap });
 board.speed = SPEED;
+setFinisherEnv({ sfx, buzz, speed: SPEED });
 
 // ---------------------------------------------------------------- helpers
 
@@ -528,30 +530,36 @@ async function kaboomFx(f, st) {
   if (el) el.classList.add('fuse');
   if (bomber) { chipFx(bomber.color, 'sword', 3500); sayBubble(bomber.uid, pickRandom(KABOOM_SAYS)); }
   f.victims.forEach(v => { const p = playerByColor(st, v.c); if (p) chipFx(p.color, 'gasp', 3500); });
-  const cd = $('#countdown');
-  for (let i = 3; i >= 1; i--) {
-    cd.textContent = i;
-    cd.className = 'countdown'; void cd.offsetWidth; cd.classList.add('on');
-    sfx('beep', 3 - i); buzz(40);
-    if (i === 2) f.victims.forEach(v => board.pop(square(v.c, v.from), '😱'));
-    await sleep(480);
+  // The bomber's own signature (js/finishers.js): before, instead of the 3-2-1, the blast, after.
+  const move = KABOOMS[bomber && bomber.char] || {};
+  if (move.before) await move.before(bomber);
+  f.victims.forEach(v => board.pop(square(v.c, v.from), '😱'));
+  if (move.countdown) await move.countdown(bomber);
+  else {
+    const cd = $('#countdown');
+    for (let i = 3; i >= 1; i--) {
+      cd.textContent = i;
+      cd.className = 'countdown'; void cd.offsetWidth; cd.classList.add('on');
+      sfx('beep', 3 - i); buzz(40);
+      await sleep(480);
+    }
+    cd.className = 'countdown';
   }
-  cd.className = 'countdown';
   if (el) el.classList.remove('fuse');
   sfx('kaboom'); buzz([120, 60, 250]);
   board.camera(null);
   await impactFrames(null);
   game.classList.remove('shake'); void game.offsetWidth; game.classList.add('shake', 'quake');
-  mushroom();
-  debris();
+  if (move.blast) move.blast(); else mushroom();
+  debris(move.debris);
   board.boom(f.sq, true);
   board.scorch(f.sq);
-  banner(`<span class="kaboom-text">KABOOM!</span><small>${esc(bomber ? bomber.name : '?')} took ${n} with them 💀 · ${pickRandom(KABOOM_LINES)}</small>`, 'kaboom', 2400);
+  banner(`<span class="kaboom-text">${move.title || 'KABOOM!'}</span><small>${esc(bomber ? bomber.name : '?')} took ${n} with them 💀 · ${pickRandom(KABOOM_LINES)}</small>`, 'kaboom', 2400);
   if (bomber) chipFx(bomber.color, 'laugh', 2500);
   f.victims.forEach(v => { const p = playerByColor(st, v.c); if (p) chipFx(p.color, 'cry', 2500); });
   await sleep(250);
   sfx('ravana');
-  await Promise.all([board.launch(f.c, f.t), ...f.victims.map(v => board.launch(v.c, v.t))]);
+  await Promise.all([board.launch(f.c, f.t), ...f.victims.map(v => board.launch(v.c, v.t)), move.after ? move.after(bomber) : null]);
   game.classList.remove('quake');
   await unlockFx(bomber, n);
 }
@@ -565,12 +573,12 @@ function mushroom() {
 }
 
 // Bits of everything fly out of the blast.
-function debris() {
+function debris(list = DEBRIS) {
   const box = $('#floaters');
   for (let i = 0; i < 14; i++) {
     const el = document.createElement('div');
     el.className = 'debris';
-    el.textContent = pickRandom(DEBRIS);
+    el.textContent = pickRandom(list);
     box.appendChild(el);
     const a = Math.random() * Math.PI * 2, d = 160 + Math.random() * 220;
     el.animate([
@@ -582,65 +590,17 @@ function debris() {
   }
 }
 
-// ---------------------------------------------------------------- Ramayana kill show
+// ---------------------------------------------------------------- kill show
 
-// Funny ways to die. `cls` picks where the prop comes from (p-*) and what happens
-// to the victim's face (f-*) in style.css. Chosen from the shared seq so every
-// phone sees the same death.
-const DEATHS = [
-  { id: 'stone', prop: '🪨', title: 'PATHAR!', line: 'Upar se pathar gir gaya', sound: 'thud', cls: 'p-drop f-squash' },
-  { id: 'piano', prop: '🎹', title: 'PIANO!', line: 'Cartoon wali maut 🎼', sound: 'thud', cls: 'p-drop f-squash' },
-  { id: 'hammer', prop: '🔨', title: 'HATHODA!', line: 'Thor ka Indori cousin', sound: 'thud', cls: 'p-drop f-squash' },
-  { id: 'bucket', prop: '🪣', title: 'BALTI!', line: 'Thanda paani, Holi hai 💦', sound: 'whoosh', cls: 'p-drop f-wet' },
-  { id: 'thunder', prop: '⚡', title: 'BIJLI!', line: 'Upar wale ka network strong hai', sound: 'boom', cls: 'p-drop f-zap' },
-  { id: 'chappal', prop: '🩴', title: 'CHAPPAL!', line: 'Mummy ki chappal, 100% accuracy', sound: 'whoosh', cls: 'p-left f-flung' },
-  { id: 'buffalo', prop: '🐃', title: 'BHAINS!', line: 'Seedha aasmaan mein 🙏', sound: 'thud', cls: 'p-left f-lift' },
-  { id: 'monkey', prop: '🐒', title: 'BANDAR!', line: 'Hanuman ji ka style 🙏', sound: 'whoosh', cls: 'p-left f-flung' },
-  { id: 'boot', prop: '👞', title: 'LAAT!', line: 'Ek laat, seedha ghar', sound: 'thud', cls: 'p-left f-flung' },
-  { id: 'arrow', prop: '', title: 'RAM-BAAN!', line: 'Seedha nishane pe 🎯', sound: 'whoosh', cls: 'p-left f-topple' },
-  { id: 'auto', prop: '🛺', title: 'KUCHAL DIYA!', line: 'Indori auto wala brake nahi maarta', sound: 'whoosh', cls: 'p-right f-flung-l' },
-  { id: 'trishul', prop: '🔱', title: 'TRISHUL!', line: 'Mahadev ka prasad 🙏', sound: 'whoosh', cls: 'p-right f-topple' },
-  { id: 'fire', prop: '🔥', title: 'LANKA DAHAN!', line: 'Hanuman ji ki poonch 🐒', sound: 'fire', cls: 'p-rise f-burn' },
-  { id: 'ghost', prop: '👻', title: 'BHOOT!', line: 'Darr ke maare… 😱', sound: 'whoosh', cls: 'p-rise f-pale' },
-  { id: 'banana', prop: '🍌', title: 'SLIP!', line: 'Kele pe pair pad gaya', sound: 'thud', cls: 'p-rise f-upside' },
-  { id: 'rocket', prop: '🚀', title: 'ANTARIKSH!', line: 'Chandrayaan launch, one way ticket', sound: 'whoosh', cls: 'p-up f-lift' },
-];
-
-// The killer sprouts Ravana's 10 heads (boom boom boom), the board tilts into 3D
-// and the victims die one of the silly ways above before flying home.
+// The killer's signature finishing move (js/finishers.js), then the victims fly home.
 async function killShow(victims, st) {
   const f = victims[0];
   const killer = playerByColor(st, f.by);
-  const d = DEATHS[(st.seq + f.sq) % DEATHS.length];
-  const show = $('#killshow');
-  const game = $('#game');
-  // one big head in front, nine fanned out behind it (middle one wears the crown)
-  const heads = `<div class="rhead mid on">${face(killer)}</div>` + [0, -1, 1, -2, 2, -3, 3, -4, 4].map(o =>
-    `<div class="rhead ${o ? '' : 'top'}" style="--x:${o * 30}px;--y:${-28 + Math.abs(o) * 6}px;--z:${-50 - Math.abs(o) * 22}px;--ry:${-o * 13}deg">${face(killer)}</div>`).join('');
-  const names = victims.map(v => `<b>${esc(playerByColor(st, v.c).name)}</b>`).join(' aur ');
-  show.className = `killshow ${d.id} ${d.cls}`;
-  show.innerHTML = `<b class="rtitle">RAVANA MODE 😈</b><div class="ravana" style="--c:${TEAM[f.by]}">${heads}</div>` +
-    `<div class="victims">${victims.map(v => `<div class="victim" style="--c:${TEAM[v.c]}"><div class="vface">${face(playerByColor(st, v.c))}</div><span class="prop">${d.prop}</span></div>`).join('')}</div>` +
-    `<b class="dtitle">${d.title}</b><small><b>${esc(killer.name)}</b> ne ${names} ko maara · ${d.line}</small>`;
-  show.hidden = false;
-  board.camera('zoom', f.sq); // already there after a sword strike; sniper kills zoom in here
   victims.forEach(v => { const el = board.els.get(`${v.c}:${v.t}`); if (el) el.classList.add('hit'); });
-  chipFx(f.by, 'laugh', 3200);
-  victims.forEach(v => chipFx(v.c, 'cry', 3200));
-  sfx('ravana'); buzz([50, 40, 50, 40, 50]);
-  await sleep(150);
-  for (const h of $$('.rhead:not(.mid)', show)) { h.classList.add('on'); sfx('head'); await sleep(40); }
-  await sleep(120);
-  show.classList.add('strike');
-  sfx(d.sound);
-  await sleep(250);
-  sfx('kill'); buzz(120); // the meme clip
-  game.classList.remove('shake'); void game.offsetWidth; game.classList.add('shake');
-  await sleep(750);
-  show.classList.add('out');
-  await sleep(280);
-  show.hidden = true;
-  board.camera(null);
+  chipFx(f.by, 'laugh', 4500);
+  victims.forEach(v => chipFx(v.c, 'cry', 4500));
+  board.camera(null); // resets behind the show
+  await playFinisher($('#killshow'), killer, victims.map(v => playerByColor(st, v.c)));
   sfx('whistle');
   await Promise.all(victims.map(v => board.flyHome(v.c, v.t)));
   victims.forEach(v => { const el = board.els.get(`${v.c}:${v.t}`); if (el) el.classList.remove('hit'); });

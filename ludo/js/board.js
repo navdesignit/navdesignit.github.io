@@ -96,6 +96,12 @@ export function spot(c, p, t) {
 }
 export const squareCenter = sq => ({ x: G.TRACK[sq][0] + 0.5, y: G.TRACK[sq][1] + 0.5 });
 
+// A character's figure: head, body, legs with shoes, weapon and badges. Lives inside a .piece
+// (board tokens, and the big figures in the finishing moves).
+export function figureHTML(char, color) {
+  return `<div class="piece-in"><div class="p-shadow"></div><div class="p-legs"><i class="p-leg l"><b class="p-shoe"></b></i><i class="p-leg r"><b class="p-shoe"></b></i></div><div class="p-body"></div><div class="p-head">${avatar(char, { bg: TINT[color], weapon: false })}</div><div class="p-ring"></div><span class="p-weapon">${(CHARACTERS[char] || {}).weapon || ''}</span><span class="p-shield">🛡️</span><span class="p-landu">🤡</span></div>`;
+}
+
 function starPath(cx, cy, r) {
   let d = '';
   for (let i = 0; i < 10; i++) {
@@ -237,7 +243,7 @@ export class Board {
         el.dataset.ch = p.char || '';
         el.style.setProperty('--c', TEAM[p.color]);
         el.style.setProperty('--d', `${-t * 0.65}s`); // staggers the idle sway
-        el.innerHTML = `<div class="piece-in"><div class="p-shadow"></div><div class="p-legs"><i class="p-leg l"><b class="p-shoe"></b></i><i class="p-leg r"><b class="p-shoe"></b></i></div><div class="p-body"></div><div class="p-head">${avatar(p.char, { bg: TINT[p.color], weapon: false })}</div><div class="p-ring"></div><span class="p-weapon">${(CHARACTERS[p.char] || {}).weapon || ''}</span><span class="p-shield">🛡️</span><span class="p-landu">🤡</span></div>`;
+        el.innerHTML = figureHTML(p.char, p.color);
         this.piecesEl.appendChild(el);
         this.els.set(`${p.color}:${t}`, el);
       }
