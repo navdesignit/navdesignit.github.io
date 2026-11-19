@@ -61,7 +61,8 @@ That's all: no sign-in setup and no billing. The free Spark plan allows 100 phon
 | Films and dishes in the kill collection | `js/unlocks.js` |
 | Finishing moves and Kaboom styles | `KILLS` and `KABOOMS` in `js/finishers.js`; styles under "signature moves" in `style.css`; their sounds in `js/sound.js` |
 | Idle gags, 3D walkers | `WALKERS` and `NAGS` in `js/app.js`, styles in `style.css` |
-| Meme voice clips (kills, close calls, the 😂 soundboard) | `sounds/memes.mp3`: 20 clips packed back to back, listed with their labels in `MEMES` in `js/sound.js` |
+| Meme voice clips (close calls, the 😂 soundboard) | `sounds/memes.mp3`: 20 clips packed back to back, listed with their labels in `MEMES` in `js/sound.js` |
+| Meme sound effects (vine boom, "Fatality!", "A few moments later", huh, oh man, whoa…) | `sounds/fx.mp3`: 14 clips cut from a meme sound pack, mapped to game moments in `FX` in `js/sound.js`; `fx(name)` plays one |
 | Screens and buttons | `index.html`, `style.css`, `js/app.js` |
 | Online rooms (Firebase) | `js/net.js` |
 

@@ -7,7 +7,7 @@
 
 import { TEAM, figureHTML } from './board.js';
 
-let env = { sfx: () => {}, buzz: () => {}, speed: 1 };
+let env = { sfx: () => {}, buzz: () => {}, fx: () => {}, speed: 1 };
 export function setFinisherEnv(e) { env = { ...env, ...e }; }
 
 const wait = ms => new Promise(r => setTimeout(r, ms / env.speed));
@@ -81,9 +81,9 @@ async function intro(s) {
   await wait(260);
 }
 
-// Freeze, flash, the stamp slams down with the meme clip, then fade out.
+// Freeze, flash, the stamp slams down to "Fatality!", then fade out.
 async function finale(s, title, line, emoji = '', style = '') {
-  env.sfx('kill'); env.buzz([30, 30, 160]);
+  env.fx('fatality'); env.sfx('stamp'); env.buzz([30, 30, 160]);
   flash(s);
   const st = s.q('.fin-stamp');
   if (style) st.classList.add(style);
@@ -109,7 +109,7 @@ const KILLS = {
     await wait(380); env.sfx('whoosh'); await wait(380);
     anim(s.hero, [{ transform: 'none' }, { transform: 'translateX(26%) rotate(6deg)' }], 150, { easing: 'ease-in' });
     await anim(bat, [{ transform: 'rotate(-120deg)' }, { transform: 'rotate(70deg)' }], 150, { easing: 'ease-in' });
-    env.sfx('crack'); env.buzz(90); flash(s); shake(s, 8, 200);
+    env.sfx('crack'); env.fx('boom'); env.buzz(90); flash(s); shake(s, 8, 200);
     word(s, 'CRACK!', 'left:44%;top:20%');
     s.preyPieces.forEach(p => p.classList.add('spinning'));
     s.prey.forEach((p, i) => anim(p, [
@@ -140,7 +140,7 @@ const KILLS = {
     s.preyPieces.forEach(p => p.classList.add('glitch'));
     env.sfx('glitch');
     await anim(dlg.querySelector('u'), [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 800, { easing: 'linear' });
-    env.sfx('zap'); flash(s, '#9ff');
+    env.sfx('zap'); env.fx('boom'); flash(s, '#9ff');
     await Promise.all(s.prey.map(p => anim(p, [{ transform: 'none', opacity: 1 }, { transform: 'scale(1.3, 0.04)', opacity: 1, offset: 0.55 }, { transform: 'scale(0, 0.02)', opacity: 0 }], 420, { easing: 'ease-in' })));
     anim(dlg, [{ opacity: 1 }, { opacity: 0 }], 200);
     await wait(200);
@@ -152,7 +152,7 @@ const KILLS = {
     anim(s.hero, [{ transform: 'none' }, { transform: 'translateX(18%) rotate(-6deg)' }], 300);
     const tawa = spawn(s, '<span class="fin-emoji xl">🍳</span>', 'right:4%;top:-6%');
     await anim(tawa, [{ transform: 'translateY(-90vh) rotate(-200deg)' }, { transform: 'none' }], 360, { easing: 'cubic-bezier(0.6, 0, 0.9, 0.4)' });
-    env.sfx('clang'); env.buzz(140); flash(s); shake(s, 16, 380);
+    env.sfx('clang'); env.fx('boom'); env.buzz(140); flash(s); shake(s, 16, 380);
     word(s, 'TANNNG!', 'left:30%;top:6%');
     s.preyPieces.forEach(p => p.classList.remove('scared'));
     s.prey.forEach(p => anim(p, [{ transform: 'none' }, { transform: 'scale(1.6, 0.16)', offset: 0.35 }, { transform: 'scale(1.45, 0.2)' }], 420, { easing: 'cubic-bezier(0.2, 1.5, 0.4, 1)' }));
@@ -186,7 +186,7 @@ const KILLS = {
     }
     const bars = spawn(s, '<div class="fin-jail"></div>', 'right:-4%;width:58%;top:6%;bottom:-2%');
     await anim(bars, [{ transform: 'translateY(-110vh)' }, { transform: 'none' }], 320, { easing: 'cubic-bezier(0.7, 0, 1, 0.5)' });
-    env.sfx('bars'); env.buzz(120); shake(s, 14, 320); flash(s, '#ccc');
+    env.sfx('bars'); env.fx('boom'); env.buzz(120); shake(s, 14, 320); flash(s, '#ccc');
     s.preyPieces.forEach(p => { p.classList.remove('scared'); p.classList.add('jailed'); });
     await wait(650);
     await finale(s, 'CASE CLOSED', 'Sazaa: seedha ghar. Koi bail nahi.', '⚖️', 'rubber');
@@ -210,7 +210,7 @@ const KILLS = {
     await wait(500);
     const frame = spawn(s, '<div class="fin-frame"><span class="fin-label">Untitled (Landu), 2026 · <b>₹10 crore</b></span></div>', 'right:-4%;width:58%;top:2%;bottom:0');
     await anim(frame, [{ transform: 'scale(1.8)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], 300, { easing: 'cubic-bezier(0.6, 0, 0.9, 0.4)' });
-    env.sfx('stamp'); shake(s, 10, 240);
+    env.sfx('stamp'); env.fx('boom'); shake(s, 10, 240);
     await wait(150); env.sfx('tada');
     await wait(450);
     await finale(s, 'MASTERPIECE!', 'Museum mein tang diya. Entry ₹500.', '🖼️');

@@ -7,7 +7,7 @@ import {
 import { CHARACTERS, CHAR_IDS, charForName, avatar, areBesties } from './characters.js';
 import { Board, TEAM, squareCenter } from './board.js';
 import { LocalRoom, OnlineRoom, onlineReady, validCode } from './net.js';
-import { sfx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
+import { sfx, fx, buzz, unlock, isMuted, setMuted, playMeme, MEMES } from './sound.js';
 import { UNLOCKS } from './unlocks.js';
 import { playFinisher, KABOOMS, setFinisherEnv } from './finishers.js';
 
@@ -47,7 +47,7 @@ if (!S.me) { S.me = 'u' + Math.random().toString(36).slice(2, 10); store.set('al
 
 const board = new Board($('#board'), { onTap: onTokenTap });
 board.speed = SPEED;
-setFinisherEnv({ sfx, buzz, speed: SPEED });
+setFinisherEnv({ sfx, fx, buzz, speed: SPEED });
 
 // ---------------------------------------------------------------- helpers
 
@@ -428,7 +428,7 @@ async function playFx(st, prev, intro) {
         break;
       case 'dice':
         await rollDice(f.d, f.c);
-        if (f.d === 6) { sfx('six'); chipFx(f.c, 'spin', 900); }
+        if (f.d === 6) { sfx('six'); if (Math.random() < 0.35) fx('whoa'); chipFx(f.c, 'spin', 900); }
         break;
       case 'move': {
         const kill = items[i + 1] && items[i + 1].k === 'kill' && items[i + 1].by === f.c && !f.fast;
@@ -481,12 +481,13 @@ async function playFx(st, prev, intro) {
         sayBubble(f.uid, f.text);
         break;
       case 'greedy':
-        sfx('sad');
+        sfx('sad'); fx('ohman');
         chipFx((player(st, f.uid) || {}).color, 'dizzy', 1600);
         await banner(`<span class="big-emoji">🐷</span><b>Three 6s!</b><small>${nameOf(f.uid, st)} got too greedy — turn over</small>`, 'box', 1500);
         break;
       case 'nomove':
         toast(`😅 No moves for ${nameOf(f.uid, st)}`);
+        fx('huh');
         await sleep(450);
         break;
       case 'sleep':
@@ -546,7 +547,7 @@ async function kaboomFx(f, st) {
     cd.className = 'countdown';
   }
   if (el) el.classList.remove('fuse');
-  sfx('kaboom'); buzz([120, 60, 250]);
+  sfx('kaboom'); fx('boom'); buzz([120, 60, 250]);
   board.camera(null);
   await impactFrames(null);
   game.classList.remove('shake'); void game.offsetWidth; game.classList.add('shake', 'quake');
@@ -559,6 +560,7 @@ async function kaboomFx(f, st) {
   f.victims.forEach(v => { const p = playerByColor(st, v.c); if (p) chipFx(p.color, 'cry', 2500); });
   await sleep(250);
   sfx('ravana');
+  setTimeout(() => fx('later'), 900 / SPEED); // "A few moments later…" as everyone drops back into their yard
   await Promise.all([board.launch(f.c, f.t), ...f.victims.map(v => board.launch(v.c, v.t)), move.after ? move.after(bomber) : null]);
   game.classList.remove('quake');
   await unlockFx(bomber, n);
@@ -601,6 +603,7 @@ async function killShow(victims, st) {
   victims.forEach(v => chipFx(v.c, 'cry', 4500));
   board.camera(null); // resets behind the show
   await playFinisher($('#killshow'), killer, victims.map(v => playerByColor(st, v.c)));
+  fx('react'); // the victim's reaction, from the meme pack
   sfx('whistle');
   await Promise.all(victims.map(v => board.flyHome(v.c, v.t)));
   victims.forEach(v => { const el = board.els.get(`${v.c}:${v.t}`); if (el) el.classList.remove('hit'); });
