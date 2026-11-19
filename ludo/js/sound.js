@@ -28,6 +28,21 @@ export const MEMES = [
 let memeBuf = null;
 let memeSrc = null;
 
+// Meme sound pack 2 (sounds/fx.mp3), cut from the uploaded "popular meme sound effects 2026" pack:
+// game moments → clips [start, end] in seconds, packed back to back. One is picked at random.
+export const FX = {
+  boom: [[0.0, 1.217]], // vine boom: the big hit in a finishing move, the Kaboom blast
+  fatality: [[1.467, 2.936]], // "Fatality!": when a finishing move's stamp lands
+  later: [[3.186, 5.121]], // "A few moments later…": everyone drops back into their yard after a Kaboom
+  huh: [[5.371, 6.689], [6.939, 7.389]], // no moves
+  ohman: [[7.639, 8.274], [8.524, 10.114]], // three greedy 6s
+  whoa: [[10.364, 12.313]], // sometimes on a 6
+  react: [[5.371, 6.689], [7.639, 8.274], [8.524, 10.114], [10.364, 12.313], [12.563, 14.265], [14.515, 15.597], [15.847, 18.511], [18.761, 20.256], [20.506, 23.151], [23.401, 25.845]], // the victim after a kill
+};
+let fxBuf = null;
+let fxSrc = null;
+let boomSrc = null;
+
 let ctx = null;
 let muted = false;
 try { muted = localStorage.getItem('al_muted') === '1'; } catch (e) { /* private mode */ }
@@ -47,6 +62,10 @@ export function unlock() {
       .then(r => r.arrayBuffer())
       .then(b => ctx.decodeAudioData(b, buf => { memeBuf = buf; }))
       .catch(() => { /* no clips: the synth kill sound still plays */ });
+    fetch(new URL('../sounds/fx.mp3', import.meta.url))
+      .then(r => r.arrayBuffer())
+      .then(b => ctx.decodeAudioData(b, buf => { fxBuf = buf; }))
+      .catch(() => { /* no pack: the synth sounds still play */ });
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
@@ -92,11 +111,34 @@ function memeClip(i = Math.floor(Math.random() * MEMES.length)) {
   memeSrc.start(0, from, to - from);
 }
 
+let stepN = 0;
+
 const SOUNDS = {
   roll() { for (let i = 0; i < 7; i++) noise(0.04, { vol: 0.25, at: i * 0.06, cutoff: 3000 }); },
-  step() { tone(520 + Math.random() * 80, 0.06, { type: 'triangle', vol: 0.12 }); },
+  // Footsteps, one per square: everyone sounds like their shoes.
+  step(ch) {
+    stepN += 1;
+    switch (ch) {
+      case 'ajay': tone(92, 0.16, { vol: 0.4, to: 48 }); noise(0.03, { vol: 0.15, cutoff: 3000 }); break; // dhol thump: the boss walks in
+      case 'nav': tone([392, 330, 392, 262][stepN % 4], 0.08, { type: 'triangle', vol: 0.15 }); break; // sneaky tiptoe pizzicato
+      case 'chechu': noise(0.06, { vol: 0.55, cutoff: 5200 }); tone(170, 0.05, { type: 'square', vol: 0.05, to: 110 }); break; // hawai chappal: chapak
+      case 'vanshika': tone(2200, 0.03, { type: 'square', vol: 0.06 }); noise(0.025, { vol: 0.3, cutoff: 9000 }); break; // heels: tak
+      case 'liu': tone(stepN % 2 ? 800 : 1150, 0.1, { vol: 0.13, to: stepN % 2 ? 1500 : 620 }); break; // squeaky clown shoes
+      default: tone(520 + Math.random() * 80, 0.06, { type: 'triangle', vol: 0.12 });
+    }
+  },
+  // A meme sting when someone lands.
+  land(ch) {
+    switch (ch) {
+      case 'ajay': tone(68, 1, { vol: 0.65, to: 36 }); tone(136, 0.35, { type: 'triangle', vol: 0.18, to: 68 }); noise(0.3, { vol: 0.45, cutoff: 260 }); break; // vine boom
+      case 'nav': [[196, 0, 0.18], [185, 0.22, 0.18], [147, 0.44, 1]].forEach(([f, at, d]) => { tone(f, d, { type: 'sawtooth', vol: 0.09, at }); tone(f / 2, d, { type: 'sawtooth', vol: 0.07, at }); }); break; // dun dun DUNNN
+      case 'chechu': tone(1500, 0.8, { vol: 0.07, to: 2500 }); noise(0.85, { vol: 0.28, cutoff: 7500 }); break; // pressure cooker whistle
+      case 'vanshika': [0, 0.17].forEach(at => { tone(330, 0.09, { type: 'square', vol: 0.12, to: 210, at }); noise(0.05, { vol: 0.45, cutoff: 2200, at }); }); break; // gavel: order, order
+      case 'liu': tone(170, 0.28, { vol: 0.28, to: 720 }); tone(720, 0.32, { vol: 0.22, to: 230, at: 0.27 }); break; // boing
+      default: break;
+    }
+  },
   six() { tone(880, 0.12, { type: 'square', vol: 0.08 }); tone(1320, 0.2, { type: 'square', vol: 0.08, at: 0.1 }); },
-  kill() { tone(420, 0.25, { type: 'square', vol: 0.15, to: 70 }); noise(0.15, { vol: 0.25, cutoff: 800 }); memeClip(); },
   danger() { memeClip(); },
   kaboom() { noise(1.3, { vol: 0.9, cutoff: 500 }); tone(90, 0.9, { vol: 0.5, to: 30 }); tone(160, 0.3, { type: 'sawtooth', vol: 0.2, to: 40 }); },
   // Ramayana kill show: Ravana's laugh, heads popping, the three booms, and the death props.
@@ -123,12 +165,46 @@ const SOUNDS = {
   sad() { [392, 370, 349, 262].forEach((f, i) => tone(f, 0.3, { type: 'triangle', vol: 0.12, at: i * 0.22 })); },
   turn() { tone(660, 0.1, { vol: 0.12 }); tone(990, 0.16, { vol: 0.12, at: 0.1 }); },
   pop() { tone(700, 0.08, { vol: 0.1, to: 1100 }); },
+  // Signature moves (js/finishers.js)
+  gong() { tone(55, 1.8, { vol: 0.55, to: 44 }); [110, 166, 221, 279, 333].forEach((f, i) => tone(f, 1.6 - i * 0.2, { type: 'triangle', vol: 0.06 })); noise(0.5, { vol: 0.35, cutoff: 700 }); },
+  crack() { noise(0.06, { vol: 0.9, cutoff: 9000 }); tone(950, 0.07, { type: 'square', vol: 0.12, to: 380 }); tone(150, 0.25, { vol: 0.45, to: 55 }); },
+  crowd() { noise(2, { vol: 0.32, cutoff: 1800 }); noise(1.6, { vol: 0.18, cutoff: 3500, at: 0.15 }); [0.2, 0.7].forEach(at => tone(1900, 0.35, { vol: 0.05, to: 2600, at })); },
+  ding() { tone(1320, 0.6, { vol: 0.16 }); tone(1980, 0.5, { vol: 0.07, at: 0.06 }); },
+  keys() { for (let i = 0; i < 9; i++) noise(0.025, { vol: 0.3, cutoff: 6500, at: i * 0.065 + Math.random() * 0.02 }); },
+  click() { tone(1700, 0.035, { type: 'square', vol: 0.1 }); noise(0.025, { vol: 0.35, cutoff: 7000 }); },
+  glitch() { for (let i = 0; i < 12; i++) tone(180 + Math.random() * 2000, 0.045, { type: 'square', vol: 0.06, at: i * 0.06 }); },
+  zap() { tone(1300, 0.4, { type: 'sawtooth', vol: 0.12, to: 50 }); noise(0.1, { vol: 0.3, cutoff: 5000 }); },
+  clang() { [523, 1311, 2087, 2950].forEach((f, i) => tone(f, 1.3 - i * 0.25, { vol: 0.14 - i * 0.025 })); noise(0.08, { vol: 0.7, cutoff: 6000 }); tone(120, 0.3, { vol: 0.4, to: 50 }); },
+  sizzle() { noise(1.3, { vol: 0.22, cutoff: 9000 }); noise(0.9, { vol: 0.12, cutoff: 4000, at: 0.3 }); },
+  gavel() { tone(330, 0.09, { type: 'square', vol: 0.13, to: 210 }); noise(0.05, { vol: 0.5, cutoff: 2200 }); },
+  bars() { tone(220, 0.7, { type: 'sawtooth', vol: 0.12, to: 170 }); tone(447, 0.6, { type: 'square', vol: 0.05 }); noise(0.18, { vol: 0.7, cutoff: 3200 }); },
+  brush() { noise(0.22, { vol: 0.4, cutoff: 5200 }); tone(280, 0.2, { vol: 0.05, to: 900 }); },
+  splat() { noise(0.12, { vol: 0.6, cutoff: 900 }); tone(170, 0.15, { vol: 0.22, to: 70 }); },
+  tada() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.6, { type: 'triangle', vol: 0.11, at: i * 0.07 })); },
+  stamp() { noise(0.14, { vol: 0.85, cutoff: 500 }); tone(95, 0.28, { vol: 0.45, to: 48 }); },
+  cooker() { tone(1500, 0.6, { vol: 0.08, to: 2600 }); noise(0.65, { vol: 0.3, cutoff: 7500 }); },
+  alarm() { for (let i = 0; i < 5; i++) tone(i % 2 ? 660 : 880, 0.18, { type: 'square', vol: 0.08, at: i * 0.19 }); },
   win() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, 0.22, { type: 'square', vol: 0.08, at: i * 0.13 })); },
 };
 
 export function sfx(name, ...args) {
   if (muted || !ctx || !SOUNDS[name]) return;
   try { SOUNDS[name](...args); } catch (e) { /* never let sound break the game */ }
+}
+
+// A clip from the meme pack for moment `name` (see FX). A new voice cuts off the last one;
+// the boom plays on its own so it can land under a voice.
+export function fx(name) {
+  if (muted || !ctx || !fxBuf || !FX[name]) return;
+  try {
+    const list = FX[name];
+    const [from, to] = list[Math.floor(Math.random() * list.length)];
+    const src = ctx.createBufferSource();
+    src.buffer = fxBuf;
+    src.connect(ctx.destination);
+    if (name === 'boom') { if (boomSrc) boomSrc.stop(); boomSrc = src; } else { if (fxSrc) fxSrc.stop(); fxSrc = src; }
+    src.start(0, from, to - from);
+  } catch (e) { /* never let sound break the game */ }
 }
 
 // Soundboard: play meme clip i.
