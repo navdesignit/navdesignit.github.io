@@ -1,0 +1,1030 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: 'Noto Sans KR'; font-weight: 400; src: url('fonts/NotoSansKR-400.ttf') format('truetype'); }
+@font-face { font-family: 'Noto Sans KR'; font-weight: 500; src: url('fonts/NotoSansKR-500.ttf') format('truetype'); }
+@font-face { font-family: 'Noto Sans KR'; font-weight: 700; src: url('fonts/NotoSansKR-700.ttf') format('truetype'); }
+@font-face { font-family: 'Noto Sans KR'; font-weight: 900; src: url('fonts/NotoSansKR-900.ttf') format('truetype'); }
+@font-face { font-family: 'Schibsted Grotesk'; font-weight: 500; src: url('fonts/SchibstedGrotesk-500.ttf') format('truetype'); }
+@font-face { font-family: 'Schibsted Grotesk'; font-weight: 700; src: url('fonts/SchibstedGrotesk-700.ttf') format('truetype'); }
+@font-face { font-family: 'Schibsted Grotesk'; font-weight: 800; src: url('fonts/SchibstedGrotesk-800.ttf') format('truetype'); }
+</style>
+<body style="margin:0;background:#888">
+<script>
+// Lyra e-ink screens, 400 x 300 px, drawn as vector SVG.
+// Black, white and one grey (#8f8d86), which a 1-bit panel shows as a 50% dither.
+const INK = '#1b1b1b', PAPER = '#e8e7e1';
+const KR = "'Noto Sans KR', sans-serif", NUM = "'Schibsted Grotesk', 'Noto Sans KR', sans-serif";
+const DITHER = '#8f8d86'; // grey: a 50% dither on a 1-bit panel, one grey level on a 4-grey panel
+const f = (v) => +v.toFixed(2);
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+class SvgCtx {
+  constructor() { this.out = []; this.st = []; this.s = { fillStyle: INK, strokeStyle: INK, lineWidth: 1, lineCap: 'round', lineJoin: 'round', dash: [], font: '400 12px sans-serif', textAlign: 'left', m: [1, 0, 0, 1, 0, 0] }; this.d = ''; this.cx = null; }
+  set fillStyle(v) { this.s.fillStyle = v; } get fillStyle() { return this.s.fillStyle; }
+  set strokeStyle(v) { this.s.strokeStyle = v; } get strokeStyle() { return this.s.strokeStyle; }
+  set lineWidth(v) { this.s.lineWidth = v; } set lineCap(v) { this.s.lineCap = v; } set lineJoin(v) { this.s.lineJoin = v; }
+  set font(v) { this.s.font = v; } set letterSpacing(v) { this.s.ls = v; } set textAlign(v) { this.s.textAlign = v; } set textBaseline(v) {}
+  setLineDash(a) { this.s.dash = a.slice(); }
+  save() { this.st.push({ ...this.s, dash: this.s.dash.slice(), m: this.s.m.slice() }); }
+  restore() { this.s = this.st.pop(); }
+  setTransform() { this.s.m = [1, 0, 0, 1, 0, 0]; }
+  translate(x, y) { const m = this.s.m; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
+  rotate(a) { const [p, q, r, t] = this.s.m, c = Math.cos(a), s = Math.sin(a); this.s.m[0] = p * c + r * s; this.s.m[1] = q * c + t * s; this.s.m[2] = -p * s + r * c; this.s.m[3] = -q * s + t * c; }
+  tf() { const m = this.s.m; return (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0) ? '' : ` transform="matrix(${m.map(f).join(' ')})"`; }
+  beginPath() { this.d = ''; this.cx = null; }
+  moveTo(x, y) { this.d += `M${f(x)} ${f(y)}`; this.cx = [x, y]; }
+  lineTo(x, y) { this.d += this.cx ? `L${f(x)} ${f(y)}` : `M${f(x)} ${f(y)}`; this.cx = [x, y]; }
+  closePath() { this.d += 'Z'; }
+  quadraticCurveTo(a, b, x, y) { this.d += `Q${f(a)} ${f(b)} ${f(x)} ${f(y)}`; this.cx = [x, y]; }
+  arc(x, y, r, a0, a1, ccw = false) {
+    const sx = x + r * Math.cos(a0), sy = y + r * Math.sin(a0);
+    this.lineTo(sx, sy);
+    let d = ccw ? a0 - a1 : a1 - a0;
+    if (d >= Math.PI * 2 - 1e-6) { const mx = x - r * Math.cos(a0), my = y - r * Math.sin(a0); this.d += `A${f(r)} ${f(r)} 0 1 1 ${f(mx)} ${f(my)}A${f(r)} ${f(r)} 0 1 1 ${f(sx)} ${f(sy)}`; this.cx = [sx, sy]; return; }
+    d = ((d % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const ex = x + r * Math.cos(a1), ey = y + r * Math.sin(a1);
+    this.d += `A${f(r)} ${f(r)} 0 ${d > Math.PI ? 1 : 0} ${ccw ? 0 : 1} ${f(ex)} ${f(ey)}`; this.cx = [ex, ey];
+  }
+  arcTo(x1, y1, x2, y2, r) {
+    const [x0, y0] = this.cx; let ax = x0 - x1, ay = y0 - y1, bx = x2 - x1, by = y2 - y1;
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by); ax /= la; ay /= la; bx /= lb; by /= lb;
+    const th = Math.acos(Math.max(-1, Math.min(1, ax * bx + ay * by))), t = r / Math.tan(th / 2);
+    const cross = ax * by - ay * bx;
+    this.lineTo(x1 + ax * t, y1 + ay * t);
+    const ex = x1 + bx * t, ey = y1 + by * t;
+    this.d += `A${f(r)} ${f(r)} 0 0 ${cross < 0 ? 1 : 0} ${f(ex)} ${f(ey)}`; this.cx = [ex, ey];
+  }
+  ellipse(x, y, rx, ry, rot) {
+    const c = Math.cos(rot), s = Math.sin(rot), deg = f(rot * 180 / Math.PI);
+    const sx = x + rx * c, sy = y + rx * s, mx = x - rx * c, my = y - rx * s;
+    this.d += `M${f(sx)} ${f(sy)}A${f(rx)} ${f(ry)} ${deg} 1 1 ${f(mx)} ${f(my)}A${f(rx)} ${f(ry)} ${deg} 1 1 ${f(sx)} ${f(sy)}Z`; this.cx = [sx, sy];
+  }
+  fill() { this.out.push(`<path d="${this.d}" fill="${this.s.fillStyle}"${this.tf()}/>`); }
+  stroke() {
+    const s = this.s, dash = s.dash.length ? ` stroke-dasharray="${s.dash.join(' ')}"` : '';
+    this.out.push(`<path d="${this.d}" fill="none" stroke="${s.strokeStyle}" stroke-width="${f(s.lineWidth)}" stroke-linecap="${s.lineCap}" stroke-linejoin="${s.lineJoin}"${dash}${this.tf()}/>`);
+  }
+  fillRect(x, y, w, h) { this.out.push(`<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" fill="${this.s.fillStyle}"${this.tf()}/>`); }
+  fillText(t, x, y) {
+    const m = /^(\d+) ([\d.]+)px (.*)$/.exec(this.s.font), anchor = { left: 'start', center: 'middle', right: 'end' }[this.s.textAlign];
+    this.out.push(`<text x="${f(x)}" y="${f(y)}" font-family="${m[3]}" font-weight="${m[1]}" font-size="${m[2]}" text-anchor="${anchor}"${this.s.ls ? ` letter-spacing="${f(this.s.ls)}"` : ''} fill="${this.s.fillStyle}"${this.tf()}>${esc(t)}</text>`);
+  }
+}
+let ctx = new SvgCtx();
+const DEFS = '';
+function svgDoc(id, w = 400, h = 300) { return `<svg xmlns="http://www.w3.org/2000/svg" id="${id}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${DEFS}${ctx.out.join('')}</svg>`; }
+function reset(w = 400, h = 300) { ctx = new SvgCtx(); ctx.fillStyle = PAPER; ctx.fillRect(0, 0, w, h); ctx.setLineDash([]); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; }
+function txt(s, x, y, size, w = 700, align = 'left', col = INK, font = KR) { ctx.font = `${w} ${size}px ${font}`; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillText(s, x, y); }
+function num(s, x, y, size, w = 800, align = 'left', col = INK) { txt(s, x, y, size, w, align, col, NUM); }
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function ln(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+function circ(x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); fill ? ctx.fill() : ctx.stroke(); }
+function ell(x, y, rx, ry, rot, fill) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); fill ? ctx.fill() : ctx.stroke(); }
+function pen(col, w) { ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; }
+function check(x, y, s, col = INK) { pen(col, s * 0.16); ctx.beginPath(); ctx.moveTo(x - s * .42, y + s * .02); ctx.lineTo(x - s * .12, y + s * .32); ctx.lineTo(x + s * .45, y - s * .3); ctx.stroke(); }
+function arrow(x1, y1, x2, y2, col = INK, w = 3) { pen(col, w); ln(x1, y1, x2, y2); const a = Math.atan2(y2 - y1, x2 - x1), h = 9; ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - h * Math.cos(a - .5), y2 - h * Math.sin(a - .5)); ctx.moveTo(x2, y2); ctx.lineTo(x2 - h * Math.cos(a + .5), y2 - h * Math.sin(a + .5)); ctx.stroke(); }
+
+// ---------------------------------------------------------------- form icons
+// Each is drawn inside a box of height s centred on (x, y), in one colour.
+function zigEdge(x1, x2, y, t, down) { const n = Math.max(3, Math.round((x2 - x1) / (t * 1.6))), st = (x2 - x1) / n; for (let i = 0; i < n; i++) { ctx.lineTo(x1 + st * (i + .5), y + (down ? t : -t)); ctx.lineTo(x1 + st * (i + 1), y); } }
+function sachet(x, y, s, col) { // a strip of two printed vinyl sachets, pills inside
+  const w = s * 1.25, h = s * 0.82, x0 = x - w / 2, y0 = y - h / 2, t = s * 0.05;
+  pen(col, Math.max(1.6, s * 0.035));
+  ctx.beginPath(); ctx.moveTo(x0, y0); zigEdge(x0, x0 + w, y0, t, false); ctx.lineTo(x0 + w, y0 + h); zigEdge(x0 + w, x0, y0 + h, t, true); ctx.closePath(); ctx.stroke();
+  ctx.setLineDash([s * .05, s * .05]); ln(x, y0 + t, x, y0 + h - t); ctx.setLineDash([]);
+  for (const px of [x0, x]) {
+    const pw = w / 2;
+    ctx.lineWidth = Math.max(1.4, s * 0.03);
+    ln(px + pw * .18, y0 + h * .22, px + pw * .82, y0 + h * .22);
+    ln(px + pw * .18, y0 + h * .36, px + pw * .58, y0 + h * .36);
+    circ(px + pw * .32, y0 + h * .68, s * .07, true);
+    ell(px + pw * .66, y0 + h * .7, s * .11, s * .055, -.4, true);
+  }
+}
+function blister(x, y, s, col) { // a blister card, one pocket pressed out
+  const w = s * 1.2, h = s * .82;
+  pen(col, Math.max(1.6, s * 0.035)); rr(x - w / 2, y - h / 2, w, h, s * .09); ctx.stroke();
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) {
+    const bx = x - w / 2 + w * (.16 + c * .226), by = y - h / 2 + h * (.3 + r * .4);
+    if (r === 1 && c === 3) { ctx.setLineDash([s * .035, s * .04]); ell(bx, by, s * .085, s * .12, 0, false); ctx.setLineDash([]); }
+    else { ell(bx, by, s * .085, s * .12, 0, false); ell(bx, by + s * .015, s * .04, s * .065, 0, true); }
+  }
+}
+function stickDrops(x, y, s, col) { // a red-ginseng stick, and eye drops
+  pen(col, Math.max(1.6, s * 0.035));
+  const sw = s * .22, sh = s * .96, sx = x - s * .34, sy = y - sh / 2;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + sw * .62, sy); ctx.lineTo(sx + sw * .8, sy + s * .06); ctx.lineTo(sx + sw, sy + s * .02); ctx.lineTo(sx + sw, sy + sh); ctx.lineTo(sx, sy + sh); ctx.closePath(); ctx.stroke();
+  ln(sx, sy + s * .14, sx + sw, sy + s * .14); ln(sx, sy + sh - s * .1, sx + sw, sy + sh - s * .1);
+  ln(sx + sw * .3, sy + s * .3, sx + sw * .3, sy + sh * .72);
+  const bx = x + s * .2, bw = s * .36, bh = s * .44, by = y + s * .48 - bh;
+  rr(bx - bw / 2, by, bw, bh, s * .06); ctx.stroke();
+  rr(bx - bw * .22, by - s * .1, bw * .44, s * .1, s * .02); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx - bw * .14, by - s * .1); ctx.lineTo(bx, by - s * .26); ctx.lineTo(bx + bw * .14, by - s * .1); ctx.stroke();
+  ctx.beginPath(); const dx = bx + s * .3, dy = y - s * .28; ctx.moveTo(dx, dy - s * .1); ctx.quadraticCurveTo(dx + s * .08, dy + s * .02, dx, dy + s * .05); ctx.quadraticCurveTo(dx - s * .08, dy + s * .02, dx, dy - s * .1); ctx.fill();
+}
+function bottle(x, y, s, col) { // a supplement bottle and a capsule
+  pen(col, Math.max(1.6, s * 0.035));
+  const bw = s * .56, bh = s * .6, bx = x - s * .16, by = y + s * .48 - bh;
+  rr(bx - bw / 2, by, bw, bh, s * .08); ctx.stroke();
+  const cw = s * .44, ch = s * .2; rr(bx - cw / 2, by - ch, cw, ch, s * .03); ctx.stroke();
+  for (let i = 1; i < 5; i++) ln(bx - cw / 2 + cw * i / 5, by - ch + s * .04, bx - cw / 2 + cw * i / 5, by - s * .04);
+  ln(bx - bw / 2, by + bh * .32, bx + bw / 2, by + bh * .32); ln(bx - bw / 2, by + bh * .7, bx + bw / 2, by + bh * .7);
+  ctx.save(); ctx.translate(x + s * .36, y + s * .3); ctx.rotate(-.6);
+  const kw = s * .34, kh = s * .15; rr(-kw / 2, -kh / 2, kw, kh, kh / 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -kh / 2); ctx.lineTo(kw / 2 - kh / 2, -kh / 2); ctx.arc(kw / 2 - kh / 2, 0, kh / 2, -Math.PI / 2, Math.PI / 2); ctx.lineTo(0, kh / 2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+const ICON = [sachet, blister, stickDrops, bottle];
+const NAME = ['약봉투', '블리스터', '스틱·안약', '영양제'];
+
+function slotIcon(k, x, y, r, col = INK) { // 0 morning 1 noon 2 evening 3 night
+  pen(col, Math.max(2, r / 7));
+  if (k === 0) { ctx.beginPath(); ctx.arc(x, y + r * .3, r * .5, Math.PI, 0); ctx.fill(); ln(x - r, y + r * .3, x + r, y + r * .3); [-.85, -.5, -.15].forEach((a) => { const t = a * Math.PI; ln(x + Math.cos(t) * r * .72, y + r * .3 + Math.sin(t) * r * .72, x + Math.cos(t) * r, y + r * .3 + Math.sin(t) * r); }); }
+  else if (k === 1) { circ(x, y, r * .45, true); for (let a = 0; a < 8; a++) { const t = a * Math.PI / 4; ln(x + Math.cos(t) * r * .66, y + Math.sin(t) * r * .66, x + Math.cos(t) * r, y + Math.sin(t) * r); } }
+  else if (k === 2) { ctx.beginPath(); ctx.arc(x, y + r * .4, r * .55, Math.PI, 0); ctx.fill(); ln(x - r, y + r * .4, x + r, y + r * .4); ln(x - r * .6, y + r * .72, x + r * .6, y + r * .72); }
+  else { circ(x, y, r * .62, true); ctx.fillStyle = PAPER; circ(x + r * .35, y - r * .22, r * .56, true); }
+}
+const SLOT = ['아침', '점심', '저녁', '자기 전'];
+function weather(sky, x, y, r) {
+  pen(INK, 3);
+  const cloud = (cx, cy, s) => { ctx.beginPath(); ctx.arc(cx - s * .45, cy + s * .1, s * .35, Math.PI * .5, Math.PI * 1.5); ctx.arc(cx - s * .05, cy - s * .15, s * .45, Math.PI, Math.PI * 1.95); ctx.arc(cx + s * .45, cy + s * .08, s * .37, Math.PI * 1.4, Math.PI * .5); ctx.closePath(); ctx.fill(); };
+  if (sky === 'sun') return slotIcon(1, x, y, r);
+  cloud(x, y - r * .1, r);
+}
+function door(x, y, w, h) { pen(INK, 3); rr(x, y, w, h, 4); ctx.stroke(); circ(x + w * .74, y + h * .54, 3.5, true); ln(x - 8, y + h, x + w + 8, y + h); }
+
+// ---------------------------------------------------------------- tiles
+// The 2x2 map: tile c sits where compartment c sits (1 2 / 3 4).
+function tile(c, st, x, y, w, h, o = {}) {
+  const tall = h > w * 1.1;
+  const s = tall ? w * .5 : Math.min(h * .62, w * .42), ix = tall ? x + w / 2 : x + w * .32, iy = tall ? y + h * .56 : y + h * .52;
+  ctx.setLineDash([]);
+  if (st === 'due') {
+    ctx.fillStyle = INK; rr(x, y, w, h, 10); ctx.fill();
+    ICON[c](ix, iy, s, PAPER);
+    num(String(c + 1), x + w - 16, y + h * .5 + h * .17, Math.min(52, h * .46), 800, 'right', PAPER);
+  } else if (st === 'done') {
+    pen(INK, 2.5); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+    num(String(c + 1), x + w - 12, y + 22, 16, 700, 'right');
+    check(x + w * .76, y + h * .44, Math.min(34, h * .34));
+    if (o.at) num(o.at, x + w * .76, y + h - 14, 16, 700, 'center');
+  } else if (st === 'missed') {
+    pen(INK, 2.5); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+    num(String(c + 1), x + w - 12, y + 22, 16, 700, 'right');
+    pen(INK, 4); ln(x + 10, y + h - 10, x + w - 10, y + 10);
+  } else if (st === 'ghost') { // "put it back here"
+    pen(INK, 3); ctx.setLineDash([8, 6]); rr(x + 1.5, y + 1.5, w - 3, h - 3, 10); ctx.stroke(); ctx.setLineDash([]);
+    ICON[c](ix, iy, s * .9, DITHER);
+    arrow(x + w * .78, y + h * .18, x + w * .78, y + h * .74, INK, 4);
+  } else if (st === 'focus') {
+    pen(INK, 5); rr(x + 2.5, y + 2.5, w - 5, h - 5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+  } else if (st === 'plain') {
+    pen(INK, 2.5); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 10); ctx.stroke();
+    ICON[c](ix, iy, s * .9, INK);
+    num(String(c + 1), x + w - 12, y + 22, 16, 700, 'right');
+  } else { // not needed now
+    pen(INK, 1.5); ctx.setLineDash([2, 5]); rr(x + 1, y + 1, w - 2, h - 2, 10); ctx.stroke(); ctx.setLineDash([]);
+    ICON[c](ix, iy, s * .8, DITHER);
+  }
+}
+function grid(states, x, y, w, h, gap = 8, o = {}) {
+  const tw = (w - gap) / 2, th = (h - gap) / 2;
+  for (let c = 0; c < 4; c++) tile(c, states[c], x + (c % 2) * (tw + gap), y + Math.floor(c / 2) * (th + gap), tw, th, { at: (o.at || [])[c] });
+}
+function mini(states, x, y, tw = 22, th = 16, gap = 4) { // small 2x2 map
+  for (let c = 0; c < 4; c++) {
+    const tx = x + (c % 2) * (tw + gap), ty = y + Math.floor(c / 2) * (th + gap);
+    if (states[c] === 'due') { ctx.fillStyle = INK; rr(tx, ty, tw, th, 3); ctx.fill(); }
+    else if (states[c] === 'done') { pen(INK, 2); rr(tx + 1, ty + 1, tw - 2, th - 2, 3); ctx.stroke(); check(tx + tw / 2, ty + th / 2, th * .7); }
+    else { pen(INK, 1.3); ctx.setLineDash([2, 3]); rr(tx + .5, ty + .5, tw - 1, th - 1, 3); ctx.stroke(); ctx.setLineDash([]); }
+  }
+}
+function header(k, label, time) {
+  if (k >= 0) slotIcon(k, 30, 24, 16);
+  txt(label, k >= 0 ? 56 : 16, 34, 24, 900);
+  if (time) num(time, 386, 32, 19, 700, 'right');
+}
+
+// ---------------------------------------------------------------- screens
+function ambient({ time, date, sky, temp, dust, next, nextMap, mask, done, tomorrow }) {
+  num(time, 22, 100, 78, 800);
+  txt(date, 24, 128, 15, 500);
+  weather(sky, 340, 58, 26); num(temp, 340, 122, 32, 800, 'center');
+  pen(INK, 1.5); ln(16, 146, 384, 146);
+  txt('미세먼지', 24, 184, 14, 500); txt(['', '좋음', '보통', '나쁨', '매우나쁨'][dust], 96, 186, 22, 900);
+  for (let i = 0; i < 4; i++) { pen(INK, 2); circ(304 + i * 25, 178, 8.5, i < dust); }
+  if (mask) txt('외출 시 마스크', 24, 208, 13, 700);
+  pen(INK, 1.5); ln(16, 222, 384, 222);
+  if (done) { check(34, 258, 26); txt('오늘 약 끝', 58, 267, 20, 900); if (tomorrow) { txt('내일', 318, 266, 14, 500, 'right'); num(tomorrow, 384, 267, 20, 700, 'right'); } return; }
+  slotIcon(next[0], 36, 254, 15); num(next[1], 60, 266, 24, 800);
+  mini(nextMap, 334, 240);
+}
+function nearNext({ time, k, at, left, map }) {
+  num(time, 386, 32, 19, 700, 'right');
+  txt('다음 약', 22, 58, 18, 700);
+  slotIcon(k, 38, 102, 18); txt(SLOT[k], 64, 112, 26, 900);
+  num(at, 20, 188, 60, 800);
+  txt(left, 24, 224, 18, 500);
+  grid(map, 210, 44, 176, 240, 8);
+}
+const SCREENS = {
+  '01-ambient': () => ambient({ time: '14:20', date: '9월 26일 토요일', sky: 'sun', temp: '24°', dust: 1, next: [2, '18:30'], nextMap: ['due', 'due', 'none', 'due'] }),
+  '02-ambient-dust': () => ambient({ time: '07:10', date: '9월 26일 토요일', sky: 'cloud', temp: '3°', dust: 4, mask: true, next: [0, '08:30'], nextMap: ['due', 'due', 'due', 'due'] }),
+  '03-near-next': () => nearNext({ time: '14:22', k: 2, at: '18:30', left: '4시간 후', map: ['plain', 'plain', 'none', 'plain'] }),
+  '04-due': () => { header(0, '아침', '08:32'); grid(['due', 'due', 'due', 'due'], 12, 50, 376, 242); },
+  '05-partial': () => { header(0, '아침', '08:42'); grid(['done', 'done', 'due', 'due'], 12, 50, 376, 242, 8, { at: ['08:41', '08:42'] }); },
+  '06-complete': () => { header(0, '아침', '08:45'); grid(['done', 'done', 'done', 'done'], 12, 50, 376, 242, 8, { at: ['08:41', '08:42', '08:43', '08:45'] }); },
+  '07-not-now': () => {
+    header(-1, '지금은 아니에요', '12:32');
+    grid(['none', 'none', 'none', 'focus'], 12, 50, 376, 242);
+    slotIcon(2, 346, 206, 13); num('18:30', 346, 262, 22, 800, 'center');
+  },
+  '08-leaving': () => {
+    num('11:50', 386, 32, 19, 700, 'right');
+    door(24, 70, 58, 116); arrow(100, 128, 136, 128);
+    grid(['due', 'none', 'none', 'none'], 152, 44, 234, 158);
+    txt('챙겨 가세요', 22, 250, 30, 900);
+    slotIcon(1, 34, 280, 11); txt('점심', 52, 287, 17, 700); num('12:30', 96, 288, 19, 800);
+  },
+  '09-put-back': () => { header(-1, '제자리에', '18:33'); grid(['none', 'none', 'none', 'ghost'], 12, 50, 376, 242); },
+  '10-missed': () => {
+    header(2, '저녁', '21:31');
+    grid(['done', 'missed', 'none', 'done'], 12, 50, 376, 210, 8, { at: ['18:35', '', '', '18:36'] });
+    txt('지은님께 알렸어요', 16, 288, 17, 700);
+  },
+  '11-all-done': () => ambient({ time: '23:20', date: '9월 26일 토요일', sky: 'cloud', temp: '17°', dust: 2, done: true, tomorrow: '08:30' }),
+  '12-ai-supply': () => {
+    mini(['due', 'none', 'none', 'none'], 20, 18, 20, 14, 4); txt('약봉투', 74, 38, 17, 700);
+    sachet(100, 142, 96, INK);
+    num('3', 210, 168, 88, 800); txt('일분', 276, 166, 30, 900); txt('남았어요', 278, 196, 18, 500);
+    const days = ['토', '일', '월', '화'];
+    for (let i = 0; i < 4; i++) {
+      const bx = 24 + i * 58, by = 226;
+      if (i < 3) { ctx.fillStyle = INK; rr(bx, by, 50, 50, 8); ctx.fill(); txt(days[i], bx + 25, by + 33, 18, 900, 'center', PAPER); }
+      else { pen(INK, 2); ctx.setLineDash([3, 4]); rr(bx + 1, by + 1, 48, 48, 8); ctx.stroke(); ctx.setLineDash([]); txt(days[i], bx + 25, by + 33, 18, 700, 'center'); }
+    }
+    txt('월요일에 약국', 262, 258, 17, 700); txt('9월 28일 저녁까지', 262, 280, 13, 500);
+  },
+  '13-ai-outing': () => {
+    num('10:00', 386, 32, 19, 700, 'right');
+    txt('화요일', 22, 36, 24, 900); txt('보통 10:30에 나가세요', 104, 35, 14, 500);
+    door(24, 74, 58, 116); arrow(100, 132, 136, 132);
+    grid(['due', 'none', 'none', 'none'], 152, 50, 234, 158);
+    txt('점심 약 챙기기', 22, 256, 28, 900);
+    slotIcon(1, 34, 282, 11); num('12:30', 52, 290, 19, 800);
+  },
+  '14-ai-week': () => {
+    txt('이번 주', 22, 36, 24, 900); num('67 / 70', 386, 36, 26, 800, 'right');
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    // rows: dose times; marks: 1 all opened, 2 missed, 0 nothing needed
+    const m = [[1, 1, 1, 1, 1, 1, 1], [2, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 2, 1, 2]];
+    for (let d = 0; d < 7; d++) txt(days[d], 104 + d * 42, 74, 15, 700, 'center');
+    for (let r = 0; r < 4; r++) {
+      slotIcon(r, 40, 104 + r * 48, 13);
+      for (let d = 0; d < 7; d++) {
+        const x = 104 + d * 42, y = 104 + r * 48;
+        if (m[r][d] === 1) { ctx.fillStyle = INK; circ(x, y, 14, true); check(x, y + 1, 15, PAPER); }
+        else { pen(INK, 2); circ(x, y, 13, false); ln(x - 9, y + 9, x + 9, y - 9); }
+      }
+    }
+  },
+  '15-button-today': () => {
+    header(-1, '오늘', '16:40');
+    const rows = [[[0, '08:38'], [1, '12:38'], [2, null]], [[0, '08:39'], [2, null]], [[0, '08:40'], [3, null]], [[0, '08:41'], [2, null], [3, null]]];
+    const tw = 184, th = 117;
+    for (let c = 0; c < 4; c++) {
+      const x = 12 + (c % 2) * (tw + 8), y = 50 + Math.floor(c / 2) * (th + 8);
+      pen(INK, 2); rr(x + 1, y + 1, tw - 2, th - 2, 10); ctx.stroke();
+      ICON[c](x + 32, y + 34, 34, INK); num(String(c + 1), x + tw - 12, y + 24, 16, 700, 'right');
+      rows[c].forEach(([k, at], i) => {
+        const ry = y + 66 + i * 21 - (rows[c].length > 2 ? 12 : 0);
+        slotIcon(k, x + 76, ry - 5, 8);
+        if (at) { num(at, x + 96, ry + 1, 16, 700); check(x + 160, ry - 5, 13); }
+        else { pen(INK, 2); circ(x + 160, ry - 5, 6, false); }
+      });
+    }
+  },
+  '16-button-refill': () => {
+    pen(INK, 3); circ(30, 24, 13, false); ln(22, 24, 38, 24); ln(30, 16, 30, 32);
+    txt('약 채우기', 54, 34, 24, 900);
+    grid(['plain', 'none', 'none', 'plain'], 12, 50, 376, 210);
+    for (const [c, g] of [[0, '+42 g'], [3, '+118 g']]) { const x = 12 + (c % 2) * 192, y = 50 + Math.floor(c / 2) * 109; ctx.fillStyle = PAPER; ctx.fillRect(x + 110, y + 60, 70, 30); num(g, x + 176, y + 84, 17, 800, 'right'); }
+    txt('버튼을 한 번 누르면 끝', 16, 288, 15, 700);
+  },
+};
+
+// ---------------------------------------------------------------- concepts B and C
+function ring(cx, cy, r, now, doses) { // 24-hour ring, midnight at top
+  const ang = (m) => -Math.PI / 2 + (m / 1440) * Math.PI * 2;
+  pen(INK, 1.5); ctx.setLineDash([2, 4]); circ(cx, cy, r, false); ctx.setLineDash([]);
+  pen(INK, 6); ctx.beginPath(); ctx.arc(cx, cy, r, ang(0), ang(now)); ctx.stroke();
+  for (const [k, m, st] of doses) {
+    const a = ang(m), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    ctx.fillStyle = st === 'done' ? INK : PAPER; pen(INK, 2.5); circ(x, y, 9, false); ctx.fillStyle = st === 'done' ? INK : PAPER; circ(x, y, 7.5, true);
+    if (st === 'done') check(x, y + 1, 9, PAPER);
+    if (st === 'due') { ctx.fillStyle = INK; circ(x, y, 7.5, true); }
+    slotIcon(k, cx + Math.cos(a) * (r + 24), cy + Math.sin(a) * (r + 24), 9);
+  }
+  const a = ang(now); pen(INK, 2); ln(cx + Math.cos(a) * (r - 14), cy + Math.sin(a) * (r - 14), cx + Math.cos(a) * (r + 10), cy + Math.sin(a) * (r + 10));
+}
+SCREENS['B1-ring-due'] = () => {
+  ring(150, 158, 104, 512, [[0, 510, 'due'], [1, 750, 'up'], [2, 1110, 'up'], [3, 1320, 'up']]);
+  mini(['due', 'due', 'due', 'due'], 116, 132, 32, 24, 4);
+  slotIcon(0, 300, 70, 16); txt('아침', 322, 80, 24, 900);
+  num('08:32', 386, 150, 40, 800, 'right');
+  txt('네 칸 모두', 386, 186, 16, 700, 'right');
+};
+SCREENS['B2-ring-ambient'] = () => {
+  ring(150, 158, 104, 860, [[0, 510, 'done'], [1, 750, 'done'], [2, 1110, 'up'], [3, 1320, 'up']]);
+  num('14:20', 150, 170, 34, 800, 'center');
+  weather('sun', 330, 64, 22); num('24°', 330, 118, 26, 800, 'center');
+  txt('미세먼지', 330, 160, 13, 500, 'center'); txt('좋음', 330, 186, 20, 900, 'center');
+  slotIcon(2, 300, 246, 12); num('18:30', 386, 254, 20, 800, 'right');
+};
+SCREENS['C1-one-due'] = () => {
+  ctx.fillStyle = INK; rr(12, 12, 250, 276, 14); ctx.fill();
+  sachet(137, 132, 150, PAPER);
+  num('1', 137, 262, 44, 800, 'center', PAPER);
+  slotIcon(0, 292, 36, 13); txt('아침', 312, 44, 20, 900); num('08:32', 290, 76, 18, 700);
+  mini(['due', 'none', 'none', 'none'], 290, 110, 44, 34, 6);
+  txt('다음', 290, 236, 14, 500); txt('2 · 3 · 4', 290, 264, 22, 900);
+};
+SCREENS['C2-one-ambient'] = () => {
+  num('14:20', 200, 150, 112, 800, 'center');
+  txt('9월 26일 토요일  ·  24°  ·  미세먼지 좋음', 200, 196, 15, 500, 'center');
+  pen(INK, 1.5); ln(120, 226, 280, 226);
+  slotIcon(2, 170, 256, 12); num('18:30', 190, 264, 20, 800);
+};
+
+// ---------------------------------------------------------------- one master kit (all in one artboard)
+function content(name) { reset(); SCREENS[name](); return ctx.out.join(''); }
+function frame(x, y, body, cap, sub) {
+  ctx.out.push(`<g transform="translate(${x} ${y})">${body}</g>`);
+  pen(INK, 1); ctx.strokeStyle = '#9a9890'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 400, y); ctx.lineTo(x + 400, y + 300); ctx.lineTo(x, y + 300); ctx.closePath(); ctx.stroke();
+  txt(cap, x, y + 324, 15, 700);
+  if (sub) txt(sub, x, y + 344, 13, 400, 'left', '#55544f');
+}
+const CAPS = {
+  '01-ambient': ['1 · Resting, clean air', 'Clock, weather, fine dust; next dose time + 2×2 map'],
+  '02-ambient-dust': ['2 · Resting, very bad air', '매우나쁨 + mask hint: the daily reason to look'],
+  '03-near-next': ['3 · Someone comes near, nothing due', 'Next dose time and which compartments'],
+  '04-due': ['4 · Dose time: open these', 'Black tile = open the compartment in that spot'],
+  '05-partial': ['5 · Two opened', 'Check + time replaces the black tile'],
+  '06-complete': ['6 · All opened', 'Then the screen returns to the clock'],
+  '07-not-now': ['7 · Opened when not due', 'No alarm; shows when it is next due'],
+  '08-leaving': ['8 · Leaving before a dose time', 'Said once per dose time'],
+  '09-put-back': ['9 · Container out 10 min', 'Dashed tile = put it back here'],
+  '10-missed': ['10 · Dose time ended, one not opened', 'Family told once'],
+  '11-all-done': ['11 · All done today', 'Tomorrow’s first time'],
+  '12-ai-supply': ['12 · AI: sachets running out', 'Days left from the roll’s weight trend'],
+  '13-ai-outing': ['13 · AI: learned outing', 'Tuesday 10:30 outings → pack the lunch sachet'],
+  '14-ai-week': ['14 · AI: this week', 'Dose times complete, Sunday morning'],
+  '15-button-today': ['15 · Hidden button, short press', 'Today, per compartment'],
+  '16-button-refill': ['16 · Hidden button, hold 3 s', 'Refill mode for family or carer'],
+  'B1-ring-due': ['B · Ring concept: due', '24-hour ring around the 2×2 map'],
+  'B2-ring-ambient': ['B · Ring concept: resting', 'The day as a ring, doses as beads'],
+  'C1-one-due': ['C · One-thing concept: due', 'One compartment at a time, largest possible'],
+  'C2-one-ambient': ['C · One-thing concept: resting', 'Only the clock and the next time'],
+};
+function device(x, y) { // top view of Lyra: 2x2 compartments, lights, hidden button
+  const w = 300, g = 12, cw = (w - g * 3) / 2;
+  pen(INK, 3); rr(x, y, w, w, 28); ctx.stroke();
+  for (let c = 0; c < 4; c++) {
+    const cx = x + g + (c % 2) * (cw + g), cy = y + g + Math.floor(c / 2) * (cw + g);
+    pen(INK, 2); rr(cx, cy, cw, cw, 16); ctx.stroke();
+    pen(INK, 1.2); ctx.setLineDash([3, 4]); rr(cx + 8, cy + 8, cw - 16, cw - 16, 10); ctx.stroke(); ctx.setLineDash([]);
+    ICON[c](cx + cw / 2, cy + cw / 2 + 4, cw * .42, INK);
+    num(String(c + 1), cx + 14, cy + 28, 18, 800);
+  }
+  pen(INK, 2); circ(x + w - 22, y + w + 16, 5, false);
+}
+window.kit = () => {
+  const W = 1760; let y = 0;
+  const names = Object.keys(SCREENS);
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  reset(W, 3300);
+  txt('Lyra', 60, 96, 56, 900); txt('e-ink UI kit · 4.2-inch, 400 × 300, black and white', 64, 132, 20, 500);
+  txt('Four compartments in a 2 × 2 square. The screen draws the same square: a tile sits where its compartment sits.', 64, 162, 16, 400, 'left', '#55544f');
+  // 1. the map
+  y = 210; txt('1  The map', 60, y, 26, 900);
+  device(64, y + 30);
+  txt('Lyra, top view', 64, y + 380, 14, 700); txt('small circle = the hidden button, under the front-right edge', 64, y + 400, 13, 400, 'left', '#55544f');
+  arrow(390, y + 180, 470, y + 180, INK, 3);
+  frame(490, y + 30, bodies['04-due'], 'The screen: same 2 × 2', 'Black tile = open the compartment in that spot');
+  // 2. icons
+  let x0 = 960; txt('2  Form icons', x0, y, 26, 900);
+  const labels = [['약봉투', 'sachet roll'], ['블리스터', 'blister pack'], ['스틱·안약·연고', 'stick, drops, tube'], ['영양제 병', 'bottle']];
+  for (let c = 0; c < 4; c++) { const ix = x0 + 90 + (c % 2) * 380, iy = y + 110 + Math.floor(c / 2) * 170; ICON[c](ix, iy, 110, INK); txt(`${c + 1} · ${labels[c][0]}`, ix + 90, iy - 6, 18, 900); txt(labels[c][1], ix + 90, iy + 18, 14, 400, 'left', '#55544f'); }
+  for (let k = 0; k < 4; k++) { const ix = x0 + 40 + k * 190, iy = y + 450; slotIcon(k, ix, iy, 20); txt(SLOT[k], ix + 30, iy + 7, 17, 700); }
+  weather('sun', x0 + 50, y + 530, 22); weather('cloud', x0 + 140, y + 530, 22);
+  for (let i = 0; i < 4; i++) { pen(INK, 2); circ(x0 + 240 + i * 25, y + 528, 8.5, i < 3); } txt('fine dust, 4 steps', x0 + 350, y + 534, 14, 400, 'left', '#55544f');
+  // 3. tile states
+  y = 820; txt('3  Tile states', 60, y, 26, 900);
+  const states = [['due', 'Due: open this one', {}], ['done', 'Opened, with time', { at: '08:41' }], ['none', 'Not needed now', {}], ['missed', 'Dose time ended', {}], ['ghost', 'Put it back here', {}], ['focus', 'Opened when not due', {}]];
+  states.forEach(([st, cap, o], i) => { const tx = 64 + i * 280; tile(3, st, tx, y + 30, 240, 150, o); txt(cap, tx, y + 206, 15, 700); });
+  // 4. what shows when
+  y = 1090; txt('4  What the screen shows (most important first)', 60, y, 26, 900);
+  const rules = ['Container out 10 min → put it back (9)', 'Person leaves near a dose time → take it with you (8)', 'A dose time is open → the 2 × 2 map, black = open (4, 5)', 'AI: a usual outing is due → pack the next dose (13)', 'AI: 3 days of sachets or fewer → pharmacy day (12)', 'A dose time just ended with one unopened → slash, family told (10)', 'Someone within 1.5 m, nothing due → next dose time (3)', 'Nobody near → clock, weather, fine dust (1, 2, 11)'];
+  rules.forEach((r, i) => { num(String(i + 1), 76, y + 44 + i * 30, 18, 800, 'center'); txt(r, 100, y + 44 + i * 30, 16, 500); });
+  txt('Hidden button: short press = today (15). Hold 3 s = refill mode (16).', 960, y + 44, 16, 700);
+  txt('E-ink: page change = full refresh; a tile flip = quiet partial refresh.', 960, y + 74, 16, 500);
+  txt('Type: Noto Sans KR 900 / 700 / 500 · numbers Schibsted Grotesk 800 / 700', 960, y + 104, 16, 500);
+  txt('Colour: ink #1B1B1B · paper #E8E7E1 · grey #8F8D86 (a 50% dither on the panel)', 960, y + 134, 16, 500);
+  // 5. all screens
+  y = 1400; txt('5  Every screen', 60, y, 26, 900);
+  const main = names.filter((n) => /^\d/.test(n));
+  main.forEach((n, i) => frame(64 + (i % 4) * 424, y + 30 + Math.floor(i / 4) * 390, bodies[n], ...CAPS[n]));
+  // 6. concepts
+  y = 1400 + 30 + 4 * 390 + 40; txt('6  Concepts compared: A map (chosen) · B ring · C one thing', 60, y, 26, 900);
+  ['B1-ring-due', 'B2-ring-ambient', 'C1-one-due', 'C2-one-ambient'].forEach((n, i) => frame(64 + i * 424, y + 30, bodies[n], ...CAPS[n]));
+  const H = y + 30 + 390;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${DEFS}<rect width="${W}" height="${H}" fill="#f4f3ef"/>${ctx.out.slice(1).join('')}</svg>`;
+};
+
+
+window.mapFig = () => {
+  const body = content('04-due');
+  reset(900, 400); ctx.out = [];
+  device(20, 30);
+  txt('Lyra, top view', 20, 380, 15, 700); txt('○ hidden button under the front-right edge', 150, 380, 13, 400, 'left', '#55544f');
+  arrow(345, 180, 440, 180, INK, 3);
+  ctx.out.push(`<g transform="translate(470 30)">${body}</g>`);
+  pen(INK, 1); ctx.strokeStyle = '#9a9890'; ctx.beginPath(); ctx.moveTo(470, 30); ctx.lineTo(870, 30); ctx.lineTo(870, 330); ctx.lineTo(470, 330); ctx.closePath(); ctx.stroke();
+  txt('The screen draws the same 2 × 2', 470, 360, 15, 700); txt('black tile = open the compartment in that spot', 470, 380, 13, 400, 'left', '#55544f');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="900" height="400">${DEFS}<rect width="900" height="400" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+
+// ---------------------------------------------------------------- English build
+window.LANG = 'ko';
+const EN = {
+  '4시간 후': 'in 4 hours', '9월 26일 토요일': 'Saturday 26 September', '9월 26일 토요일  ·  24°  ·  미세먼지 좋음': 'Sat 26 Sep  ·  24°  ·  Air good',
+  '9월 28일 저녁까지': 'until Monday evening', '일': 'Sun', '월': 'Mon', '화': 'Tue', '수': 'Wed', '목': 'Thu', '금': 'Fri', '토': 'Sat',
+  '나쁨': 'Bad', '매우나쁨': 'Very bad', '보통': 'Moderate', '좋음': 'Good', '남았어요': 'left', '내일': 'Tomorrow', '네 칸 모두': 'All four',
+  '다음': 'Next', '다음 약': 'Next', '미세먼지': 'Fine dust', '버튼을 한 번 누르면 끝': 'Press once to finish', '보통 10:30에 나가세요': 'You usually leave at 10:30',
+  '블리스터': 'Blister', '스틱·안약': 'Sticks, drops', '스틱·안약·연고': 'Sticks, drops, tube', '약봉투': 'Sachets', '영양제': 'Bottle', '영양제 병': 'Bottle',
+  '아침': 'Morning', '점심': 'Lunch', '저녁': 'Evening', '자기 전': 'Bedtime', '약 채우기': 'Refill', '오늘': 'Today', '오늘 약 끝': 'Done for today',
+  '외출 시 마스크': 'Wear a mask outside', '월요일에 약국': 'Pharmacy Monday', '이번 주': 'This week', '일분': 'days', '점심 약 챙기기': 'Pack lunch',
+  '제자리에': 'Put it back', '지금은 아니에요': 'Not now', '지은님께 알렸어요': 'Ji-eun was told', '챙겨 가세요': 'Take it with you', '화요일': 'Tuesday',
+};
+const _txt = txt;
+txt = function (s, ...rest) { return _txt(window.LANG === 'en' && EN[s] !== undefined ? EN[s] : s, ...rest); };
+const L = (ko, en) => (window.LANG === 'en' ? en : ko);
+
+// ---------------------------------------------------------------- Signature (chosen direction)
+// A 3-colour e-ink panel: black, paper, one red. Giant numerals, small technical labels,
+// registration marks. Red always means "act now"; on a black-and-white panel it prints black.
+const RED = '#c8102e';
+// Tiles are placed by position, as seen from the front with the lid open:
+// 0 back-left, 1 back-right, 2 front-left, 3 front-right. The carer picks each one's form.
+window.FORMS = [3, 1, 0, 2]; // bottle, blister, sachets, sticks-and-drops
+const POS = () => (window.LANG === 'en' ? ['BACK L', 'BACK R', 'FRONT L', 'FRONT R'] : ['뒤 왼쪽', '뒤 오른쪽', '앞 왼쪽', '앞 오른쪽']);
+const FORMNAME = () => (window.LANG === 'en' ? ['SACHETS', 'BLISTER', 'STICKS · DROPS', 'BOTTLE'] : ['약봉투', '블리스터', '스틱 · 안약', '영양제']);
+const icon = (i, x, y, s, col) => ICON[window.FORMS[i]](x, y, s, col);
+const posOf = (form) => window.FORMS.indexOf(form);
+// Example schedule by form: morning all; lunch sachets; evening sachets, blister, bottle; bedtime sticks, bottle.
+const NEED = [[0, 1, 2, 3], [0], [0, 1, 3], [2, 3]];
+const due = (slot) => [0, 1, 2, 3].map((i) => NEED[slot].includes(window.FORMS[i]));
+
+function label(s, x, y, size = 8.5, align = 'left', col = INK) { ctx.letterSpacing = size * 0.12; txt(s, x, y, size, 700, align, col, NUM); ctx.letterSpacing = 0; }
+function marks() { pen(INK, 1); for (const [x, y] of [[8, 8], [392, 8], [8, 292], [392, 292]]) { ln(x - 4, y, x + 4, y); ln(x, y - 4, x, y + 4); } }
+function rule(x1, y, x2) { pen(INK, 1); ln(x1, y, x2, y); }
+function sTop(mid, right) { marks(); label('LYRA', 16, 22); if (mid) label(mid, 200, 22, 8.5, 'center'); if (right) label(right, 384, 22, 8.5, 'right'); }
+function sTile(i, st, x, y, w, h, o = {}) {
+  const s = Math.min(w, h), code = POS()[i];
+  if (st === 'due') { ctx.fillStyle = RED; rr(x, y, w, h, 4); ctx.fill(); icon(i, x + w / 2, y + h * .52, s * .5, PAPER); label(code, x + 7, y + 13, 7.5, 'left', PAPER); }
+  else if (st === 'done') { pen(INK, 1.5); rr(x + .75, y + .75, w - 1.5, h - 1.5, 4); ctx.stroke(); icon(i, x + w / 2, y + h * .48, s * .42, INK); label(code, x + 7, y + 13, 7.5); check(x + w - 14, y + h - 13, 12); if (o.at) label(o.at, x + 7, y + h - 8, 8); }
+  else if (st === 'missed') { pen(INK, 1.5); rr(x + .75, y + .75, w - 1.5, h - 1.5, 4); ctx.stroke(); icon(i, x + w / 2, y + h * .5, s * .42, INK); label(code, x + 7, y + 13, 7.5); pen(RED, 5); ln(x + 10, y + h - 10, x + w - 10, y + 10); }
+  else if (st === 'ghost') { pen(RED, 2.5); ctx.setLineDash([6, 4]); rr(x + 1.25, y + 1.25, w - 2.5, h - 2.5, 4); ctx.stroke(); ctx.setLineDash([]); icon(i, x + w * .4, y + h * .52, s * .4, DITHER); label(code, x + 7, y + 13, 7.5, 'left', RED); arrow(x + w - 20, y + 20, x + w - 20, y + h - 18, RED, 4); }
+  else if (st === 'focus') { pen(INK, 4); rr(x + 2, y + 2, w - 4, h - 4, 4); ctx.stroke(); icon(i, x + w / 2, y + h * .5, s * .44, INK); label(code, x + 8, y + 15, 7.5); }
+  else if (st === 'plain') { pen(INK, 1.5); rr(x + .75, y + .75, w - 1.5, h - 1.5, 4); ctx.stroke(); icon(i, x + w / 2, y + h * .52, s * .46, INK); label(code, x + 7, y + 13, 7.5); }
+  else { pen(INK, 1); ctx.setLineDash([1.5, 3]); rr(x + .5, y + .5, w - 1, h - 1, 4); ctx.stroke(); ctx.setLineDash([]); icon(i, x + w / 2, y + h * .52, s * .36, DITHER); label(code, x + 7, y + 13, 7.5, 'left', DITHER); }
+}
+function sGrid(states, x, y, s, gap = 6, o = {}) { for (let i = 0; i < 4; i++) sTile(i, states[i], x + (i % 2) * (s + gap), y + Math.floor(i / 2) * (s + gap), s, s, { at: (o.at || [])[i] }); }
+function sMini(states, x, y, w = 16, h = 12, g = 3) {
+  for (let i = 0; i < 4; i++) { const tx = x + (i % 2) * (w + g), ty = y + Math.floor(i / 2) * (h + g); const st = states[i];
+    if (st === 'due') { ctx.fillStyle = RED; rr(tx, ty, w, h, 2); ctx.fill(); } else if (st === 'on') { ctx.fillStyle = INK; rr(tx, ty, w, h, 2); ctx.fill(); } else if (st === 'done') { pen(INK, 1.2); rr(tx + .6, ty + .6, w - 1.2, h - 1.2, 2); ctx.stroke(); check(tx + w / 2, ty + h / 2, h * .7); } else { pen(INK, 1); ctx.setLineDash([1.5, 2.5]); rr(tx + .5, ty + .5, w - 1, h - 1, 2); ctx.stroke(); ctx.setLineDash([]); } }
+}
+function ribbon(x, y, w, now, doses, band) { // the day as one line; dose times as beads
+  const X = (m) => x + (m / 1440) * w;
+  if (band) { ctx.fillStyle = DITHER; ctx.fillRect(X(band[0]), y - 6, X(band[1]) - X(band[0]), 12); }
+  pen(INK, 1); ln(x, y, x + w, y); for (let hr = 0; hr <= 24; hr += 6) ln(X(hr * 60), y - 3, X(hr * 60), y + 3);
+  pen(INK, 3); ln(x, y, X(now), y);
+  for (const [m, st] of doses) { const cx = X(m); if (st === 'due') { ctx.fillStyle = RED; circ(cx, y, 5.5, true); } else if (st === 'done') { ctx.fillStyle = INK; circ(cx, y, 4.5, true); } else if (st === 'missed') { ctx.fillStyle = PAPER; circ(cx, y, 5, true); pen(RED, 2); circ(cx, y, 4.5, false); ln(cx - 3, y + 3, cx + 3, y - 3); } else { ctx.fillStyle = PAPER; circ(cx, y, 4.5, true); pen(INK, 1.5); circ(cx, y, 4.5, false); } }
+}
+function ribbonScale(x, y, w) { label('00', x, y, 7); label('12', x + w / 2, y, 7, 'center'); label('24', x + w, y, 7, 'right'); }
+const SLOTM = [510, 750, 1110, 1320];
+const DAY = (st) => SLOTM.map((m, k) => [m, st[k]]);
+const streak = (x, y, miss, today = 29) => { for (let d = 0; d < 30; d++) { const cx = x + (d % 10) * 13, cy = y + Math.floor(d / 10) * 13; if (miss.includes(d)) { pen(INK, 1.2); rr(cx + .6, cy + .6, 9.8, 9.8, 1.5); ctx.stroke(); } else { ctx.fillStyle = d === today ? RED : INK; rr(cx, cy, 11, 11, 1.5); ctx.fill(); } } };
+const SL = () => (window.LANG === 'en' ? ['MORNING', 'LUNCH', 'EVENING', 'BEDTIME'] : ['아침', '점심', '저녁', '자기 전']);
+const map = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+
+function ambientSig({ time, dateL, weatherL, dust, next, nextSlot, now, doses, mask }) {
+  sTop('', weatherL); label(dateL, 200, 22, 8.5, 'center');
+  num(time, 14, 132, 104, 800);
+  rule(16, 150, 384);
+  label(L('30일', '30 DAYS'), 16, 170); streak(16, 180, [6, 17]); num('28/30', 16, 244, 22, 800);
+  label(L('미세먼지', 'FINE DUST'), 170, 170);
+  for (let i = 0; i < 4; i++) { const on = i < dust; ctx.fillStyle = on ? (dust === 4 ? RED : INK) : PAPER; pen(INK, 1.2); rr(170 + i * 22, 180, 19, 10, 1.5); if (on) ctx.fill(); else ctx.stroke(); }
+  txt(['', '좋음', '보통', '나쁨', '매우나쁨'][dust], 170, 214, 18, 900, 'left', dust === 4 ? RED : INK);
+  if (mask) label(L('외출 시 마스크', 'MASK OUTSIDE'), 170, 232, 8.5, 'left', RED);
+  label(L('다음', 'NEXT'), 300, 170); num(next, 300, 196, 22, 800); sMini(map(nextSlot).map((s) => (s === 'due' ? 'on' : s)), 300, 206);
+  ribbon(16, 272, 368, now, doses); ribbonScale(16, 290, 368);
+}
+
+SCREENS['S01-resting'] = () => ambientSig({ time: '14:20', dateL: L('9월 26일 토', 'SAT 26 SEP'), weatherL: L('24° · 맑음', '24° · CLEAR'), dust: 1, next: '18:30', nextSlot: 2, now: 860, doses: DAY(['done', 'done', 'up', 'up']) });
+SCREENS['S02-resting-dust'] = () => ambientSig({ time: '07:10', dateL: L('9월 26일 토', 'SAT 26 SEP'), weatherL: L('3° · 흐림', '3° · CLOUD'), dust: 4, mask: true, next: '08:30', nextSlot: 0, now: 430, doses: DAY(['up', 'up', 'up', 'up']) });
+SCREENS['S03-near-next'] = () => {
+  sTop(L('다가오면', 'NEAR'), '14:22');
+  label(L('다음 · ' + SL()[2], 'NEXT · ' + SL()[2]), 16, 52, 9);
+  num('18:30', 12, 140, 84, 800);
+  label(L('남은 시간', 'IN'), 16, 172, 9); num(L('4시간 8분', '4H 08M'), 16, 204, 26, 800, 'left', RED);
+  sGrid(map(2).map((s) => (s === 'due' ? 'plain' : s)), 268, 36, 55, 6);
+  label(L('열 칸 3', '3 TO OPEN'), 268, 170, 8.5);
+  ribbon(16, 262, 368, 862, DAY(['done', 'done', 'up', 'up'])); ribbonScale(16, 280, 368);
+};
+SCREENS['S04-due'] = () => {
+  sTop(L('아침 · 08:30', 'MORNING · 08:30'), '08:32');
+  sGrid(map(0), 16, 32, 124, 8);
+  num('4', 330, 170, 140, 800, 'center', RED); label(L('열 칸', 'TO OPEN'), 330, 196, 10, 'center');
+  ribbon(282, 262, 100, 512, DAY(['due', 'up', 'up', 'up'])); label('00', 282, 280, 7); label('24', 382, 280, 7, 'right');
+};
+SCREENS['S05-partial'] = () => {
+  sTop(L('아침 · 08:30', 'MORNING · 08:30'), '08:42');
+  sGrid(map(0, { 2: 'done', 1: 'done' }), 16, 32, 124, 8, { at: [0, '08:42', '08:41'] });
+  num('2', 330, 170, 140, 800, 'center', RED); label(L('남은 칸', 'LEFT'), 330, 196, 10, 'center');
+  ribbon(282, 262, 100, 522, DAY(['due', 'up', 'up', 'up'])); label('00', 282, 280, 7); label('24', 382, 280, 7, 'right');
+};
+SCREENS['S06-done'] = () => {
+  sTop(L('아침 완료', 'MORNING DONE'), '08:45');
+  ctx.fillStyle = RED; circ(110, 152, 86, true); check(110, 154, 90, PAPER);
+  num(L('29일째', 'DAY 29'), 222, 118, 38, 800); label(L('연속으로 제때', 'IN A ROW, ON TIME'), 224, 140, 9);
+  rule(222, 166, 384);
+  label(L('다음 · 점심', 'NEXT · LUNCH'), 222, 188); num('12:30', 222, 222, 32, 800); sMini(map(1).map((s) => (s === 'due' ? 'on' : s)), 332, 198, 20, 14, 3);
+  ribbon(222, 262, 162, 525, DAY(['done', 'up', 'up', 'up']));
+};
+SCREENS['S07-not-now'] = () => {
+  const b = posOf(3);
+  sTop(L('지금은 아니에요', 'NOT NOW'), '12:32');
+  sGrid([0, 1, 2, 3].map((i) => (i === b ? 'focus' : 'none')), 16, 32, 124, 8);
+  label(L('이 칸의 다음', 'THIS ONE NEXT'), 282, 64, 8.5); slotIcon(2, 294, 92, 12); label(SL()[2], 312, 97, 9);
+  num('18:30', 282, 148, 34, 800);
+  label(L('알림 없음', 'NO ALARM'), 282, 180, 8.5); label(L('기록됨', 'LOGGED'), 282, 196, 8.5);
+};
+SCREENS['S08-leaving'] = () => {
+  const f = posOf(0);
+  sTop(L('나가시네요', 'LEAVING'), '11:50');
+  door(22, 48, 60, 120); arrow(96, 110, 128, 110, RED, 3);
+  sGrid([0, 1, 2, 3].map((i) => (i === f ? 'due' : 'none')), 140, 36, 60, 5);
+  num('12:30', 268, 88, 36, 800); label(L('점심', 'LUNCH'), 270, 106, 9);
+  rule(16, 190, 384);
+  txt(L('점심 약 챙겨 가세요', 'Take your lunch sachet'), 16, 226, 26, 900);
+  label(L(FORMNAME()[0] + ' · ' + POS()[f], FORMNAME()[0] + ' · ' + POS()[f]), 16, 250, 9, 'left', RED);
+  ribbon(16, 278, 368, 710, DAY(['done', 'due', 'up', 'up']), [630, 900]);
+};
+SCREENS['S09-put-back'] = () => {
+  const b = posOf(3);
+  sTop(L('제자리에', 'PUT IT BACK'), '18:33');
+  sGrid([0, 1, 2, 3].map((i) => (i === b ? 'ghost' : 'none')), 16, 32, 124, 8);
+  num('10', 330, 150, 110, 800, 'center', RED); label(L('분째 밖에', 'MIN OUT'), 330, 176, 10, 'center');
+  label(FORMNAME()[3] + ' · ' + POS()[b], 330, 206, 8.5, 'center');
+};
+SCREENS['S10-missed'] = () => {
+  const bl = posOf(1);
+  sTop(L('저녁 · 끝남', 'EVENING · CLOSED'), '21:31');
+  const st = map(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [bl]: 'missed' });
+  sGrid(st, 16, 32, 124, 8, { at: [0, 0, 0, 0].map((_, i) => (st[i] === 'done' ? (i === posOf(0) ? '18:35' : '18:36') : '')) });
+  num('1', 330, 150, 110, 800, 'center', RED); label(L('놓친 칸', 'MISSED'), 330, 176, 10, 'center');
+  label(L('지은님께 알림', 'JI-EUN TOLD'), 330, 206, 8.5, 'center'); label(L('1회만', 'ONCE'), 330, 222, 8.5, 'center');
+  ribbon(282, 262, 100, 1291, DAY(['done', 'done', 'missed', 'up'])); label('00', 282, 280, 7); label('24', 382, 280, 7, 'right');
+};
+SCREENS['S11-night'] = () => {
+  sTop(L('9월 26일 토', 'SAT 26 SEP'), L('17° · 흐림', '17° · CLOUD'));
+  num('23:20', 14, 132, 104, 800);
+  rule(16, 150, 384);
+  check(34, 196, 34); num('10/10', 66, 208, 34, 800); label(L('오늘 연 칸', 'OPENED TODAY'), 68, 228, 9);
+  label(L('내일 · 아침', 'TOMORROW · MORNING'), 250, 176); num('08:30', 250, 212, 30, 800);
+  ribbon(16, 272, 368, 1400, DAY(['done', 'done', 'done', 'done'])); ribbonScale(16, 290, 368);
+};
+SCREENS['S12-supply'] = () => {
+  const f = posOf(0);
+  sTop(FORMNAME()[0] + ' · ' + POS()[f], '07:55');
+  num('3', 14, 190, 180, 800, 'left', RED);
+  label(L('일분 남음', 'DAYS LEFT'), 132, 76, 12); txt(L('월요일에 약국', 'Pharmacy on Monday'), 132, 104, 20, 900);
+  for (let i = 0; i < 14; i++) { const x = 132 + i * 18; if (i < 3) { ctx.fillStyle = RED; rr(x, 124, 14, 40, 2); ctx.fill(); } else { pen(INK, 1); ctx.setLineDash([1.5, 2.5]); rr(x + .5, 124.5, 13, 39, 2); ctx.stroke(); ctx.setLineDash([]); } }
+  label('0', 132, 178, 7); label(L('14일', '14 D'), 382, 178, 7, 'right');
+  rule(16, 214, 384);
+  label(L('계산', 'MATH'), 16, 234); txt('13.4 g ÷ 4.47 g/' + L('일', 'day') + ' = 3.0', 16, 258, 15, 700, 'left', INK, NUM);
+  sachet(344, 256, 40, INK);
+};
+SCREENS['S13-outing'] = () => {
+  const f = posOf(0);
+  sTop(L('화요일 · 배운 습관', 'TUESDAY · LEARNED'), '10:00');
+  label(L('보통 외출', 'USUALLY OUT'), 16, 52, 9); num('10:30–15:00', 14, 96, 40, 800);
+  label(L('지난 4주 중 3주', '3 OF THE LAST 4 TUESDAYS'), 16, 116, 8.5);
+  ribbon(16, 150, 368, 600, DAY(['done', 'due', 'up', 'up']), [630, 900]); ribbonScale(16, 168, 368);
+  rule(16, 186, 384);
+  txt(L('점심 약 챙기기', 'Pack your lunch sachet'), 16, 224, 26, 900);
+  label(L('점심 12:30은 외출 중', 'LUNCH 12:30 FALLS INSIDE'), 16, 246, 9, 'left', RED);
+  sMini([0, 1, 2, 3].map((i) => (i === f ? 'due' : 'none')), 330, 206, 22, 16, 4);
+};
+SCREENS['S14-week'] = () => {
+  sTop(L('이번 주', 'THIS WEEK'), L('일 07:10', 'SUN 07:10'));
+  num('96', 14, 150, 108, 800); txt('%', 146, 150, 30, 900, 'left', INK, NUM);
+  label(L('제때 연 칸 67 / 70', 'OPENED ON TIME 67 / 70'), 18, 176, 9);
+  const m = [[1, 1, 1, 1, 1, 1, 1], [2, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 2, 1, 2]];
+  const days = L('일월화수목금토', 'SMTWTFS');
+  for (let d = 0; d < 7; d++) label(days[d], 228 + d * 22, 46, 8, 'center');
+  for (let r = 0; r < 4; r++) { slotIcon(r, 206, 64 + r * 28, 7); for (let d = 0; d < 7; d++) { const x = 228 + d * 22, y = 64 + r * 28; if (m[r][d] === 1) { ctx.fillStyle = INK; circ(x, y, 8, true); } else { ctx.fillStyle = RED; circ(x, y, 8, true); ctx.fillStyle = PAPER; circ(x, y, 3, true); } } }
+  rule(16, 200, 384);
+  label(L('습관', 'PATTERN'), 16, 220); txt(L('일요일 점심은 외출 중에 놓쳐요', 'Sunday lunch is missed while out'), 16, 244, 16, 900);
+  label(L('제안', 'SUGGESTION'), 16, 268); txt(L('일요일엔 점심 약을 챙겨 나가세요', 'Pack the lunch sachet on Sundays'), 16, 288, 14, 500);
+};
+SCREENS['S15-button-today'] = () => {
+  sTop(L('버튼 · 오늘', 'BUTTON · TODAY'), '16:40');
+  const at = { 0: [['08:38', 0], [null, 2], [null, 3]], 1: [['08:39', 0], [null, 2]], 2: [['08:40', 0], ['12:38', 1], [null, 2]], 3: [['08:41', 0], [null, 3]] };
+  for (let i = 0; i < 4; i++) {
+    const x = 16 + (i % 2) * 188, y = 32 + Math.floor(i / 2) * 132, w = 180, h = 124;
+    pen(INK, 1.5); rr(x + .75, y + .75, w - 1.5, h - 1.5, 4); ctx.stroke(); label(POS()[i], x + 8, y + 15, 7.5); icon(i, x + 30, y + 48, 34, INK);
+    at[i].forEach(([t, k], r) => { const ry = y + 42 + r * 26; slotIcon(k, x + 76, ry - 5, 8); if (t) { num(t, x + 94, ry + 1, 16, 800); check(x + 164, ry - 5, 12); } else { pen(INK, 1.5); circ(x + 164, ry - 5, 5.5, false); label(L('예정', 'LATER'), x + 94, ry, 8, 'left', DITHER); } });
+  }
+};
+SCREENS['S16-button-refill'] = () => {
+  sTop(L('버튼 3초 · 채우기', 'HOLD 3 S · REFILL'), '');
+  sGrid([0, 1, 2, 3].map((i) => (i === posOf(0) || i === posOf(3) ? 'plain' : 'none')), 16, 32, 124, 8);
+  for (const [i, g] of [[posOf(0), '+42 g'], [posOf(3), '+118 g']]) { const x = 16 + (i % 2) * 132, y = 32 + Math.floor(i / 2) * 132; ctx.fillStyle = PAPER; ctx.fillRect(x + 60, y + 96, 60, 22); num(g, x + 118, y + 114, 15, 800, 'right', RED); }
+  num('2', 330, 150, 110, 800, 'center'); label(L('채운 칸', 'REFILLED'), 330, 176, 10, 'center');
+  label(L('기록 안 함', 'NOT COUNTED'), 330, 206, 8.5, 'center'); label(L('한 번 누르면 끝', 'PRESS TO FINISH'), 330, 222, 8.5, 'center');
+};
+
+window.sigBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('S'));
+  const caps = { 'S01-resting': 'Resting', 'S02-resting-dust': 'Resting, very bad air', 'S03-near-next': 'Someone near, nothing due', 'S04-due': 'Dose time: red = open', 'S05-partial': 'Count drops as tiles are opened', 'S06-done': 'Done, days in a row', 'S07-not-now': 'Opened when not due', 'S08-leaving': 'Leaving near a dose time', 'S09-put-back': 'Container out 10 min', 'S10-missed': 'Dose time closed, one missed', 'S11-night': 'Night, all done', 'S12-supply': 'AI: sachets running out', 'S13-outing': 'AI: learned outing', 'S14-week': 'AI: the week', 'S15-button-today': 'Button press: today', 'S16-button-refill': 'Button hold: refill' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 4 * 390;
+  reset(1760, H); ctx.out = [];
+  txt('Lyra · Signature', 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('3색 전자잉크 (검정, 종이, 빨강) · 빨강은 언제나 "지금 하세요"', '3-colour e-ink (black, paper, red) · red always means "do this now"'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 4) * 424, 170 + Math.floor(i / 4) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+// ---------------------------------------------------------------- One Screen
+// One fixed layout, never a menu. Left: the box now. Right: today's plan.
+// Bottom: the reminder line. Nothing to navigate; the button only quiets an alarm.
+function bell(x, y, s, col) {
+  pen(col, s * .12); ctx.beginPath(); ctx.moveTo(x - s * .5, y + s * .35); ctx.quadraticCurveTo(x - s * .38, y + s * .2, x - s * .36, y - s * .1); ctx.quadraticCurveTo(x - s * .34, y - s * .5, x, y - s * .52); ctx.quadraticCurveTo(x + s * .34, y - s * .5, x + s * .36, y - s * .1); ctx.quadraticCurveTo(x + s * .38, y + s * .2, x + s * .5, y + s * .35); ctx.closePath(); ctx.fill();
+  circ(x, y + s * .5, s * .11, true);
+}
+function waves(x, y, s, col) { pen(col, 2); for (const r of [.75, 1.05]) { ctx.beginPath(); ctx.arc(x, y, s * r, -.6, .6); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, s * r, Math.PI - .6, Math.PI + .6); ctx.stroke(); } }
+const SLOTT = ['08:30', '12:30', '18:30', '22:00'];
+function onePlan(st, x = 206, y = 34, w = 178, rh = 45) {
+  for (let k = 0; k < 4; k++) {
+    const ry = y + k * rh, s = st[k], hot = s === 'now' || s === 'ring';
+    if (hot) { ctx.fillStyle = RED; rr(x, ry + 2, w, rh - 4, 4); ctx.fill(); }
+    else if (s === 'next') { pen(INK, 1.5); rr(x + .75, ry + 2.75, w - 1.5, rh - 5.5, 4); ctx.stroke(); }
+    const c = hot ? PAPER : s === 'later' ? DITHER : INK;
+    slotIcon(k, x + 16, ry + rh / 2 - 2, 9, c);
+    num(SLOTT[k], x + 32, ry + rh / 2 + 6, 18, 800, 'left', c);
+    // which compartments, by position
+    const need = due(k);
+    for (let i = 0; i < 4; i++) { const tx = x + 94 + (i % 2) * 15, ty = ry + rh / 2 - 12 + Math.floor(i / 2) * 12;
+      if (need[i]) { ctx.fillStyle = c; rr(tx, ty, 13, 10, 2); ctx.fill(); } else { pen(c, 1); ctx.setLineDash([1.5, 2]); rr(tx + .5, ty + .5, 12, 9, 2); ctx.stroke(); ctx.setLineDash([]); } }
+    const mx = x + w - 18, my = ry + rh / 2;
+    if (s === 'done') check(mx, my, 16, INK);
+    else if (s === 'missed') { pen(RED, 2.5); circ(mx, my, 8, false); ln(mx - 6, my + 6, mx + 6, my - 6); }
+    else if (hot) { label(L('지금', 'NOW'), mx + 8, my + 3, 8.5, 'right', PAPER); }
+    else if (s === 'next') { label(L('다음', 'NEXT'), mx + 8, my + 3, 8.5, 'right'); }
+    else { pen(c, 1.5); circ(mx, my, 6, false); }
+  }
+}
+function oneTop(time, dust = 1) {
+  num(time, 16, 26, 22, 800); label(L('9월 26일 토', 'SAT 26 SEP'), 86, 24, 8.5);
+  label(L('24° · 미세먼지', '24° · DUST'), 318, 24, 8.5, 'right');
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = i < dust ? (dust === 4 ? RED : INK) : PAPER; pen(INK, 1); rr(324 + i * 15, 16, 12, 8, 1.5); if (i < dust) ctx.fill(); else ctx.stroke(); }
+}
+// the reminder line: kind = quiet | wait | ring | done | missed | away | back | supply
+function oneLine(kind, big, small) {
+  const y = 222, hot = kind === 'ring' || kind === 'back';
+  if (hot) { ctx.fillStyle = RED; rr(12, y, 376, 70, 6); ctx.fill(); } else { rule(16, y + 2, 384); }
+  const c = hot ? PAPER : INK, ix = 40, iy = y + 36;
+  if (kind === 'ring') { bell(ix, iy, 26, c); waves(ix, iy - 2, 22, c); }
+  else if (kind === 'wait') { bell(ix, iy, 22, INK); }
+  else if (kind === 'quiet') { bell(ix, iy, 22, DITHER); }
+  else if (kind === 'done') check(ix, iy, 30, INK);
+  else if (kind === 'missed') { pen(RED, 3); circ(ix, iy, 15, false); ln(ix - 10, iy + 10, ix + 10, iy - 10); }
+  else if (kind === 'away') { door(ix - 12, iy - 20, 24, 40); }
+  else if (kind === 'back') { arrow(ix, iy - 20, ix, iy + 18, c, 4); }
+  else if (kind === 'supply') { sachet(ix, iy, 30, RED); }
+  txt(big, 72, y + 32, 20, 900, 'left', kind === 'missed' || kind === 'supply' ? RED : c);
+  txt(small, 72, y + 55, 13, 500, 'left', c);
+}
+function oneScreen({ time, dust, tiles, plan, line, at }) {
+  marks(); oneTop(time, dust);
+  sGrid(tiles, 16, 36, 87, 6, { at });
+  onePlan(plan);
+  oneLine(...line);
+}
+const ALL = (st) => [0, 1, 2, 3].map(() => st);
+SCREENS['O1-resting'] = () => oneScreen({ time: '14:20', dust: 1,
+  tiles: map(2).map((s) => (s === 'due' ? 'plain' : s)), plan: ['done', 'done', 'next', 'later'],
+  line: ['quiet', L('저녁 18:30까지 알림 없음', 'No reminder until 18:30'), L('빨간 칸이 생기면 여세요', 'When a tile turns red, open it')] });
+SCREENS['O2-due'] = () => oneScreen({ time: '08:32', dust: 1,
+  tiles: map(0), plan: ['now', 'later', 'later', 'later'],
+  line: ['wait', L('아침 약 · 빨간 칸 4개', 'Morning · open the 4 red'), L('08:45 차임 · 09:00 음성 안내', 'Chime at 08:45 · voice at 09:00')] });
+SCREENS['O3-ringing'] = () => oneScreen({ time: '08:45', dust: 1,
+  tiles: map(0), plan: ['ring', 'later', 'later', 'later'],
+  line: ['ring', L('아침 약 드실 시간이에요', 'Morning medicine time'), L('버튼: 10분 조용히', 'Press the button to quiet for 10 min')] });
+SCREENS['O4-partial'] = () => oneScreen({ time: '08:47', dust: 1,
+  tiles: map(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), at: [0, 1, 2, 3].map((i) => (i === posOf(0) ? '08:46' : i === posOf(1) ? '08:47' : '')),
+  plan: ['now', 'later', 'later', 'later'],
+  line: ['wait', L('2칸 남았어요', '2 left'), POS()[posOf(3)] + ' · ' + POS()[posOf(2)]] });
+SCREENS['O5-done'] = () => oneScreen({ time: '08:50', dust: 1,
+  tiles: map(1).map((s) => (s === 'due' ? 'plain' : s)), plan: ['done', 'next', 'later', 'later'],
+  line: ['done', L('아침 끝 · 29일째 제때', 'Morning done · day 29 on time'), L('다음 점심 12:30 · 약봉투 한 칸', 'Next: lunch 12:30 · the sachets')] });
+SCREENS['O6-away'] = () => oneScreen({ time: '12:40', dust: 3,
+  tiles: map(1), plan: ['done', 'now', 'later', 'later'],
+  line: ['away', L('외출 중 · 소리 안 냄', 'You are out · no sound'), L('돌아오시면 한 번 알려 드려요', 'One reminder when you are back')] });
+SCREENS['O7-missed'] = () => oneScreen({ time: '21:31', dust: 1,
+  tiles: map(3).map((s) => (s === 'due' ? 'plain' : s)), plan: ['done', 'done', 'missed', 'next'],
+  line: ['missed', L('저녁 약 1칸을 안 여셨어요', 'Evening: 1 not opened'), L('지은님께 한 번 알렸어요', 'Ji-eun was told, once')] });
+SCREENS['O8-put-back'] = () => oneScreen({ time: '18:43', dust: 1,
+  tiles: map(2, { [posOf(3)]: 'ghost', [posOf(0)]: 'done' }), at: [0, 1, 2, 3].map((i) => (i === posOf(0) ? '18:33' : '')),
+  plan: ['done', 'done', 'now', 'later'],
+  line: ['back', L('영양제 병을 제자리에', 'Put the bottle back'), L('10분째 밖에 있어요 · ' + POS()[posOf(3)], 'Out for 10 min · ' + POS()[posOf(3)])] });
+SCREENS['O9-supply'] = () => oneScreen({ time: '07:55', dust: 2,
+  tiles: map(0).map((s) => (s === 'due' ? 'plain' : s)), plan: ['next', 'later', 'later', 'later'],
+  line: ['supply', L('약봉투 3일분 남음', 'Sachets: 3 days left'), L('월요일에 약국에 가세요', 'Visit the pharmacy on Monday')] });
+
+window.oneBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('O'));
+  const caps = { 'O1-resting': 'Resting: the day at a glance', 'O2-due': 'Dose time: open the red', 'O3-ringing': 'Alarm ringing', 'O4-partial': 'Two left', 'O5-done': 'Done, what is next', 'O6-away': 'Out: no sound', 'O7-missed': 'Missed, family told once', 'O8-put-back': 'Put the bottle back', 'O9-supply': 'Sachets running out' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 3 * 390;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 한 화면', 'Lyra · One Screen'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('넘기는 화면 없음. 왼쪽: 지금 열 칸 · 오른쪽: 오늘 계획 · 아래: 알림', 'No pages to navigate. Left: open now · Right: today’s plan · Bottom: the reminder'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 3) * 560, 170 + Math.floor(i / 3) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+// ---------------------------------------------------------------- Concept 2 · Calm (ultra-minimal)
+// One sentence per screen. Black and white only (fast panel, instant tile flips).
+// No labels, no codes, no grey for information. Part of day in words.
+function cTile(i, st, x, y, s, ink, paper) {
+  if (st === 'due') { ctx.fillStyle = ink; rr(x, y, s, s, 10); ctx.fill(); icon(i, x + s / 2, y + s / 2, s * .54, paper); }
+  else if (st === 'done') { check(x + s / 2, y + s / 2, s * .34, ink); }
+  else if (st === 'missed') { pen(ink, 3); rr(x + 1.5, y + 1.5, s - 3, s - 3, 10); ctx.stroke(); icon(i, x + s / 2, y + s / 2, s * .46, ink); pen(ink, 6); ln(x + 12, y + s - 12, x + s - 12, y + 12); }
+  else if (st === 'ghost') { pen(ink, 4); ctx.setLineDash([10, 7]); rr(x + 2, y + 2, s - 4, s - 4, 10); ctx.stroke(); ctx.setLineDash([]); arrow(x + s / 2, y + s * .2, x + s / 2, y + s * .8, ink, 6); }
+  else { pen(ink, 1.5); ctx.setLineDash([2, 6]); rr(x + 1, y + 1, s - 2, s - 2, 10); ctx.stroke(); ctx.setLineDash([]); }
+}
+function cGrid(st, x, y, s, gap = 10, ink = INK, paper = PAPER) { for (let i = 0; i < 4; i++) cTile(i, st[i], x + (i % 2) * (s + gap), y + Math.floor(i / 2) * (s + gap), s, ink, paper); }
+function cSay(lines, x, y, size = 30, col = INK, lh = 1.3) { lines.forEach((t, k) => txt(t, x, y + k * size * lh, size, 900, 'left', col)); }
+const cMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+function cClock({ dayL, time, next, extra }) {
+  txt(dayL, 24, 52, 22, 700);
+  num(time[0], 20, 170, 112, 800); if (time[1]) txt(time[1], 24 + time[0].length * 62, 170, 26, 900);
+  if (extra) { txt(extra, 24, 214, 20, 900); }
+  pen(INK, 1.5); ln(24, 238, 376, 238);
+  txt(next, 24, 276, 22, 700);
+}
+SCREENS['M01-resting'] = () => cClock({ dayL: L('토요일 오후', 'Saturday afternoon'), time: ['2:20'], next: L('다음 약 · 저녁 6시 30분', 'Next medicine · evening 6:30') });
+SCREENS['M02-bad-air'] = () => cClock({ dayL: L('토요일 아침', 'Saturday morning'), time: ['7:10'], extra: L('공기가 매우 나빠요 · 마스크 쓰세요', 'Very bad air · wear a mask'), next: L('다음 약 · 아침 8시 30분', 'Next medicine · morning 8:30') });
+SCREENS['M03-due'] = () => { cGrid(cMap(0), 22, 50, 96); cSay(L('아침 약,드세요', 'Morning,medicine').split(','), 236, 140, 26); };
+SCREENS['M04-ringing'] = () => { ctx.fillStyle = INK; ctx.fillRect(0, 0, 400, 300); cGrid(cMap(0), 22, 50, 96, 10, PAPER, INK); cSay(L('약 드실,시간이에요', 'Time for,medicine').split(','), 236, 140, 26, PAPER); };
+SCREENS['M05-partial'] = () => { cGrid(cMap(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), 22, 50, 96); cSay([L('두 칸 더', '2 more')], 236, 130, 36); };
+SCREENS['M06-done'] = () => { check(90, 150, 130); cSay([L('아침 끝', 'Morning done')], 180, 146, 28); txt(L('다음 · 낮 12시 30분', 'Next · 12:30 lunch'), 180, 186, 18, 700); };
+SCREENS['M07-missed'] = () => { cGrid(cMap(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [posOf(1)]: 'missed' }), 22, 50, 96); cSay(L('한 칸을,못 여셨어요', 'One was,not opened').split(','), 236, 110, 26); txt(L('지은님께 알렸어요', 'Ji-eun knows'), 236, 190, 16, 700); };
+SCREENS['M08-put-back'] = () => { cGrid([0, 1, 2, 3].map((i) => (i === posOf(3) ? 'ghost' : 'none')), 22, 50, 96); cSay(L('병을,여기에,놓아 주세요', 'Put the,bottle,back here').split(','), 236, 96, 26); };
+SCREENS['M09-supply'] = () => { sachet(90, 130, 110, INK); num('3', 200, 170, 120, 800); cSay(L('일분,남았어요', 'days,left').split(','), 282, 136, 24); pen(INK, 1.5); ln(24, 238, 376, 238); txt(L('월요일에 약국에 가세요', 'Visit the pharmacy on Monday'), 24, 276, 22, 700); };
+SCREENS['M10-night'] = () => { txt(L('토요일 밤', 'Saturday night'), 24, 52, 22, 700); num('11:20', 20, 170, 112, 800); pen(INK, 1.5); ln(24, 238, 376, 238); check(40, 268, 26); txt(L('오늘 약 모두 끝 · 내일 아침 8시 30분', 'All done · tomorrow 8:30 am'), 66, 276, 20, 700); };
+
+window.calmBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('M'));
+  const caps = { 'M01-resting': 'Resting: part of day, time, next', 'M02-bad-air': 'Bad air: one extra line', 'M03-due': 'Dose time: black = open', 'M04-ringing': 'Alarm: whole screen turns black', 'M05-partial': 'Opened tiles become checks', 'M06-done': 'Done', 'M07-missed': 'Missed, family knows', 'M08-put-back': 'Put it back here', 'M09-supply': 'Sachets running out', 'M10-night': 'Night, all done' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 3 * 390;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 콘셉트 2 · 고요', 'Lyra · Concept 2 · Calm'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('한 화면에 한 문장 · 흑백만 · 라벨 없음 · 약 시간엔 화면 전체가 검게', 'One sentence per screen · black and white only · no labels · the whole screen turns black at alarm'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 4) * 424, 170 + Math.floor(i / 4) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+// ---------------------------------------------------------------- Concept 3 · Always
+// A fixed left rail that never changes place: time, part of day, air, next alarm.
+// The main area is the box: black = open now; after opening, each tile shows its time.
+function aRail({ time, part, air, temp, next, nextL, invert }) {
+  const ink = INK;
+  num(time, 14, 58, time.length > 4 ? 38 : 44, 800);
+  txt(part, 16, 84, 15, 700);
+  pen(INK, 1); ln(16, 100, 112, 100);
+  txt(L('공기', 'Air'), 16, 124, 13, 500);
+  txt(['', '좋음', '보통', '나쁨', '매우 나쁨'][air].replace(/^(.*)$/, (m) => (window.LANG === 'en' ? ['', 'Good', 'Fair', 'Bad', 'Very bad'][air] : m)), 16, 148, air === 4 ? 17 : 20, 900);
+  for (let i = 0; i < 4; i++) { pen(INK, 1.5); circ(21 + i * 16, 164, 5.5, i < air); }
+  txt(temp, 16, 196, 18, 700);
+  pen(INK, 1); ln(16, 212, 112, 212);
+  bell(24, 236, 14, INK); txt(nextL, 38, 241, 12, 700);
+  if (/^[0-9:]+$/.test(next)) num(next, 16, 276, 26, 800); else txt(next, 16, 274, 17, 900);
+  pen(INK, 1); ln(124, 12, 124, 288);
+}
+function aTile(i, st, x, y, s, at, ink = INK, paper = PAPER) {
+  if (st === 'due') { ctx.fillStyle = ink; rr(x, y, s, s, 10); ctx.fill(); icon(i, x + s / 2, y + s / 2, s * .52, paper); }
+  else if (st === 'done') { pen(ink, 2.5); rr(x + 1.25, y + 1.25, s - 2.5, s - 2.5, 10); ctx.stroke(); icon(i, x + s / 2, y + s * .36, s * .32, ink); num(at || '', x + s / 2, y + s * .84, s * .2, 800, 'center', ink); }
+  else if (st === 'next') { pen(ink, 2.5); rr(x + 1.25, y + 1.25, s - 2.5, s - 2.5, 10); ctx.stroke(); icon(i, x + s / 2, y + s / 2, s * .46, ink); }
+  else if (st === 'missed') { pen(ink, 2.5); rr(x + 1.25, y + 1.25, s - 2.5, s - 2.5, 10); ctx.stroke(); icon(i, x + s / 2, y + s / 2, s * .42, ink); pen(ink, 5); ln(x + 10, y + s - 10, x + s - 10, y + 10); }
+  else { pen(ink, 1.3); ctx.setLineDash([2, 5]); rr(x + 1, y + 1, s - 2, s - 2, 10); ctx.stroke(); ctx.setLineDash([]); }
+}
+function aBox(st, at = [], ink = INK, paper = PAPER, s = 118, y = 22) { for (let i = 0; i < 4; i++) aTile(i, st[i], 140 + (i % 2) * (s + 8), y + Math.floor(i / 2) * (s + 8), s, at[i], ink, paper); }
+function aScreen(rail, st, at, line, invert) {
+  if (invert) { ctx.fillStyle = INK; ctx.fillRect(130, 0, 270, 300); }
+  aRail(rail);
+  if (line) { aBox(st, at, invert ? PAPER : INK, invert ? INK : PAPER, 104, 16); txt(line, 140, 282, 17, 900, 'left', invert ? PAPER : INK); }
+  else aBox(st, at, invert ? PAPER : INK, invert ? INK : PAPER);
+}
+const aMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+const RR = (time, part, next, nextL, air = 1) => ({ time, part: L(...part), air, temp: L('24° 맑음', '24° clear'), next, nextL: L(...nextL) });
+const at0 = (m) => [0, 1, 2, 3].map((i) => m[i] || '');
+SCREENS['A01-resting'] = () => aScreen(RR('7:50', ['토요일 아침', 'Sat morning'], '8:30', ['다음 알림', 'Next alarm']), aMap(0).map((s) => (s === 'due' ? 'next' : s)), [], L('8시 30분에 네 칸', 'Four at 8:30'));
+SCREENS['A02-due'] = () => aScreen(RR('8:30', ['토요일 아침', 'Sat morning'], '8:45', ['차임', 'Chime']), aMap(0), [], L('아침 약 드세요', 'Morning medicine'));
+SCREENS['A03-alarm'] = () => aScreen(RR('9:00', ['토요일 아침', 'Sat morning'], '9:10', ['다시 알림', 'Again']), aMap(0), [], L('약 드실 시간이에요', 'Time for medicine'), true);
+SCREENS['A04-partial'] = () => aScreen(RR('8:42', ['토요일 아침', 'Sat morning'], '8:45', ['차임', 'Chime']), aMap(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), at0({ [posOf(0)]: '8:41', [posOf(1)]: '8:42' }), L('두 칸 더', '2 more'));
+SCREENS['A05-done'] = () => aScreen(RR('8:47', ['토요일 아침', 'Sat morning'], '12:30', ['다음 알림', 'Next alarm']), ['done', 'done', 'done', 'done'], at0({ 0: '8:44', 1: '8:42', 2: '8:41', 3: '8:46' }));
+SCREENS['A06-later'] = () => aScreen(RR('2:20', ['토요일 오후', 'Sat afternoon'], '6:30', ['다음 알림', 'Next alarm'], 2), [0, 1, 2, 3].map((i) => (i === posOf(0) ? 'done' : 'none')), at0({ [posOf(0)]: '12:38' }), L('점심 12:38에 열었어요', 'Lunch opened at 12:38'));
+SCREENS['A07-away'] = () => aScreen(RR('12:40', ['토요일 낮', 'Sat midday'], L('돌아오면', 'On return'), ['조용히', 'Quiet'], 3), aMap(1), [], L('외출 중 · 소리 없음', 'You are out · no sound'));
+SCREENS['A08-missed'] = () => aScreen(RR('9:31', ['토요일 밤', 'Sat night'], '10:00', ['다음 알림', 'Next alarm']), aMap(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [posOf(1)]: 'missed' }), at0({ [posOf(0)]: '6:35', [posOf(3)]: '6:36' }), L('한 칸 못 여심 · 지은님께 알림', '1 not opened · Ji-eun told'));
+SCREENS['A09-bad-air'] = () => aScreen(RR('7:10', ['토요일 아침', 'Sat morning'], '8:30', ['다음 알림', 'Next alarm'], 4), aMap(0).map((s) => (s === 'due' ? 'next' : s)), [], L('마스크 쓰고 나가세요', 'Wear a mask outside'));
+SCREENS['A10-night'] = () => aScreen(RR('11:20', ['토요일 밤', 'Sat night'], '8:30', ['내일', 'Tomorrow']), ['done', 'done', 'done', 'done'], at0({ 0: '10:02', 1: '6:37', 2: '6:35', 3: '10:03' }), L('오늘 약 모두 끝', 'All done today'));
+
+// ---------------------------------------------------------------- interaction storyboard
+function lyraDevice(x, y, w, screenBody, ring, sound) {
+  const h = w * .62, lidH = h * .26, sx = x + w * .3, sy = y + lidH + h * .1, sw = w * .4, sh = sw * .75;
+  if (ring > 0) { pen('#f2c14e', ring === 2 ? 14 : 7); ctx.beginPath(); ctx.moveTo(x + 6, y + lidH); ctx.lineTo(x + w - 6, y + lidH); ctx.stroke(); }
+  ctx.fillStyle = '#fbfaf7'; rr(x, y + lidH, w, h - lidH, 16); ctx.fill(); pen('#9a9890', 1.2); ctx.stroke();
+  ctx.fillStyle = '#fbfaf7'; rr(x + 4, y, w - 8, lidH, 14); ctx.fill(); ctx.stroke();
+  pen(ring > 0 ? '#e0a526' : '#c9c7bf', 2.5); ln(x + 10, y + lidH + 1, x + w - 10, y + lidH + 1);
+  ctx.out.push(`<g transform="translate(${sx} ${sy}) scale(${sw / 400})">${screenBody}</g>`);
+  pen('#9a9890', 1); rr(sx, sy, sw, sh, 2); ctx.stroke(); circ(x + w * .8, sy + sh / 2, w * .035, false);
+  if (sound === 'chime') { txt('♪', x + w + 6, y + lidH + 30, 26, 700); } else if (sound === 'voice') { bell(x + w + 18, y + lidH + 24, 20, INK); waves(x + w + 18, y + lidH + 22, 16, INK); }
+}
+window.storyBoard = () => {
+  const steps = [
+    ['A01-resting', 0, 0, ['7:50', '평소: 조용히 시계와 공기', 'Resting: clock and air, silent']],
+    ['A02-due', 1, 0, ['8:30', '약 시간: 빛이 은은히, 칸이 검게', 'Dose time: ring glows softly, tiles turn black']],
+    ['A02-due', 1, 'chime', ['8:45', '곁에 계시면 차임 한 번', 'If you are near: one soft chime']],
+    ['A03-alarm', 2, 'voice', ['9:00', '그래도 아직이면 음성 + 화면 반전', 'Still not opened: voice line, screen inverts']],
+    ['A04-partial', 1, 0, ['8:42', '뚜껑을 열고 칸을 열면 그 칸에 시간', 'Open a compartment: its tile shows the time']],
+    ['A05-done', 0, 0, ['8:46', '다 열면 빛이 꺼지고 다음 알림 표시', 'All opened: ring off, next alarm shown']],
+    ['A07-away', 0, 0, ['12:40', '외출 중엔 소리도 빛도 없음', 'Out: no sound, no light']],
+    ['A06-later', 0, 0, ['2:20', '하루 종일: 무엇을 언제 열었는지', 'All day: what was opened, and when']],
+  ];
+  const bodies = Object.fromEntries(steps.map((s) => [s[0], content(s[0])]));
+  const H = 200 + 2 * 420;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 하루의 흐름', 'Lyra · How a day feels'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('빛 → 차임 → 음성, 곁에 있을 때만. 시간과 공기와 다음 알림은 늘 보여요.', 'Light, then chime, then voice, and only when you are near. Time, air and the next alarm are always visible.'), 62, 126, 18, 500);
+  steps.forEach(([n, ring, sound, [t, ko, en]], i) => {
+    const x = 70 + (i % 4) * 420, y = 180 + Math.floor(i / 4) * 420;
+    num(String(i + 1).padStart(2, '0'), x, y + 10, 16, 800); num(t, x + 30, y + 10, 16, 800);
+    lyraDevice(x, y + 30, 330, bodies[n], ring, sound);
+    txt(L(ko, en), x, y + 270, 17, 700);
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+window.alwaysBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('A'));
+  const caps = { 'A01-resting': 'Before: what is next', 'A02-due': 'Dose time', 'A03-alarm': 'Alarm: main area inverts', 'A04-partial': 'Opened tiles show their time', 'A05-done': 'Done: every time, next alarm', 'A06-later': 'Later: lunch opened at 12:38', 'A07-away': 'Out: quiet', 'A08-missed': 'Missed, family told', 'A09-bad-air': 'Very bad air', 'A10-night': 'Night: today’s record' };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 3 * 390;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 콘셉트 3 · 늘 보이는', 'Lyra · Concept 3 · Always'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('왼쪽: 시간·공기·다음 알림은 늘 같은 자리 · 오른쪽: 상자, 연 칸엔 연 시간', 'Left: time, air and next alarm, always in the same place · Right: the box; opened tiles show when'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 4) * 424, 170 + Math.floor(i / 4) * 390, bodies[n], String(i + 1).padStart(2, '0') + ' · ' + caps[n]));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+// ---------------------------------------------------------------- Concept 5 · Anchor (evidence-based, simplest)
+// 1 routine anchor ("after breakfast") · 2 exact compartment · 3 confirmation with time
+// 4 one timely cue · 5 family only on a miss. Time and air always on top.
+function eTop(time, air) {
+  num(time, 16, 30, 24, 800);
+  const w = window.LANG === 'en' ? ['', 'Air good', 'Air fair', 'Air bad', 'Air very bad'][air] : ['', '공기 좋음', '공기 보통', '공기 나쁨', '공기 매우 나쁨'][air];
+  txt(w, 330, 29, 15, 700, 'right');
+  for (let i = 0; i < 4; i++) { pen(INK, 1.5); circ(342 + i * 13, 24, 4.5, i < air); }
+  pen(INK, 1); ln(16, 42, 384, 42);
+}
+function eBox(st, at = [], ink = INK, paper = PAPER) { for (let i = 0; i < 4; i++) aTile(i, st[i], 16 + (i % 2) * 118, 52 + Math.floor(i / 2) * 118, 110, at[i], ink, paper); }
+function eRight(lines, x = 262, y = 90) { y -= lines[0][1]; for (const [t, size, w] of lines) { y += size + 6; if (t) txt(t, x, y, size, w || 900); } }
+function eBottom(t) { txt(t, 262, 282, 14, 700); }
+const eMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+const eAt = (m) => [0, 1, 2, 3].map((i) => m[i] || '');
+SCREENS['E1-next'] = () => { eTop('10:20', 1); eBox(eMap(1).map((s) => (s === 'due' ? 'next' : s))); eRight([[L('다음', 'Next'), 16, 700], [L('점심', 'After'), 25], [L('식사 후', 'lunch'), 25], [L('12시 30분경', 'around 12:30'), 16, 700]]); eBottom(L('아침 ✓ 8:41', 'Morning ✓ 8:41')); };
+SCREENS['E2-cue'] = () => { eTop('8:32', 1); eBox(eMap(0)); eRight([[L('아침', 'After'), 25], [L('식사 후', 'breakfast'), 25], [L('검은 칸', 'Open the'), 18, 700], [L('4개 여세요', '4 black'), 18, 700]]); };
+SCREENS['E3-partial'] = () => { eTop('8:42', 1); eBox(eMap(0, { [posOf(0)]: 'done', [posOf(1)]: 'done' }), eAt({ [posOf(0)]: '8:41', [posOf(1)]: '8:42' })); eRight([[L('2칸', '2 more'), 30], [L('더', 'to open'), 30]]); };
+SCREENS['E4-done'] = () => { eTop('8:47', 1); eBox(['done', 'done', 'done', 'done'], eAt({ 0: '8:44', 1: '8:42', 2: '8:41', 3: '8:46' })); check(296, 100, 56); eRight([[L('아침 끝', 'Morning'), 26], [L('', 'done'), 26]], 262, 172); eBottom(L('다음 · 점심 식사 후', 'Next · after lunch')); };
+SCREENS['E5-cue-again'] = () => { eTop('8:47', 1); ctx.fillStyle = INK; rr(10, 48, 380, 246, 12); ctx.fill(); eBox(eMap(0), [], PAPER, INK); eRight([[L('아침 약', 'Morning'), 25], [L('아직이에요', 'medicine'), 30]]); for (const t of []) {} txt(L('한 번만 더 알려 드려요', 'One more reminder'), 262, 282, 14, 700, 'left', PAPER); };
+SCREENS['E6-missed'] = () => { eTop('21:31', 1); eBox(eMap(2, { [posOf(0)]: 'done', [posOf(3)]: 'done', [posOf(1)]: 'missed' }), eAt({ [posOf(0)]: '18:35', [posOf(3)]: '18:36' })); eRight([[L('저녁', 'Evening'), 26], [L('한 칸 못 여심', '1 not opened'), 18, 700]]); eBottom(L('지은님께 알렸어요', 'Ji-eun was told')); };
+// fix E5: the right text must be white on black
+SCREENS['E5-cue-again'] = () => { eTop('8:47', 1); ctx.fillStyle = INK; rr(10, 48, 380, 246, 12); ctx.fill(); eBox(eMap(0), [], PAPER, INK); txt(L('아침 약', 'Morning'), 262, 90, 24, 900, 'left', PAPER); txt(L('아직이에요', 'medicine'), 262, 122, 24, 900, 'left', PAPER); txt(L('한 번 더 알림', 'Reminding again'), 262, 282, 14, 700, 'left', PAPER); };
+
+window.anchorBoard = () => {
+  const names = Object.keys(SCREENS).filter((n) => n.startsWith('E'));
+  const caps = {
+    'E1-next': [L('다음: 루틴으로 말하기', 'Next, said as a routine'), L('근거 1 · 기존 습관에 묶기', 'Evidence 1 · anchor to a routine')],
+    'E2-cue': [L('그 순간 한 번 알리기', 'One cue at the routine moment'), L('근거 1·2·4 · 루틴, 정확한 칸, 알림', 'Evidence 1, 2, 4 · routine, exact spot, cue')],
+    'E3-partial': [L('연 칸엔 시간', 'Opened tiles show the time'), L('근거 3 · 먹었는지 확인', 'Evidence 3 · confirmation')],
+    'E4-done': [L('끝, 그리고 다음', 'Done, and what is next'), L('근거 3 · "먹었나?" 없애기', 'Evidence 3 · ends "did I take it?"')],
+    'E5-cue-again': [L('한 번 더, 그뿐', 'One more cue, no more'), L('근거 4 · 짧고 정확한 알림', 'Evidence 4 · brief, timely')],
+    'E6-missed': [L('놓치면 가족에게 한 번', 'Missed: family told once'), L('근거 5 · 보호자 지원', 'Evidence 5 · caregiver support')],
+  };
+  const bodies = Object.fromEntries(names.map((n) => [n, content(n)]));
+  const H = 200 + 2 * 400 + 260;
+  reset(1760, H); ctx.out = [];
+  txt(L('Lyra · 콘셉트 5 · 앵커', 'Lyra · Concept 5 · Anchor'), 60, 90, 44, 900, 'left', INK, NUM);
+  txt(L('연구로 입증된 다섯 가지만. 나머지는 모두 뺐어요.', 'Only the five things research shows help older adults take medicine. Everything else removed.'), 62, 126, 18, 500);
+  names.forEach((n, i) => frame(64 + (i % 3) * 560, 170 + Math.floor(i / 3) * 400, bodies[n], ...caps[n]));
+  const ev = window.LANG === 'en'
+    ? ['1  Tie each dose to a daily routine: "after breakfast" (implementation intentions, routine anchoring)', '2  Show the exact compartment: taking from the wrong compartment is the most common organizer error', '3  Confirm with the time it was opened: removes "did I take it?" (missed and double doses)', '4  One timely cue, then one more: digital reminders work, and brief cues respect attention', '5  Family only on a miss: caregiver support improves adherence']
+    : ['1  약을 기존 습관에 묶기: "아침 식사 후" (실행 의도, 루틴 앵커링)', '2  정확한 칸 보여주기: 칸을 잘못 여는 것이 약통의 가장 흔한 실수', '3  연 시간으로 확인: "먹었나?"를 없애 빠뜨림과 중복 복용 방지', '4  제때 한 번, 그리고 한 번 더: 디지털 알림은 효과, 짧게', '5  놓쳤을 때만 가족에게: 보호자 지원은 복약을 높임'];
+  const y0 = 170 + 2 * 400 + 30;
+  txt(L('근거', 'Evidence'), 64, y0, 24, 900, 'left', INK, NUM);
+  ev.forEach((t, k) => txt(t, 64, y0 + 36 + k * 30, 17, 500));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+// ---------------------------------------------------------------- Concept 6 · Fade
+// The reminder is drawn as strong as the habit is weak. Habit strength = share of doses
+// opened before any cue (last 14 days). Level 0 bold · 1 medium · 2 quiet · 3 whisper.
+function fTop(time, air) {
+  num(time, 16, 26, 18, 800);
+  const w = window.LANG === 'en' ? ['', 'Air good', 'Air fair', 'Air bad', 'Air very bad'][air] : ['', '공기 좋음', '공기 보통', '공기 나쁨', '공기 매우 나쁨'][air];
+  txt(w, 330, 25, 13, 700, 'right'); for (let i = 0; i < 4; i++) { pen(INK, 1.3); circ(343 + i * 12, 21, 4, i < air); }
+}
+function fGrid(level, st, at = []) {
+  const S = [112, 88, 66, 13][level], G = [8, 8, 7, 3][level];
+  const x0 = level === 3 ? 348 : 16, y0 = level === 3 ? 250 : [44, 60, 80, 0][level];
+  for (let i = 0; i < 4; i++) {
+    const x = x0 + (i % 2) * (S + G), y = y0 + Math.floor(i / 2) * (S + G), s = st[i];
+    if (level === 3) { if (s === 'due') { ctx.fillStyle = INK; rr(x, y, S, S, 2); ctx.fill(); } else if (s === 'done') { pen(INK, 1.2); rr(x + .6, y + .6, S - 1.2, S - 1.2, 2); ctx.stroke(); } else { pen(INK, .8); ctx.setLineDash([1, 2]); rr(x + .5, y + .5, S - 1, S - 1, 2); ctx.stroke(); ctx.setLineDash([]); } continue; }
+    if (s === 'due' && level < 2) { ctx.fillStyle = INK; rr(x, y, S, S, 10); ctx.fill(); icon(i, x + S / 2, y + S / 2, S * .52, PAPER); }
+    else if (s === 'due') { pen(INK, 3); rr(x + 1.5, y + 1.5, S - 3, S - 3, 9); ctx.stroke(); icon(i, x + S / 2, y + S / 2, S * .5, INK); }
+    else if (s === 'done') { pen(INK, 1.5); rr(x + .75, y + .75, S - 1.5, S - 1.5, 9); ctx.stroke(); icon(i, x + S / 2, y + S * .36, S * .3, INK); num(at[i] || '', x + S / 2, y + S * .84, S * .19, 800, 'center'); }
+    else { pen(INK, 1); ctx.setLineDash([2, 5]); rr(x + .5, y + .5, S - 1, S - 1, 9); ctx.stroke(); ctx.setLineDash([]); }
+  }
+}
+function fSay(level, big, small) {
+  if (level === 0) { txt(big[0], 262, 96, 26, 900); txt(big[1] || '', 262, 128, 26, 900); if (small) { txt(small[0], 262, 168, 15, 700); txt(small[1] || '', 262, 188, 15, 700); } }
+  else if (level === 1) { txt(big[0], 218, 110, 20, 900); txt(big[1] || '', 218, 136, 20, 900); }
+  else if (level === 2) { txt(big.join(' '), 170, 150, 15, 700); }
+}
+const fMap = (slot, over = {}) => [0, 1, 2, 3].map((i) => over[i] || (due(slot)[i] ? 'due' : 'none'));
+const AB = () => L('아침,식사 후', 'After,breakfast').split(',');
+const OPEN4 = () => L('검은 칸,4개 여세요', 'Open the,4 black').split(',');
+SCREENS['F1-day1'] = () => { fTop('8:20', 1); fGrid(0, fMap(0)); fSay(0, AB(), OPEN4()); };
+SCREENS['F2-day14'] = () => { fTop('8:20', 1); fGrid(1, fMap(0)); fSay(1, AB()); };
+SCREENS['F3-day30'] = () => { fTop('8:20', 1); fGrid(2, fMap(0)); fSay(2, AB()); };
+SCREENS['F4-day60'] = () => { fTop('8:20', 1); fGrid(3, fMap(0)); };
+SCREENS['F5-opened'] = () => { fTop('8:47', 1); fGrid(1, ['done', 'done', 'done', 'done'], ['8:44', '8:42', '8:41', '8:46']); txt(L('아침', 'Morning'), 218, 110, 20, 900); txt(L('끝', 'done'), 218, 136, 20, 900); txt(L('다음 · 점심 식사 후', 'Next · after lunch'), 218, 176, 14, 700); };
+SCREENS['F6-slip'] = () => { fTop('8:40', 1); fGrid(0, fMap(0)); fSay(0, AB(), L('어제 저녁을,놓쳐 다시 크게', 'Missed last night,so back to full').split(',')); };
+SCREENS['F7-rest-day60'] = () => { fTop('14:20', 1); txt(L('토요일 오후', 'Saturday afternoon'), 200, 150, 15, 500, 'center'); fGrid(3, fMap(2).map((s) => (s === 'due' ? 'done' : s))); };
+
+window.fadeBoard = () => {
+  const bodies = Object.fromEntries(['F1-day1', 'F2-day14', 'F3-day30', 'F4-day60', 'F5-opened', 'F6-slip', 'F7-rest-day60'].map((n) => [n, content(n)]));
+  const H = 1500;
+  reset(1760, H); ctx.out = [];
+  txt('Lyra · Fade', 60, 96, 56, 900, 'left', INK, NUM);
+  txt(L('필요 없어지도록 설계한 첫 복약 알림', 'The first medicine reminder designed to be needed less.'), 62, 140, 26, 700);
+  txt(L('같은 순간(아침 식사 후), 습관이 자랄수록 화면은 옅어집니다.', 'The same moment, after breakfast, as the habit grows. The ink on the screen is the habit.'), 62, 176, 18, 500);
+  const cols = [['F1-day1', L('1일째', 'Day 1'), '35%', L('빛 · 차임 · 음성', 'Light · chime · voice')], ['F2-day14', L('14일째', 'Day 14'), '62%', L('빛 · 차임', 'Light · chime')], ['F3-day30', L('30일째', 'Day 30'), '84%', L('빛만', 'Light only')], ['F4-day60', L('60일째', 'Day 60'), '95%', L('없음 · 스스로 시작', 'Nothing · you start it')]];
+  cols.forEach(([n, d, h, cue], i) => {
+    const x = 64 + i * 424, y = 250;
+    num(d, x, y - 14, 22, 800);
+    ctx.out.push(`<g transform="translate(${x} ${y})">${bodies[n]}</g>`); pen('#9a9890', 1); rr(x, y, 400, 300, 0); ctx.stroke();
+    label(L('습관 강도', 'HABIT STRENGTH'), x, y + 332, 10); num(h, x, y + 376, 40, 800);
+    label(L('알림', 'CUE'), x + 200, y + 332, 10); txt(cue, x + 200, y + 370, 18, 700);
+  });
+  // habit strength curve, 60 days
+  const gx = 64, gy = 700, gw = 1632, gh = 200, X = (d) => gx + (d / 60) * gw, Y = (v) => gy + gh - (v / 100) * gh;
+  pen('#c9c7bf', 1); for (const v of [50, 80]) ln(gx, Y(v), gx + gw, Y(v));
+  label('80%', gx + gw + 6, Y(80) + 3, 9); label('50%', gx + gw + 6, Y(50) + 3, 9);
+  const pts = [[0, 30], [4, 38], [8, 47], [12, 57], [14, 62], [18, 68], [22, 74], [26, 80], [30, 84], [34, 86], [38, 72], [40, 78], [44, 86], [50, 91], [56, 94], [60, 95]];
+  pen(INK, 3); ctx.beginPath(); pts.forEach(([d, v], k) => (k ? ctx.lineTo(X(d), Y(v)) : ctx.moveTo(X(d), Y(v)))); ctx.stroke();
+  for (const d of [1, 14, 30, 60]) { const v = pts.reduce((a, p) => (Math.abs(p[0] - d) < Math.abs(a[0] - d) ? p : a))[1]; ctx.fillStyle = INK; circ(X(d), Y(v), 6, true); }
+  pen(INK, 1.5); circ(X(38), Y(72), 8, false); txt(L('38일째: 한 번 놓침 → 알림이 다시 커짐', 'Day 38: a miss, so the reminder grows back'), X(38) + 14, Y(72) + 28, 15, 700);
+  txt(L('습관 강도 = 최근 14일 중 알림 전에 스스로 연 비율', 'Habit strength = share of doses opened before any cue, last 14 days'), gx, gy + gh + 36, 16, 500);
+  // more states
+  const more = [['F5-opened', L('연 칸엔 시간', 'Opened tiles keep their time')], ['F6-slip', L('습관이 흔들리면 즉시 다시 크게', 'A slip brings full reminders back at once')], ['F7-rest-day60', L('60일째 평소: 거의 빈 종이', 'Day 60 at rest: almost blank paper')]];
+  more.forEach(([n, cap], i) => { const x = 64 + i * 424, y = 1010; ctx.out.push(`<g transform="translate(${x} ${y})">${bodies[n]}</g>`); pen('#9a9890', 1); rr(x, y, 400, 300, 0); ctx.stroke(); txt(cap, x, y + 330, 16, 700); });
+  txt(L('왜: 시계 알림은 습관을 만들지 못합니다 (Stawarz 2014).', 'Clock alarms don’t build habits (Stawarz 2014).'), 1336, 1050, 16, 700);
+  txt(L('필요한 순간에만 돕기 (JITAI, 2018).', 'Help only at the right moment (JITAI, 2018).'), 1336, 1080, 16, 700);
+  txt(L('루틴에 묶기 (JAGS 2026).', 'Anchor to a routine (JAGS 2026).'), 1336, 1110, 16, 700);
+  txt(L('그래서 Lyra는 점점 조용해집니다.', 'So Lyra gets quieter as you get better.'), 1336, 1160, 20, 900);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1760 ${H}" width="1760" height="${H}"><rect width="1760" height="${H}" fill="#f4f3ef"/>${ctx.out.join('')}</svg>`;
+};
+
+window.render = (name) => { reset(); SCREENS[name](); return svgDoc('lyra-' + name); };
+window.names = Object.keys(SCREENS);
+</script>
