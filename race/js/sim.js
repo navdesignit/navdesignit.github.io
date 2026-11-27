@@ -392,7 +392,7 @@ export class World {
         if (o.life <= 0) alive = false;
         for (const k of this.karts) {
           if (!alive) break;
-          if (k.id === o.owner && now - o.t0 < 0.6) continue;
+          if (k.id === o.owner) continue; // Mummy's chappal never comes back for you
           const dx = k.x - o.x, dz = k.z - o.z, dy = k.y + 1 - o.y;
           if (dx * dx + dz * dz + dy * dy > 3.2) continue;
           alive = false;

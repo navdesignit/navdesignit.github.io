@@ -245,7 +245,8 @@ export class Race {
         if (ev.w === 'chappal') { A.sfx('thwack', Math.max(0.3, v)); if (k) R.textPop(k.x, k.y + 3, k.z, 'THWACK!', '#9fd3ff', 2); }
         if (ev.w === 'paan') { A.sfx('splat', Math.max(0.3, v)); if (k) R.splash(k.x, k.y, k.z, ['#b3122e', '#7a0f22', '#2fbf55'], 24); }
         if (ev.w === 'bump' && k) R.textPop(k.x, k.y + 3, k.z, 'DHADAAM!', '#ff7b00', 1.8);
-        if (ev.w !== 'horn' || ev.u === me || ev.by === me) hud.tick(say(kind === 'bump' ? 'bump' : kind, { a, b }), 1);
+        if (ev.by === ev.u) hud.tick(say('self', { b }), 1);
+        else if (ev.w !== 'horn' || ev.u === me || ev.by === me) hud.tick(say(kind === 'bump' ? 'bump' : kind, { a, b }), 1);
         const victim = this.charOf(ev.u), attacker = this.charOf(ev.by);
         if (ev.by === me && ev.u !== me) {
           this.mine.stats2.hits++;
@@ -291,7 +292,7 @@ export class Race {
     const hud = this.app.hud, R = this.app.R;
     switch (f.type) {
       case 'box': if (mine) A.sfx('roll'); break;
-      case 'gotitem': if (mine) { A.sfx('got'); hud.tick(`${(ITEM_INFO[f.a] || {}).icon} ${(ITEM_INFO[f.a] || {}).name}: ${(ITEM_INFO[f.a] || {}).tip}`); } break;
+      case 'gotitem': if (mine) { A.sfx('got'); hud.tick(`${(ITEM_INFO[f.a] || {}).icon} ${(ITEM_INFO[f.a] || {}).name}!`); } break;
       case 'boxpop': {
         const b = this.T.boxes[f.a];
         if (b) {

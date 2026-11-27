@@ -50,4 +50,6 @@ node --test race/tests/*.mjs
 
 The tests check the track maths and items, and race five bots three laps round every track.
 
+`tests/two-phones.cjs` races two browser phones against each other through the Firebase emulator, with a simulated slow network, and checks they agree on the result, how smoothly each draws the other's kart, and how much data a race uses.
+
 To try online play locally, run the Firebase Database emulator on port 9000 with `ludo/database.rules.json` and open `http://localhost:8080/race/?emulator=9000`. Test-only URL options: `practice=1&go=1` starts a practice race straight away, `autopilot=1` lets a bot drive your kart, `step=1` advances the game only when a script calls `__pp.step()` (for smooth recordings), and `lag=120&jitter=60` pretends position updates arrive that late.

@@ -141,6 +141,7 @@ function openProfile(mode, code = null) {
   S.joinCode = code;
   $('#name-input').value = store.get('al_name', '');
   S.pickChar = store.get('al_char', null);
+  S.shownChar = null;
   renderProfile();
   show('profile');
 }
@@ -173,6 +174,7 @@ function resolvedChar() {
 function renderProfile() {
   const taken = takenChars();
   const ch = resolvedChar();
+  S.shownChar = S.shownChar || ch;
   $('#rider-grid').innerHTML = CHAR_IDS.map(id => riderCard(id, { on: id === ch, taken: taken[id] })).join('');
 }
 
@@ -437,7 +439,12 @@ $('#form-code').onsubmit = e => {
   openProfile('join', code);
 };
 $$('[data-home]').forEach(b => { b.onclick = () => (S.room ? show('lobby') : goHome()); });
-$('#name-input').addEventListener('input', renderProfile);
+$('#name-input').addEventListener('input', () => {
+  const now = resolvedChar();
+  renderProfile();
+  if (now !== S.shownChar) { const card = $(`.rider[data-char="${now}"]`); if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  S.shownChar = now;
+});
 $('#rider-grid').onclick = e => {
   const b = e.target.closest('.rider');
   if (!b || b.disabled) return;

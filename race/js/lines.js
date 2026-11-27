@@ -7,6 +7,7 @@ export const LINES = {
   horn: ['PON PON! 📯 {b} ki dhadkan badh gayi', 'Horn OK Please! {a} ne {b} ko hila diya 📯', '{a}: "Side hato!" 📯'],
   bump: ['{a} ke Diwali rocket ne {b} ko uda diya 🚀', 'Rocket ke aage kaun aaya? {b} 🚀'],
   gaay: ['{a} ne gaay chhod di, {b} ruk gaya 🐄', 'Gaay mata ne {b} ko rok diya 🐄🙏'],
+  self: ['{b} apne hi jaal mein phas gaya 🤦', 'Khud ka hi maal, khud pe 🤦 {b}!', '{b}: "Ye mera hi tha kya?" 🤦'],
   block: ['Nimbu-mirchi ne nazar utaar di 🍋🌶️', '{b} bach gaya! Nazar battu kaam kar gaya 🍋'],
   cow: ['Gaay mata road pe hai, sab ruk jao 🐄', 'Cow has right of way. Always. 🐄', 'Moooo! 🐄 {b} ko brake lagana pada'],
   pothole: ['Gaddha! Smart city ka gift 🕳️', 'Bhai suspension gaya 🕳️', 'Gaddhe mein Indore ka itihaas hai 🕳️'],
