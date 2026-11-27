@@ -13,7 +13,11 @@ const FP1 = FP0 + 2.2;                 // and ends here; buildings start beyond
 export const THEMES = {
   day: { skyTop: '#3f95f0', skyBot: '#fde3bd', fog: '#f1d9b8', fogNear: 110, fogFar: 420, ground: '#b6935f', hemi: ['#ffffff', '#9a7a52', 1.35], sun: ['#fff3dc', 1.7], sunDir: [0.4, 1, 0.25], night: false },
   sunset: { skyTop: '#3b3d9e', skyBot: '#ff9752', fog: '#f59a6c', fogNear: 90, fogFar: 380, ground: '#9c7553', hemi: ['#ffd9b8', '#6b4a52', 1.25], sun: ['#ffb070', 1.5], sunDir: [-0.8, 0.45, 0.3], night: false },
-  night: { skyTop: '#070822', skyBot: '#3a1f5e', fog: '#21173a', fogNear: 60, fogFar: 300, ground: '#463c4c', hemi: ['#9a92d8', '#2c2236', 1.0], sun: ['#a8b8ff', 0.55], sunDir: [0.3, 1, -0.4], night: true },
+  night: { skyTop: '#070822', skyBot: '#3a1f5e', fog: '#21173a', fogNear: 60, fogFar: 300, ground: '#463c4c', hemi: ['#9a92d8', '#2c2236', 1.0], sun: ['#a8b8ff', 0.55], sunDir: [0.3, 1, -0.4], night: true, lights: true },
+  // golden hour going purple, with the stall lights already on
+  dusk: { skyTop: '#2c2a72', skyBot: '#ff8a5c', fog: '#c27a74', fogNear: 85, fogFar: 360, ground: '#8a6a55', hemi: ['#ffd0b0', '#4a3550', 1.2], sun: ['#ff9a6a', 1.25], sunDir: [-0.7, 0.35, 0.4], night: false, lights: true },
+  // the new city at night: glass towers, lit windows, no fairy lights
+  city: { skyTop: '#060b26', skyBot: '#2a3274', fog: '#1d2250', fogNear: 70, fogFar: 340, ground: '#3c4054', hemi: ['#a9b8ff', '#2a2a3a', 1.1], sun: ['#b0c4ff', 0.65], sunDir: [0.3, 1, -0.4], night: true, lights: false },
 };
 
 const PASTELS = ['#f6a6b2', '#ffd27a', '#9fd3ff', '#b5e48c', '#ffb385', '#d0b3ff', '#f7f0d6', '#7fd1c7', '#ffe066', '#e8a87c', '#c9e4ff', '#ff9f9f'];
@@ -36,14 +40,33 @@ const BOARDS = [
   ['DER SE PAHUCHNA, KABHI NA PAHUCHNE SE BEHTAR', '#1d70d6', '#fff'], ['BHIYA, POHA KHA LO 🍛', '#ff4fa3', '#fff'],
 ];
 
-// One texture holds every signboard: 4 columns × 8 rows of 2:1 cells.
+// Chhappan Dukan: Indore's food street.
+const FOOD56 = [
+  ['Khopra Patties', '#ffd23f', '#7a1f00'], ['Garadu', '#ff7b00', '#fff'], ['Shikanji', '#2a9d3f', '#fff'], ['Mawa Bati', '#9d0208', '#ffd166'],
+  ['Bhutte ka Kees', '#ffea00', '#2b2d42'], ['Hot Dog 🌭', '#e63946', '#fff'], ['Dahi Vada', '#ffffff', '#1d70d6'], ['Sabudana Khichdi', '#f77f00', '#fff'],
+  ['Egg Benjo 🍳', '#212529', '#ffd60a'], ['Pani Puri', '#8338ec', '#fff'], ['Coconut Crush', '#06d6a0', '#073b4c'], ['Kulfi Faluda', '#ff4fa3', '#fff'],
+];
+// Vijay Nagar and Scheme 114: the new city.
+const MODERN = [
+  ['SCHEME NO. 114 · SWAGAT HAI', '#0b3d91', '#ffffff'], ['VIJAY NAGAR', '#ffffff', '#0b3d91'], ['BOMBAY HOSPITAL', '#ffffff', '#c1121f'], ['H', '#1d70d6', '#ffffff'],
+  ['MEGA MALL · SALE 50%', '#ff4fa3', '#ffffff'], ['IT PARK', '#14213d', '#7bdff2'], ['Cafe Coffee ☕', '#6f4518', '#fff8ec'], ['IIT-JEE COACHING · 100% RESULT', '#ffd60a', '#c1121f'],
+  ['Pizza 🍕', '#e63946', '#fff'], ['Gym 💪 Fitness', '#212529', '#ff7b00'], ['BANK · ATM', '#023e8a', '#fff'], ['RING ROAD', '#2a9d3f', '#fff'],
+  ['A.B. ROAD ➜', '#2a9d3f', '#fff'], ['56 DUKAN', '#ff7b00', '#ffffff'],
+];
+
+// One texture holds every signboard: 4 columns × 16 rows of 2:1 cells.
 let atlas = null;
+const ALL_SIGNS = [...SHOPS, ...BOARDS, ...FOOD56, ...MODERN];
+const SIGN_ROWS = 16;
+const cellOf = text => ALL_SIGNS.findIndex(e => e[0] === text);
+const FOOD_CELLS = FOOD56.map(e => cellOf(e[0]));
+const MODERN_SHOP_CELLS = ['Cafe Coffee ☕', 'Pizza 🍕', 'Gym 💪 Fitness', 'BANK · ATM', 'IIT-JEE COACHING · 100% RESULT', 'MEGA MALL · SALE 50%', 'IT PARK'].map(cellOf);
 function signAtlas() {
   if (atlas) return atlas;
-  const W = 1024, H = 1024, cw = 256, ch = 128;
+  const W = 1024, H = 128 * SIGN_ROWS, cw = 256, ch = 128;
   const c = canvas(W, H);
   const ctx = c.getContext('2d');
-  const all = [...SHOPS, ...BOARDS];
+  const all = ALL_SIGNS;
   all.forEach(([text, bg, fg], i) => {
     const x = (i % 4) * cw, y = Math.floor(i / 4) * ch;
     ctx.fillStyle = bg;
@@ -85,7 +108,7 @@ class Signs {
     const rx = -fz, rz = fx; // right-hand side when facing the sign
     const hw = w / 2, hh = h / 2;
     const P = [[x - rx * hw, y - hh, z - rz * hw], [x + rx * hw, y - hh, z + rz * hw], [x + rx * hw, y + hh, z + rz * hw], [x - rx * hw, y + hh, z - rz * hw]];
-    const u0 = (cell % 4) / 4, v1 = 1 - Math.floor(cell / 4) / 8, u1 = u0 + 0.25, v0 = v1 - 0.125;
+    const u0 = (cell % 4) / 4, v1 = 1 - Math.floor(cell / 4) / SIGN_ROWS, u1 = u0 + 0.25, v0 = v1 - 1 / SIGN_ROWS;
     const UV = [[u1, v0], [u0, v0], [u0, v1], [u1, v1]];
     for (const k of [0, 1, 2, 0, 2, 3]) { this.p.push(...P[k]); this.uv.push(...UV[k]); }
   }
@@ -384,12 +407,103 @@ function building(b, rng, w, dep, h, night) {
   if (rng() < 0.25) b.box([0, h + 0.5, 0], [dep, 1, 0.15], col);
 }
 
+// Vijay Nagar's glass towers. Lit window strips go in `g`, an unlit batch, so they glow at night.
+function tower(b, g, rng, w, dep, h, night) {
+  const glass = ['#2b4c7e', '#1f6f8b', '#3a506b', '#22577a', '#4a4e69', '#355c7d'][Math.floor(rng() * 6)];
+  const frame = night ? '#3a4058' : '#d5dde6';
+  b.box([0, h / 2, 0], [dep, h, w], glass);
+  (night ? g : b).box([dep / 2 + 0.06, 1.9, 0], [0.1, 3.4, w * 0.9], night ? '#dfeaff' : '#a9c6e8');
+  b.box([dep / 2 + 0.7, 3.75, 0], [1.4, 0.2, w], frame);
+  const floors = Math.floor((h - 4.5) / 3.4);
+  for (let f = 0; f < floors; f++) {
+    const y = 4.6 + f * 3.4;
+    b.box([0, y, 0], [dep + 0.08, 0.2, w + 0.08], frame);
+    if (night) {
+      const n = 1 + Math.floor(rng() * 3);
+      for (let k = 0; k < n; k++) {
+        if (rng() < 0.35) continue;
+        const len = w * (0.15 + rng() * 0.3), z = (rng() - 0.5) * (w - len);
+        g.box([dep / 2 + 0.05, y + 1.6, z], [0.06, 1.7, len], rng() < 0.7 ? '#ffe7a3' : '#cfe6ff');
+      }
+    } else if (rng() < 0.5) b.box([dep / 2 + 0.05, y + 1.6, 0], [0.06, 1.4, w * 0.9], '#9ec3e6');
+  }
+  b.box([0, h + 0.6, 0], [dep * 0.7, 1.2, w * 0.7], frame);
+  if (rng() < 0.5) b.rod([0, h + 1.2, 0], [0, h + 6, 0], 0.08, '#888');
+  if (night && rng() < 0.5) g.shape('sph6', [0, h + 6.1, 0], [0.25, 0.25, 0.25], '#ff3030');
+}
+
+// A food stall on Chhappan Dukan: counter, steel bowls and a bright canopy.
+function foodStall(b, g, rng, lit) {
+  const canopy = ['#e63946', '#ffb703', '#2a9d8f', '#8338ec', '#ff4fa3', '#1d70d6'][Math.floor(rng() * 6)];
+  b.box([0, 0.55, 0], [1.4, 1.1, 3], '#f1e3c8');
+  b.box([0.71, 0.55, 0], [0.04, 0.9, 2.8], canopy);
+  b.box([0, 1.12, 0], [1.5, 0.06, 3.1], '#c0c4ca');
+  for (let k = 0; k < 4; k++) b.shape('cyl', [0.25, 1.22, -1.1 + k * 0.72], [0.25, 0.12, 0.25], k % 2 ? '#c0c4ca' : '#9aa1ab');
+  for (let k = 0; k < 4; k++) b.shape('sph6', [0.25, 1.3, -1.1 + k * 0.72], [0.2, 0.1, 0.2], ['#ffd43c', '#ff8c1a', '#f4e4c1', '#2fbf55'][k]);
+  for (const z of [-1.5, 1.5]) for (const x of [-0.7, 0.7]) b.rod([x, 0, z], [x, 2.9, z], 0.04, '#555');
+  b.box([0.1, 3.0, 0], [2.0, 0.1, 3.4], canopy, [0, 0, -0.18]);
+  if (lit) for (let k = 0; k < 6; k++) g.shape('sph6', [0.95, 2.75, -1.5 + k * 0.6], [0.07, 0.07, 0.07], ['#ffd166', '#ff4fa3', '#7bdff2'][k % 3]);
+}
+
+// Bombay Hospital on the ring road (front faces +x).
+function hospital(b, g, night) {
+  b.box([0, 10, 0], [22, 20, 44], '#f2f4f7');
+  b.box([0, 21, -12], [14, 2, 10], '#e3e7ec');
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 11; c++) (night && (r + c) % 3 ? g : b).box([11.05, 4.5 + r * 3.3, -17.5 + c * 3.5], [0.1, 1.8, 2.4], night ? '#cfe6ff' : '#7fb0d8');
+  b.box([13, 3.4, 0], [5, 0.4, 14], '#e3e7ec');
+  for (const z of [-6, 6]) b.box([15, 1.7, z], [0.5, 3.4, 0.5], '#ced4da');
+  b.box([11.1, 1.6, 0], [0.1, 3.0, 6], night ? '#ffffff' : '#bcd4e6');
+  // an ambulance waiting outside
+  b.box([17, 1.1, -12], [5, 2, 2.2], '#ffffff');
+  b.box([17, 1.2, -10.88], [5.02, 0.35, 0.02], '#c1121f');
+  b.box([17, 1.2, -13.12], [5.02, 0.35, 0.02], '#c1121f');
+  (night ? g : b).box([17.8, 2.2, -12], [0.6, 0.2, 1.4], '#2f7bff');
+  for (const [x, z] of [[15.5, -11], [15.5, -13], [18.5, -11], [18.5, -13]]) b.shape('cyl', [x, 0.4, z], [0.4, 0.25, 0.4], '#222', [PI / 2, 0, 0]);
+}
+
+// A mall: a big box with a glass front.
+function mall(b, g, night) {
+  b.box([0, 9, 0], [30, 18, 50], '#cfc6bd');
+  (night ? g : b).box([15.05, 7, 0], [0.1, 12, 30], night ? '#bfe0ff' : '#7aa6c9');
+  b.box([17, 4, 0], [4, 0.4, 16], '#b8aea3');
+  for (let k = 0; k < 6; k++) b.box([15.1, 15.5, -20 + k * 8], [0.2, 1.2, 5], ['#ff4fa3', '#ffd23f', '#06d6a0'][k % 3]);
+}
+
+// Bhawarkuan-style coaching institute, with its students outside.
+function coaching(b, g, rng, night) {
+  b.box([0, 7, 0], [12, 14, 16], '#f6e7c1');
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) (night ? g : b).box([6.05, 5 + r * 3.2, -5.4 + c * 3.6], [0.1, 1.6, 2.2], night ? '#ffe7a3' : '#2f3b4f');
+  for (let k = 0; k < 10; k++) person(b, 8 + rng() * 4, -6 + rng() * 12, rng() * 6, rng);
+}
+
+// An arch over the road, with marigold strings and a banner both ways.
+function arch(b, signs, T, i0, cell, { pillar = '#c1121f', beam = '#ff6b35', H = 7.5 } = {}) {
+  const fx = T.TX[i0], fz = T.TZ[i0], nx = T.NX[i0], nz = T.NZ[i0], y0 = T.Y[i0];
+  for (const s of [-1, 1]) {
+    const px = T.X[i0] + nx * s * (HALF_W + 2.2), pz = T.Z[i0] + nz * s * (HALF_W + 2.2);
+    b.box([px, y0 + H / 2, pz], [1.2, H, 1.2], pillar, [0, -T.ANG[i0], 0]);
+    b.shape('sph', [px, y0 + H + 0.6, pz], [0.9, 0.9, 0.9], '#ffcd00');
+    for (let k = 0; k < 14; k++) b.shape('sph6', [px + fx * 0.65, y0 + 0.5 + k * 0.5, pz + fz * 0.65], [0.28, 0.28, 0.28], k % 2 ? '#ff9f1c' : '#ffd23f');
+  }
+  const lx = T.X[i0] + nx * (HALF_W + 2.2), lz = T.Z[i0] + nz * (HALF_W + 2.2);
+  const rx = T.X[i0] - nx * (HALF_W + 2.2), rz = T.Z[i0] - nz * (HALF_W + 2.2);
+  b.box([(lx + rx) / 2, H - 0.4 + y0, (lz + rz) / 2], [0.8, 1.6, 2 * HALF_W + 5.6], beam, [0, -T.ANG[i0], 0]);
+  for (let k = 0; k <= 40; k++) {
+    const f = k / 40, sag = Math.sin(f * PI) * 1.6;
+    for (const off of [-0.5, 0.5]) b.shape('sph6', [lx + (rx - lx) * f + fx * off, H - 1.4 - sag + y0, lz + (rz - lz) * f + fz * off], [0.3, 0.3, 0.3], (k + (off > 0 ? 1 : 0)) % 2 ? '#ff9f1c' : '#ffd23f');
+  }
+  const mid = [(lx + rx) / 2, H - 0.4 + y0, (lz + rz) / 2];
+  signs.add(mid[0] - fx * 0.45, mid[1], mid[2] - fz * 0.45, T.ANG[i0] + PI, 9, cell, 1.5);
+  signs.add(mid[0] + fx * 0.45, mid[1], mid[2] + fz * 0.45, T.ANG[i0], 9, cell, 1.5);
+}
+
 // ---------------------------------------------------------------- the world
 
 export function buildWorld(T, scene) {
   const def = T.def;
   const th = THEMES[def.theme] || THEMES.day;
   const night = th.night;
+  const style = def.style || 'old';
   const rng = seeded(hashStr(T.id));
   const group = new THREE.Group();
   const anim = { strips: null, boxes: null, cows: [], kites: null, lights: null, t: 0 };
@@ -515,25 +629,14 @@ export function buildWorld(T, scene) {
     g.computeVertexNormals();
     group.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: checkerTexture(), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })));
     const b = new Batch();
-    const H = 7.5;
-    for (const s of [-1, 1]) {
-      const px = T.X[i0] + nx * s * (HALF_W + 2.2), pz = T.Z[i0] + nz * s * (HALF_W + 2.2);
-      b.box([px, H / 2, pz], [1.2, H, 1.2], '#c1121f', [0, -T.ANG[i0], 0]);
-      b.shape('sph', [px, H + 0.6, pz], [0.9, 0.9, 0.9], '#ffcd00');
-      for (let k = 0; k < 14; k++) b.shape('sph6', [px + fx * 0.65, 0.5 + k * 0.5, pz + fz * 0.65], [0.28, 0.28, 0.28], k % 2 ? '#ff9f1c' : '#ffd23f');
-    }
-    const lx = T.X[i0] + nx * (HALF_W + 2.2), lz = T.Z[i0] + nz * (HALF_W + 2.2);
-    const rx = T.X[i0] - nx * (HALF_W + 2.2), rz = T.Z[i0] - nz * (HALF_W + 2.2);
-    b.box([(lx + rx) / 2, H - 0.4 + T.Y[i0], (lz + rz) / 2], [0.8, 1.6, 2 * HALF_W + 5.6], '#ff6b35', [0, -T.ANG[i0], 0]);
-    for (let k = 0; k <= 40; k++) {
-      const f = k / 40, sag = Math.sin(f * PI) * 1.6;
-      for (const off of [-0.5, 0.5]) b.shape('sph6', [lx + (rx - lx) * f + fx * off, H - 1.4 - sag + T.Y[i0], lz + (rz - lz) * f + fz * off], [0.3, 0.3, 0.3], (k + (off > 0 ? 1 : 0)) % 2 ? '#ff9f1c' : '#ffd23f');
+    const banner = new Signs();
+    arch(b, banner, T, i0, cellOf('🏁 PON PON PRIX 🏁'));
+    // the track's own welcome arches (56 Dukan, Scheme 114)
+    for (const [f, kind] of def.arches || []) {
+      const cell = cellOf(kind === 'gate56' ? '56 DUKAN' : 'SCHEME NO. 114 · SWAGAT HAI');
+      arch(b, banner, T, T.at(f * T.L), cell, kind === 'gate56' ? { pillar: '#ff7b00', beam: '#8338ec', H: 8 } : { pillar: '#0b3d91', beam: '#ffffff', H: 8 });
     }
     group.add(b.mesh());
-    const banner = new Signs();
-    const mid = [(lx + rx) / 2, H - 0.4 + T.Y[i0], (lz + rz) / 2];
-    banner.add(mid[0] - fx * 0.45, mid[1], mid[2] - fz * 0.45, T.ANG[i0] + PI, 9, SHOPS.length, 1.5);
-    banner.add(mid[0] + fx * 0.45, mid[1], mid[2] + fz * 0.45, T.ANG[i0], 9, SHOPS.length, 1.5);
     group.add(banner.mesh());
   }
 
@@ -583,57 +686,94 @@ export function buildWorld(T, scene) {
   const CHUNKS = 8;
   const chunks = Array.from({ length: CHUNKS }, () => new Batch());
   const signs = Array.from({ length: CHUNKS }, () => new Signs());
+  const glows = Array.from({ length: CHUNKS }, () => new Batch()); // unlit: lit windows, bulbs
   const wires = [];
-  const bulbs = night ? new Particles(2400, { additive: true, maxPx: 14 }) : null;
+  const bulbs = th.lights ? new Particles(2400, { additive: true, maxPx: 14 }) : null;
   const lampGlow = [];
   const chunkOf = i => Math.min(CHUNKS - 1, Math.floor((i / T.N) * CHUNKS));
   const at = (i, d, dz = 0) => ({ x: T.X[i] + T.NX[i] * d + T.TX[i] * dz, z: T.Z[i] + T.NZ[i] * d + T.TZ[i] * dz });
   const place = (b, from, x, y, z, ang) => b.transform(from, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -ang), new THREE.Vector3(1, 1, 1)));
-  const stallKinds = def.theme === 'night' ? ['jalebi', 'bhutta', 'poha', 'chai', 'jalebi', 'fruit'] : ['poha', 'chai', 'fruit', 'poha', 'chai', 'bhutta'];
+  const stallKinds = style === 'food' ? ['food56', 'food56', 'jalebi', 'food56', 'bhutta', 'chai', 'food56', 'fruit']
+    : def.theme === 'night' ? ['jalebi', 'bhutta', 'poha', 'chai', 'jalebi', 'fruit'] : ['poha', 'chai', 'fruit', 'poha', 'chai', 'bhutta'];
+
+  // special buildings at fixed spots (Bombay Hospital, the mall, the coaching class)
+  const reserved = [];
+  for (const [f, kind, side] of def.spots || []) {
+    const i = T.at(f * T.L);
+    const [w, dep] = { hospital: [46, 22], mall: [50, 30], coaching: [16, 12] }[kind];
+    const p = at(i, side * (FP1 + 1.5 + dep / 2));
+    if (!clear(p.x, p.z, Math.min(w, dep) * 0.5)) continue;
+    const ch = chunkOf(i), b = chunks[ch], g = glows[ch];
+    const face = T.ANG[i] + (side > 0 ? PI / 2 : -PI / 2); // towards the road
+    const fb = b.mark(), fg = g.mark();
+    if (kind === 'hospital') hospital(b, g, night);
+    else if (kind === 'mall') mall(b, g, night);
+    else coaching(b, g, rng, night);
+    place(b, fb, p.x, 0, p.z, face);
+    place(g, fg, p.x, 0, p.z, face);
+    const front = (x, y, wd, cell, ht) => { const q = at(i, side * (FP1 + 1.5 + dep / 2 - x)); signs[ch].add(q.x, y, q.z, face, wd, cell, ht); };
+    if (kind === 'hospital') { front(dep / 2 + 0.2, 17.5, 16, cellOf('BOMBAY HOSPITAL')); front(dep / 2 + 0.2, 4.6, 3, cellOf('H'), 3); }
+    else if (kind === 'mall') front(dep / 2 + 0.3, 15.5, 16, cellOf('MEGA MALL · SALE 50%'));
+    else front(dep / 2 + 0.2, 12.5, 11, cellOf('IIT-JEE COACHING · 100% RESULT'));
+    reserved.push({ side, s0: f * T.L - w / 2 - 3, s1: f * T.L + w / 2 + 3 });
+  }
 
   for (const side of [1, -1]) {
     let s = rng() * 6;
     while (s < T.L - 4) {
       const i = T.at(s);
       if (T.elevated[i] || T.elevated[(i + 6) % T.N] || T.elevated[(i - 6 + T.N) % T.N]) { s += 8; continue; }
-      const ch = chunkOf(i), b = chunks[ch];
+      if (reserved.some(q => q.side === side && s > q.s0 && s < q.s1)) { s += 4; continue; }
+      const ch = chunkOf(i), b = chunks[ch], g = glows[ch];
       const face = T.ANG[i] + (side > 0 ? -PI / 2 : PI / 2); // direction from the building to the road
       const r = rng();
-      const stallP = def.theme === 'night' ? 0.32 : 0.16;
+      const stallP = style === 'food' ? 0.62 : style === 'modern' ? 0.05 : def.theme === 'night' ? 0.32 : 0.16;
       if (r < stallP) {
         const kind = stallKinds[Math.floor(rng() * stallKinds.length)];
         const p = at(i, side * (FP1 + 1.4));
         if (clear(p.x, p.z, 1.4)) {
-          const from = b.mark();
-          STALLS[kind](b, rng);
-          place(b, from, p.x, T.Y[i] + 0.32 * 0, p.z, face + PI);
+          const from = b.mark(), fromG = g.mark();
+          if (kind === 'food56') foodStall(b, g, rng, th.lights); else STALLS[kind](b, rng);
+          place(b, from, p.x, 0, p.z, face + PI);
+          place(g, fromG, p.x, 0, p.z, face + PI);
           const sp = at(i, side * (FP1 + 1.4 + 0.2));
-          signs[ch].add(sp.x, (kind === 'chai' ? 3.2 : 2.3), sp.z, face + PI, 1.8, STALL_SIGNS[kind]);
+          const cell = kind === 'food56' ? FOOD_CELLS[Math.floor(rng() * FOOD_CELLS.length)] : STALL_SIGNS[kind];
+          signs[ch].add(sp.x, kind === 'chai' ? 3.2 : kind === 'food56' ? 3.55 : 2.3, sp.z, face + PI, kind === 'food56' ? 2.6 : 1.8, cell);
           for (let k = 0; k < 1 + Math.floor(rng() * 3); k++) {
             const q = at(i, side * (FP0 + 0.6 + rng() * 1.2), (rng() - 0.5) * 4);
             person(b, q.x, q.z, rng() * 6, rng, 0.32);
           }
-          if (night) for (let k = 0; k < 3; k++) { const q = at(i, side * (FP1 + 0.6), (k - 1) * 1.2); bulbs.emit(q.x, 2.6 + (k % 2) * 0.2, q.z, 0, 0, 0, 1e9, 0.7, ['#ffd166', '#ff4fa3', '#7bdff2'][k], 0); }
+          if (bulbs) for (let k = 0; k < 3; k++) { const q = at(i, side * (FP1 + 0.6), (k - 1) * 1.2); bulbs.emit(q.x, 2.6 + (k % 2) * 0.2, q.z, 0, 0, 0, 1e9, 0.7, ['#ffd166', '#ff4fa3', '#7bdff2'][k], 0); }
           s += 4 + rng() * 3;
           continue;
         }
       }
       if (r < 0.8) {
-        const w = 6 + rng() * 6, dep = 7 + rng() * 5, h = 4 + Math.floor(rng() * 4) * 3 + rng();
+        const modern = style === 'modern';
+        const w = modern ? 10 + rng() * 8 : 6 + rng() * 6, dep = modern ? 10 + rng() * 6 : 7 + rng() * 5;
+        const h = modern ? 16 + rng() * 30 : style === 'food' ? 4 + Math.floor(rng() * 2) * 3 + rng() : 4 + Math.floor(rng() * 4) * 3 + rng();
         const p = at(i, side * (FP1 + 0.5 + dep / 2));
         if (clear(p.x, p.z, Math.max(w, dep) * 0.45)) {
-          const from = b.mark();
-          building(b, rng, w, dep, h, night);
+          const from = b.mark(), fromG = g.mark();
+          if (modern) tower(b, g, rng, w, dep, h, night); else building(b, rng, w, dep, h, night);
           place(b, from, p.x, 0, p.z, face + PI);
+          place(g, fromG, p.x, 0, p.z, face + PI);
           if (rng() < 0.75) {
             const sp = at(i, side * (FP1 + 0.5 - 0.15));
-            signs[ch].add(sp.x, 3.55, sp.z, face + PI, Math.min(w * 0.9, 5.5), Math.floor(rng() * SHOPS.length));
+            const cell = modern ? MODERN_SHOP_CELLS[Math.floor(rng() * MODERN_SHOP_CELLS.length)]
+              : style === 'food' && rng() < 0.6 ? FOOD_CELLS[Math.floor(rng() * FOOD_CELLS.length)] : Math.floor(rng() * SHOPS.length);
+            signs[ch].add(sp.x, modern ? 4.4 : 3.55, sp.z, face + PI, Math.min(w * 0.9, modern ? 7 : 5.5), cell);
           }
           // second row behind, taller
           if (rng() < 0.6) {
-            const w2 = 8 + rng() * 6, d2 = 8 + rng() * 6, h2 = 9 + rng() * 12;
+            const w2 = 8 + rng() * 6, d2 = 8 + rng() * 6, h2 = modern ? 30 + rng() * 40 : 9 + rng() * 12;
             const p2 = at(i, side * (FP1 + 1 + dep + d2 / 2 + 1));
-            if (clear(p2.x, p2.z, Math.max(w2, d2) * 0.45)) { const f2 = b.mark(); building(b, rng, w2, d2, h2, night); place(b, f2, p2.x, 0, p2.z, face + PI); }
+            if (clear(p2.x, p2.z, Math.max(w2, d2) * 0.45)) {
+              const f2 = b.mark(), g2 = g.mark();
+              if (modern) tower(b, g, rng, w2, d2, h2, night); else building(b, rng, w2, d2, h2, night);
+              place(b, f2, p2.x, 0, p2.z, face + PI);
+              place(g, g2, p2.x, 0, p2.z, face + PI);
+            }
           }
           s += w + 0.6;
           continue;
@@ -648,11 +788,12 @@ export function buildWorld(T, scene) {
   }
 
   // street lamps, electric poles and their tangled wires, fairy lights at night
-  for (let s = 5; s < T.L; s += night ? 22 : 30) {
+  const fairy = !!th.lights;
+  for (let s = 5; s < T.L; s += fairy ? 22 : 30) {
     const i = T.at(s);
     if (T.elevated[i]) continue;
     const b = chunks[chunkOf(i)];
-    const side = night ? (Math.floor(s / 22) % 2 ? 1 : -1) : 1;
+    const side = fairy ? (Math.floor(s / 22) % 2 ? 1 : -1) : style === 'modern' ? (Math.floor(s / 30) % 2 ? 1 : -1) : 1;
     const p = at(i, side * (FP0 + 0.7));
     if (!clear(p.x, p.z, -2.3)) continue;
     b.rod([p.x, 0.3, p.z], [p.x, 7.2, p.z], 0.11, '#5d5d66');
@@ -660,7 +801,16 @@ export function buildWorld(T, scene) {
     b.rod([p.x, 7.0, p.z], [q.x, 7.3, q.z], 0.06, '#5d5d66');
     b.box([q.x, 7.15, q.z], [0.6, 0.18, 0.4], '#3a3a42', [0, -T.ANG[i], 0]);
     lampGlow.push([q.x, 7.0, q.z]);
-    if (!night) {
+    if (style === 'modern' && !fairy) {
+      // the new city: lamps on both sides, no tangle of wires
+      const o = at(i, -side * (FP0 + 0.7)), q2 = at(i, -side * (FP0 - 1.5));
+      if (clear(o.x, o.z, -2.3)) {
+        b.rod([o.x, 0.3, o.z], [o.x, 7.2, o.z], 0.11, '#5d5d66');
+        b.rod([o.x, 7.0, o.z], [q2.x, 7.3, q2.z], 0.06, '#5d5d66');
+        b.box([q2.x, 7.15, q2.z], [0.6, 0.18, 0.4], '#3a3a42', [0, -T.ANG[i], 0]);
+        lampGlow.push([q2.x, 7.0, q2.z]);
+      }
+    } else if (!fairy) {
       const r = at(i, -side * (FP0 + 0.8));
       if (clear(r.x, r.z, -2.3)) {
         b.rod([r.x, 0.3, r.z], [r.x, 8.5, r.z], 0.14, '#6e6458');
@@ -681,7 +831,7 @@ export function buildWorld(T, scene) {
   }
   // wires: four sagging cables between neighbouring poles, plus the odd extra tangle
   const wirePos = [];
-  if (!night) {
+  if (wires.length) {
     for (let w = 0; w < wires.length; w++) {
       const a = wires[w], c = wires[(w + 1) % wires.length];
       if (Math.hypot(a[0] - c[0], a[2] - c[2]) > 45) continue;
@@ -736,45 +886,57 @@ export function buildWorld(T, scene) {
       const size = Math.min(1, (bd - 10) / 40);
       if (def.landmark === 'rajwada') rajwada(b);
       else if (def.landmark === 'sarafa') temple(b);
+      else if (def.landmark === 'chhappan') foodPlaza(b, rng);
+      else if (def.landmark === 'vijaynagar') fountainSquare(b);
       else truckYard(b, rng);
       b.transform(from, new THREE.Matrix4().compose(new THREE.Vector3(lx, 0, lz), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -ang), new THREE.Vector3(size, size, size)));
       group.add(b.mesh());
-      // scatter trees and small houses around it
-      const tb = new Batch();
+      // the landmark's big signboards
+      const ls = new Signs();
+      const lsign = (dx, y, w, cell, h) => { const c = Math.cos(ang), sn = Math.sin(ang); ls.add(lx + c * dx * size, y * size, lz + sn * dx * size, ang, w * size, cell, h && h * size); };
+      if (def.landmark === 'chhappan') lsign(6.6, 9, 14, cellOf('56 DUKAN'));
+      if (def.landmark === 'vijaynagar') lsign(2.2, 13, 12, cellOf('VIJAY NAGAR'));
+      if (ls.p.length) group.add(ls.mesh());
+      // scatter trees and houses (or towers, in the new city) around it
+      const tb = new Batch(), tg = new Batch();
       for (let k = 0; k < 120; k++) {
         const x = minX + rng() * (maxX - minX), z = minZ + rng() * (maxZ - minZ);
-        if (!clear(x, z, 4) || Math.hypot(x - lx, z - lz) < 30 * size + 6) continue;
-        if (rng() < 0.6) tree(tb, x, z, rng);
+        if (!clear(x, z, style === 'modern' ? 8 : 4) || Math.hypot(x - lx, z - lz) < 30 * size + 6) continue;
+        if (style === 'modern' && rng() < 0.6) { const f = tb.mark(), fg = tg.mark(); tower(tb, tg, rng, 10 + rng() * 8, 10 + rng() * 8, 20 + rng() * 40, night); place(tb, f, x, 0, z, rng() * 6); place(tg, fg, x, 0, z, rng() * 6); }
+        else if (rng() < 0.6) tree(tb, x, z, rng);
         else { const f = tb.mark(); building(tb, rng, 6 + rng() * 4, 6 + rng() * 4, 4 + rng() * 5, night); place(tb, f, x, 0, z, rng() * 6); }
       }
       group.add(tb.mesh());
+      if (!tg.empty) group.add(tg.mesh(MAT.vcBasic));
     }
   }
 
   // far ring of trees and houses beyond the streets, so there's no empty horizon
   {
-    const b = new Batch();
+    const b = new Batch(), farG = new Batch();
     const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2, R = Math.max(maxX - minX, maxZ - minZ) / 2 + 70;
     for (let k = 0; k < 90; k++) {
       const a = (k / 90) * PI * 2 + rng() * 0.05, r = R + rng() * 60;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       if (!clear(x, z, 6)) continue;
-      if (rng() < 0.5) tree(b, x, z, rng);
+      if (style !== 'modern' && rng() < 0.5) tree(b, x, z, rng);
+      else if (style === 'modern') { const f = b.mark(), fg = farG.mark(); tower(b, farG, rng, 12 + rng() * 10, 12 + rng() * 8, 25 + rng() * 50, night); place(b, f, x, 0, z, a + PI); place(farG, fg, x, 0, z, a + PI); }
       else { const f = b.mark(); building(b, rng, 10 + rng() * 10, 10 + rng() * 8, 8 + rng() * 18, night); place(b, f, x, 0, z, a + PI); }
     }
     group.add(b.mesh());
+    if (!farG.empty) group.add(farG.mesh(MAT.vcBasic));
   }
 
   chunks.forEach(b => { if (!b.empty) group.add(b.mesh()); });
+  glows.forEach(g => { if (!g.empty) group.add(g.mesh(MAT.vcBasic)); });
   signs.forEach(s => { if (s.p.length) group.add(s.mesh()); });
 
-  if (night) {
+  if (night || th.lights) {
     const glow = new Particles(lampGlow.length + 10, { additive: true, maxPx: 60 });
     for (const [x, y, z] of lampGlow) glow.emit(x, y - 0.2, z, 0, 0, 0, 1e9, 3.2, '#ffcf87', 0);
     glow.update(0);
     group.add(glow.points);
-    bulbs.update(0);
-    group.add(bulbs.points);
+    if (bulbs) { bulbs.update(0); group.add(bulbs.points); }
     // pools of lamp light on the road
     const pool = new THREE.MeshBasicMaterial({ map: radialTexture('rgba(255,200,120,0.5)', 'rgba(255,200,120,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
     const pg = new THREE.PlaneGeometry(12, 12);
@@ -785,6 +947,9 @@ export function buildWorld(T, scene) {
       m.renderOrder = 2;
       group.add(m);
     }
+    anim.lights = bulbs;
+  }
+  if (night) {
     // stars
     const stars = new Particles(300, { additive: true, maxPx: 6 });
     const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
@@ -795,7 +960,6 @@ export function buildWorld(T, scene) {
     stars.update(0);
     stars.mat.fog = false;
     group.add(stars.points);
-    anim.lights = bulbs;
   } else {
     // kites over the city (Indore loves its patang)
     const b = new Batch();
@@ -891,6 +1055,38 @@ function temple(b) {
   for (const [x, z] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) b.shape('cone4', [x, 11, z], [2.5, 5, 2.5], white, [0, PI / 4, 0]);
   b.box([5.6, 4, 0], [0.3, 5, 3.4], '#7a1f1f');
   for (let k = 0; k < 18; k++) b.shape('sph6', [6.2, 6.6 - Math.sin((k / 17) * PI) * 0.8, -2 + (k / 17) * 4], [0.25, 0.25, 0.25], k % 2 ? '#ff9f1c' : '#ffd23f');
+}
+
+// Chhappan Dukan's food plaza: tables, umbrellas, a giant jalebi and a giant hot dog.
+function foodPlaza(b, rng) {
+  b.box([0, 0.08, 0], [34, 0.16, 34], '#c9b8a0');
+  for (let k = 0; k < 10; k++) {
+    const x = -12 + (k % 5) * 6, z = k < 5 ? -9 : 9;
+    b.shape('cyl', [x, 0.9, z], [1, 0.08, 1], '#f1faee');
+    b.rod([x, 0.1, z], [x, 3.2, z], 0.05, '#555');
+    b.shape('cone', [x, 3.3, z], [2.2, 0.8, 2.2], ['#e63946', '#ffd23f', '#2a9d8f', '#8338ec', '#ff4fa3'][k % 5]);
+    for (let m = 0; m < 3; m++) person(b, x + Math.cos(m * 2.1) * 1.6, z + Math.sin(m * 2.1) * 1.6, rng() * 6, rng);
+  }
+  // giant jalebi
+  for (let k = 0; k < 3; k++) b.shape('tor', [-6, 4.2, 0], [3.2 - k * 0.9, 3.2 - k * 0.9, 1.2], '#ff8c1a', [0, PI / 2, 0]);
+  b.rod([-6, 0, 0], [-6, 1.2, 0], 0.4, '#8b5a2b');
+  // giant hot dog
+  b.shape('sph', [5, 2.6, 0], [3.4, 1.1, 1.3], '#d4a055');
+  b.shape('sph', [5, 3.2, 0], [3.8, 0.75, 0.8], '#b5442c');
+  b.rod([2, 3.95, 0], [8, 3.95, 0], 0.08, '#ffd23f');
+  for (const z of [-2.8, 2.8]) b.rod([6.6, 0, z], [6.6, 11, z], 0.25, '#ff7b00');
+}
+
+// Vijay Nagar square: a fountain on a roundabout with a pillar and a big sign.
+function fountainSquare(b) {
+  b.shape('cyl', [0, 0.15, 0], [16, 0.3, 16], '#4f8f3a');
+  b.shape('cyl', [0, 0.4, 0], [9, 0.5, 9], '#c9ced6');
+  b.shape('cyl', [0, 0.55, 0], [8.4, 0.3, 8.4], '#3fa7d6');
+  b.shape('cyl', [0, 1.5, 0], [1.2, 2.4, 1.2], '#e9ecef');
+  for (let k = 0; k < 8; k++) { const a = (k / 8) * PI * 2; b.shape('cone', [Math.cos(a) * 5, 2.2, Math.sin(a) * 5], [0.35, 3.4, 0.35], '#e8f6ff'); }
+  b.shape('cone', [0, 5.2, 0], [0.6, 5, 0.6], '#e8f6ff');
+  for (const z of [-5.2, 5.2]) b.rod([2.2, 0, z], [2.2, 15, z], 0.3, '#0b3d91');
+  for (let k = 0; k < 12; k++) { const a = (k / 12) * PI * 2; b.shape('sph6', [Math.cos(a) * 13, 0.9, Math.sin(a) * 13], [1, 0.9, 1], k % 2 ? '#ff4fa3' : '#ffd23f'); }
 }
 
 function truckYard(b, rng) {

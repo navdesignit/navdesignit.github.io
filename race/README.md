@@ -11,7 +11,7 @@ Kart racing through the streets of Indore with the Alquida gang. Make a room, se
   - 🍛 **Chechu**: *Poha Express*, an auto-rickshaw with a poha stall on top. Mithai boxes sometimes give him two items.
   - ⚖️ **Vanshika**: *Advocate Scooter*. Quickest off the line; her nimbu-mirchi lasts longer.
   - 🎨 **Liu**: *Masterpiece Moped*, splashed with paint. Best steering, and the dusty shoulder barely slows her.
-- **Three Indore tracks:** 🛕 *Rajwada Ring* (day, round the old palace), 🌙 *Sarafa Night Run* (fairy lights and jalebi stalls), 🌉 *Flyover Phataphat* (a figure of eight over a flyover at sunset). Cows wander across the road on their own timetable, potholes jolt you, speed breakers throw you in the air, and orange chevrons are masala boost strips.
+- **Five Indore tracks:** 🛕 *Rajwada Ring* (day, round the old palace), 🌙 *Sarafa Night Run* (fairy lights and jalebi stalls), 🌉 *Flyover Phataphat* (a figure of eight over a flyover at sunset), 🌭 *Chhappan Dukan Chase* (dusk on the food street: khopra patties, garadu, shikanji, egg benjo, through the 56 Dukan arch) and 🏙️ *Vijay Nagar · Scheme 114* (glass towers at night, the Scheme 114 arch, the square's fountain, a mall, a coaching class and Bombay Hospital on the ring road). Cows wander across the road on their own timetable, potholes jolt you, speed breakers throw you in the air, and orange chevrons are masala boost strips.
 - **Drifting:** hold DRIFT while turning. Sparks go white, yellow, orange, then pink; let go for a boost. Tap DRIFT just before the lights for a rocket start.
 - **Items from mithai boxes:** 🩴 Mummy ki Chappal (homes in on the kart ahead), ♨️ Pressure Cooker (drop it; third seeti = boom), 🍋 Nimbu-Mirchi (blocks one hit), ☕ Cutting Chai (boost), 📯 Pon Pon Horn (shockwave), 🌿 Paan ki Peek (slippery puddle), 🚀 Diwali Rocket (autopilot boost, the back of the pack gets these), 🐄 Gaay Mata (parks a cow behind you).
 - **Sounds:** engines, horns and tyre squeal are synthesised per ride (the Bullet thumps, the auto rattles, the moped goes nyeeee). The meme clips come from the Ludo packs, `ludo/sounds/fx.mp3` and `ludo/sounds/memes.mp3`.
@@ -33,7 +33,7 @@ During a race each phone sends its kart about 12 times a second (bots about 8) a
 | Tracks: shape, potholes, cows, boxes, boost strips | `TRACKS` in `js/track.js` |
 | Physics, items and their odds, bots | `js/sim.js` |
 | Commentary lines and item names | `js/lines.js` |
-| Scenery: shops and signboards, stalls, landmarks | `js/scenery.js` |
+| Scenery: shops and signboards, stalls, landmarks, arches, themes | `js/scenery.js` (signboard text in `SHOPS`, `BOARDS`, `FOOD56`, `MODERN`) |
 | Vehicle models | `js/karts.js` |
 | Camera, explosions, podium | `js/render.js` |
 | Sounds | `js/audio.js` |
