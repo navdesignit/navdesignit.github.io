@@ -38,7 +38,7 @@ Pass & play works straight away. Online rooms need a free Firebase Realtime Data
 
 1. Go to <https://console.firebase.google.com>, click **Create a project**, name it (for example `alquida-landu`) and create it. You can switch Google Analytics off.
 2. In the left menu, open **Build → Realtime Database → Create Database**. Pick a location close to you (for India, **Singapore, asia-southeast1**) and choose **Start in locked mode**.
-3. Open the **Rules** tab, delete what's there, paste in everything from [`database.rules.json`](database.rules.json), and click **Publish**.
+3. Open the **Rules** tab, delete what's there, paste in everything from [`database.rules.json`](database.rules.json), and click **Publish**. (The same file also has the rules for the [Pon Pon Prix](../race/) race rooms, which share this database.)
 4. Copy the database URL from the top of the **Data** tab. It looks like `https://alquida-landu-default-rtdb.asia-southeast1.firebasedatabase.app`.
 5. Put it in [`js/firebase-config.js`](js/firebase-config.js):
    ```js
