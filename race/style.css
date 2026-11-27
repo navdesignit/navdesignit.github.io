@@ -115,7 +115,7 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
 
 .rider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .rider { display: flex; gap: 12px; align-items: center; text-align: left; border: 3px solid transparent; border-radius: 18px; padding: 10px 12px; background: var(--panel); color: #fff; }
-.rider.on { border-color: var(--a); background: color-mix(in srgb, var(--a) 22%, transparent); }
+.rider.on { border-color: var(--a); background: rgba(255, 255, 255, 0.16); background: color-mix(in srgb, var(--a) 22%, transparent); }
 .rider:disabled { opacity: 0.4; }
 .rider .avatar { width: 64px; height: 64px; flex: none; border-radius: 50%; }
 .rider b { font-family: 'Bungee', sans-serif; font-weight: 400; font-size: 1.05rem; display: block; }

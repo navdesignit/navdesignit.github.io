@@ -535,7 +535,7 @@ function loop(now) {
   last = now;
   const t0 = perf ? performance.now() : 0;
   frame(dt);
-  if (perf && S.screen === 'race') perf.push([dt, performance.now() - t0]);
+  if (perf && S.screen === 'race') perf.push([dt, performance.now() - t0, S.race ? S.race.renderMs : 0]);
 }
 if (!clock.manual) requestAnimationFrame(loop);
 

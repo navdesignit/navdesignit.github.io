@@ -461,7 +461,9 @@ export class Race {
       target = lead && { x: lead.x, y: lead.y, z: lead.z, mh: lead.h, v: lead.v, boost: false };
     }
     if (target) R.follow(dt, target, this.mine ? this.camMode : 'chase');
+    const r0 = performance.now();
     if (!this.app.noRender) R.render(dt);
+    this.renderMs = performance.now() - r0;
     // engine note
     if (this.engine && this.mine) {
       const k = this.mine;

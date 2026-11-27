@@ -169,7 +169,8 @@ function textTexture(text, { color = '#fff', bg = null, stroke = '#000', size = 
     ctx.fillStyle = bg;
     const r = h / 2.4;
     ctx.beginPath();
-    ctx.roundRect(2, 2, w - 4, h - 4, r);
+    if (ctx.roundRect) ctx.roundRect(2, 2, w - 4, h - 4, r); // iOS 15 has no roundRect
+    else { ctx.moveTo(2 + r, 2); ctx.arcTo(w - 2, 2, w - 2, h - 2, r); ctx.arcTo(w - 2, h - 2, 2, h - 2, r); ctx.arcTo(2, h - 2, 2, 2, r); ctx.arcTo(2, 2, w - 2, 2, r); ctx.closePath(); }
     ctx.fill();
   }
   if (stroke) { ctx.lineWidth = size / 6; ctx.strokeStyle = stroke; ctx.lineJoin = 'round'; ctx.strokeText(text, w / 2, h / 2 + 2); }

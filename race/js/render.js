@@ -258,6 +258,7 @@ export class Renderer {
   }
 
   textPop(x, y, z, text, color = '#ffd23f', size = 2.2) {
+    if (this.camera.position.distanceTo(this._v.set(x, y, z)) < 11) return; // right in our face: the HUD says it instead
     const s = textSprite(text, { color, stroke: '#1b0f33', size: 72, height: size });
     s.position.set(x, y, z);
     s.renderOrder = 15;

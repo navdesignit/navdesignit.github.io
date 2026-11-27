@@ -210,11 +210,19 @@ export class RemoteKart {
     this.lastRecv = recv;
     this.stats.n++;
   }
-  // Pose at local time `now` (ms), smoothed into `out`.
+  // Pose at local time `now` (ms), smoothed into `out`. Playback runs on its own clock
+  // that ticks at real speed and only gently speeds up or slows down (by up to 8%) to
+  // follow the network, so a late or early packet never makes the kart jump.
   sample(now, dt, out) {
     const B = this.buf;
     if (!B.length) return null;
-    const tr = now - this.off - this.delay;
+    const target = now - this.off - this.delay;
+    if (this.play == null || Math.abs(target - this.play) > 400) this.play = target;
+    else {
+      const step = dt * 1000;
+      this.play += step + Math.max(-0.08 * step, Math.min(0.08 * step, (target - this.play) * 0.15));
+    }
+    const tr = this.play;
     let p;
     if (tr <= B[0].t) p = { ...B[0] };
     else if (tr >= B[B.length - 1].t) {
