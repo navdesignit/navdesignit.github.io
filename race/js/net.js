@@ -1,8 +1,16 @@
 // How phones talk. The room (who's in, which track, finishing times) is one JSON string
 // changed only through transactions running room.js, exactly like the Ludo rooms.
-// During a race each phone also streams its kart about 12 times a second to
-// race/CODE/k/<id>, and announces items and hits as events under race/CODE/ev.
-// Same Firebase database as the Ludo game (ludo/js/firebase-config.js).
+// During a race each phone also streams its kart about 12 times a second, and
+// announces items and hits as events.
+//
+// It all lives under rooms/CODE in the Ludo game's database (ludo/js/firebase-config.js),
+// in the shape the Ludo rules already allow, so no extra database setup is needed:
+//   rooms/CODE/state              the room, as a JSON string
+//   rooms/CODE/reactions/k_<id>   { u, e: 'k', t, p: packed kart }   (one per kart)
+//   rooms/CODE/reactions/<push>   { u, e: 'ev', t, d: event }        (items and hits)
+//   rooms/CODE/presence/<uid>     true while that phone is connected
+// Ludo and race rooms share the code space; creating a room only takes a free code,
+// and a race phone ignores a room that isn't a race.
 
 import { reduce, createRoom } from './room.js';
 import { firebaseConfig } from '../../ludo/js/firebase-config.js';
@@ -70,7 +78,7 @@ export class OnlineRoom {
     this.code = code;
     this.uid = uid;
     this.online = true;
-    this.base = `race/${code}`;
+    this.base = `rooms/${code}`;
     this.stateRef = fb.db.ref(fb.database, `${this.base}/state`);
     this.offs = [];
     this.kartRefs = {};
@@ -94,13 +102,13 @@ export class OnlineRoom {
     const fb = await firebase();
     const room = new OnlineRoom(fb, code, uid);
     const snap = await fb.db.get(room.stateRef);
-    return snap.exists() ? room : null;
+    return isRace(snap.val()) ? room : null;
   }
 
   subscribe(cb) {
     this.offs.push(this.fb.db.onValue(this.stateRef, snap => {
       const v = snap.val();
-      if (typeof v === 'string') { try { cb(JSON.parse(v)); } catch (e) { /* ignore */ } }
+      if (isRace(v)) cb(JSON.parse(v));
     }));
   }
 
@@ -110,6 +118,7 @@ export class OnlineRoom {
     try {
       const res = await this.fb.db.runTransaction(this.stateRef, cur => {
         if (cur === null) return cur;
+        if (!isRace(cur)) return undefined;
         const next = reduce(JSON.parse(cur), action);
         accepted = !!next;
         return next ? JSON.stringify(next) : undefined;
@@ -121,28 +130,34 @@ export class OnlineRoom {
     }
   }
 
-  // Positions: a short comma-separated string per kart, overwritten each time.
+  // Positions: a short comma-separated string per kart, overwritten each time. The first
+  // write makes the whole entry; after that only the string changes, which keeps each
+  // update small. If an update bounces (the host cleared the room for a new race),
+  // the next one writes the whole entry again.
   sendKart(id, str) {
-    const r = this.kartRefs[id] || (this.kartRefs[id] = this.ref(`k/${id}`));
-    this.fb.db.set(r, str).catch(() => {});
+    const { db } = this.fb;
+    const K = this.kartRefs[id] || (this.kartRefs[id] = { node: this.ref(`reactions/k_${id}`), p: this.ref(`reactions/k_${id}/p`), full: false });
+    const bounce = () => { K.full = false; };
+    if (!K.full) { K.full = true; db.set(K.node, { u: 0, e: 'k', t: 0, p: str }).catch(bounce); }
+    else db.set(K.p, str).catch(bounce);
   }
   onKarts(cb) {
     const { db } = this.fb;
-    const k = this.ref('k');
-    const fn = snap => { const v = snap.val(); if (typeof v === 'string') cb(snap.key, v); };
-    this.offs.push(db.onChildAdded(k, fn), db.onChildChanged(k, fn));
+    const r = this.ref('reactions');
+    const fn = snap => { const v = snap.val(); if (snap.key.startsWith('k_') && v && typeof v.p === 'string') cb(snap.key.slice(2), v.p); };
+    this.offs.push(db.onChildAdded(r, fn), db.onChildChanged(r, fn));
   }
 
-  sendEvent(ev) { this.fb.db.push(this.ref('ev'), ev).catch(() => {}); }
+  sendEvent(ev) { this.fb.db.push(this.ref('reactions'), { u: 0, e: 'ev', t: 0, d: ev }).catch(() => {}); }
   onEvents(cb) {
     const { db } = this.fb;
-    this.offs.push(db.onChildAdded(this.ref('ev'), snap => { const v = snap.val(); if (v) cb(v); }));
+    this.offs.push(db.onChildAdded(this.ref('reactions'), snap => { const v = snap.val(); if (v && v.e === 'ev' && v.d) cb(v.d); }));
   }
 
   // The host wipes the last race's positions and events before a new one starts.
   clearRace() {
-    const { db } = this.fb;
-    return Promise.all([db.remove(this.ref('k')), db.remove(this.ref('ev'))]).catch(() => {});
+    for (const id in this.kartRefs) this.kartRefs[id].full = false;
+    return this.fb.db.remove(this.ref('reactions')).catch(() => {});
   }
 
   presence(onChange) {
@@ -162,6 +177,12 @@ export class OnlineRoom {
     this.offs = [];
     if (this.meRef) this.fb.db.remove(this.meRef).catch(() => {});
   }
+}
+
+// A race room's state (and not a Ludo game that happens to have the same code).
+function isRace(v) {
+  if (typeof v !== 'string') return false;
+  try { const st = JSON.parse(v); return !!(st && st.settings && 'track' in st.settings && Array.isArray(st.players)); } catch (e) { return false; }
 }
 
 // ---------------------------------------------------------------- kart snapshots

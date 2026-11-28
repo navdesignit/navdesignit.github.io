@@ -422,8 +422,8 @@ function explain(e, title) {
   const msg = String((e && (e.code || e.message)) || e);
   let help = `<p>Something went wrong: <code>${esc(msg)}</code></p><p>Try again in a moment.</p>`;
   if (/permission[_ ]denied/i.test(msg)) {
-    help = `<p>🔒 The game's database doesn't allow race rooms yet.</p>
-      <p>Whoever set up the game needs to open <b>Firebase → Realtime Database → Rules</b>, paste everything from <code>ludo/database.rules.json</code> (it now has a <code>race</code> section too) and tap <b>Publish</b>.</p>`;
+    help = `<p>🔒 The game's database said no.</p>
+      <p>Whoever set up the game needs to open <b>Firebase → Realtime Database → Rules</b>, paste everything from <code>ludo/database.rules.json</code> and tap <b>Publish</b> (the same rules run Ludo too). Meanwhile, practise against the gang!</p>`;
   } else if (/timeout|network|disconnect|offline/i.test(msg)) {
     help = '<p>📶 Couldn\'t reach the game server. Check your internet (or turn off any VPN / data saver) and try again.</p>';
   }

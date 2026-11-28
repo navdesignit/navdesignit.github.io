@@ -33,7 +33,7 @@ Kart racing through the streets of Indore with the Alquida gang. Make a room, se
 
 ## Online play (Firebase)
 
-Race rooms use the same free Firebase Realtime Database as the Ludo game (`ludo/js/firebase-config.js`). They live under `race/CODE` next to Ludo's `rooms/CODE`, so the database rules need a `race` section. **One-time step:** in the [Firebase console](https://console.firebase.google.com) open **Build → Realtime Database → Rules**, replace everything with the contents of [`ludo/database.rules.json`](../ludo/database.rules.json) (it has both games' rules) and tap **Publish**.
+Race rooms use the same free Firebase Realtime Database as the Ludo game (`ludo/js/firebase-config.js`), and live in the same place as Ludo's rooms (`rooms/CODE`), in a shape that Ludo's database rules ([`ludo/database.rules.json`](../ludo/database.rules.json)) already allow. So if Ludo works online, races work too: there is nothing extra to set up.
 
 During a race each phone sends its kart about 12 times a second (bots about 8) and draws everyone else slightly in the past, interpolating along their speed and predicting ahead if an update is late. Items and hits are events; whoever gets hit decides it on their own phone, so lag never causes arguments.
 
@@ -74,4 +74,4 @@ The tests check the track maths and items, and race five bots three laps round e
 
 `tests/two-phones.cjs` races two browser phones against each other through the Firebase emulator, with a simulated slow network, and checks they agree on the result, how smoothly each draws the other's kart, and how much data a race uses.
 
-To try online play locally, run the Firebase Database emulator on port 9000 with `ludo/database.rules.json` and open `http://localhost:8080/race/?emulator=9000`. Test-only URL options: `practice=1&go=1` starts a practice race straight away, `autopilot=1` lets a bot drive your kart, `step=1` advances the game only when a script calls `__pp.step()` (for smooth recordings), and `lag=120&jitter=60` pretends position updates arrive that late.
+To try online play locally, run the Firebase Database emulator on port 9000 with `ludo/database.rules.json` (the Ludo rules, unchanged) and open `http://localhost:8080/race/?emulator=9000`. Test-only URL options: `practice=1&go=1` starts a practice race straight away, `autopilot=1` lets a bot drive your kart, `step=1` advances the game only when a script calls `__pp.step()` (for smooth recordings), and `lag=120&jitter=60` pretends position updates arrive that late.
