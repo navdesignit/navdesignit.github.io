@@ -11,35 +11,65 @@ export const KERB = 1.2;       // black-and-yellow kerb on each side
 export const SHOULDER = 7;     // dusty shoulder beyond the tarmac, before the walls
 export const STEP = 2;         // sample spacing along the track
 
+import { OSM } from './tracks-osm.js';
+
+// The real-street tracks: centre lines traced from OpenStreetMap (see tools/build-tracks.mjs).
+// Map data © OpenStreetMap contributors, ODbL 1.0.
+const real = (id, def) => ({ pts: OSM[id].pts, marks: OSM[id].marks, real: true, autoStart: true, ...def });
+
 export const TRACKS = {
-  rajwada: {
-    name: 'Rajwada Ring',
-    blurb: 'Poha stalls, chai tapri and gaay mata around the old palace',
-    emoji: '🛕',
-    theme: 'day',
-    pts: [[0, 0], [90, -5], [150, 10], [185, 55], [175, 110], [130, 135], [95, 175], [110, 230], [80, 275], [20, 280], [-30, 250], [-45, 195], [-90, 170], [-125, 120], [-115, 55], [-70, 15]],
-    breakers: [0.16, 0.62],
-    potholes: [[0.1, -3], [0.1, 3.5], [0.33, 0], [0.47, -4], [0.71, 2], [0.86, -2.5], [0.86, 4]],
-    boosts: [[0.24, 0], [0.55, -3.5], [0.9, 3]],
-    boxes: [0.06, 0.4, 0.75],
-    cows: [[0.29, 0], [0.52, 11], [0.8, 23]],
-    sleepers: [[0.44, 2.5]],
-    landmark: 'rajwada',
-  },
-  sarafa: {
+  rajwada: real('rajwada', {
+    name: 'Rajwada',
+    blurb: 'Round the real Rajwada palace: Rajwada Square, MG Road, Jawahar Marg, Prince Yashwant Road',
+    emoji: '🛕', theme: 'day', style: 'old',
+    breakers: [0.3, 0.72], potholes: [[0.12, -3], [0.12, 3.5], [0.4, 0], [0.55, -4], [0.78, 2], [0.9, -2.5]],
+    boosts: [[0.2, 0], [0.62, -3]], boxes: [0.08, 0.45, 0.8], cows: [[0.26, 0], [0.58, 11], [0.86, 23]], sleepers: [[0.5, 2.5]],
+  }),
+  sarafa: real('sarafa', {
     name: 'Sarafa Night Run',
-    blurb: 'Jalebi, bhutte ka kees and fairy lights, after midnight',
-    emoji: '🌙',
-    theme: 'night',
-    pts: [[0, 0], [70, 0], [120, -20], [170, 0], [190, 50], [160, 88], [105, 82], [72, 112], [88, 160], [140, 178], [178, 218], [162, 268], [100, 285], [40, 260], [0, 222], [-45, 238], [-98, 214], [-115, 162], [-82, 120], [-102, 70], [-75, 22]],
-    breakers: [0.08, 0.45, 0.78],
-    potholes: [[0.2, 2], [0.28, -3], [0.36, 3.5], [0.55, 0], [0.66, -4], [0.93, 2.5]],
-    boosts: [[0.13, 3], [0.5, -2], [0.84, 0]],
-    boxes: [0.04, 0.31, 0.6, 0.86],
-    cows: [[0.24, 5], [0.42, 17], [0.7, 29], [0.96, 9]],
-    sleepers: [[0.58, -2]],
-    landmark: 'sarafa',
-  },
+    blurb: 'The real Sarafa lanes after midnight: jalebi, garadu and fairy lights',
+    emoji: '🌙', theme: 'night', style: 'old',
+    breakers: [0.18, 0.62], potholes: [[0.25, 2], [0.33, -3], [0.47, 3.5], [0.7, 0], [0.92, -3]],
+    boosts: [[0.1, 3], [0.55, -2], [0.82, 0]], boxes: [0.05, 0.38, 0.72], cows: [[0.28, 5], [0.5, 17], [0.85, 29]], sleepers: [[0.66, -2]],
+  }),
+  chhappan: real('chhappan', {
+    name: 'Chhappan Dukan',
+    blurb: 'Real Palasia streets at dusk: Janjeerwala Square, MG Marg past 56 Dukan, Old A.B. Road',
+    emoji: '🌭', theme: 'dusk', style: 'food',
+    breakers: [0.22, 0.6], potholes: [[0.36, -3], [0.47, 2.5], [0.66, 0], [0.78, -4], [0.92, 3.5]],
+    boosts: [[0.13, 0], [0.42, 3], [0.84, -2]], boxes: [0.08, 0.33, 0.68], cows: [[0.27, 4], [0.52, 15], [0.88, 27]], sleepers: [[0.6, 2.5]],
+    arches: [[0.4, 'gate56']],
+  }),
+  vijaynagar: real('vijaynagar', {
+    name: 'Vijay Nagar',
+    blurb: 'Vijay Nagar Square, A.B. Road, Bombay Hospital and the Ring Road, at night',
+    emoji: '🏙️', theme: 'city', style: 'modern',
+    breakers: [0.28, 0.71], potholes: [[0.18, 3], [0.44, -3], [0.58, 0], [0.86, -2.5]],
+    boosts: [[0.1, 0], [0.36, -3], [0.64, 3], [0.92, 0]], boxes: [0.05, 0.32, 0.62, 0.84], cows: [[0.23, 7], [0.52, 19], [0.78, 31]], sleepers: [[0.4, -2]],
+    arches: [[0.16, 'gate114']], spots: [[0.82, 'mall', 1], [0.48, 'coaching', -1]],
+  }),
+  awasvihar: real('awasvihar', {
+    name: 'Rajiv Awas Vihar',
+    blurb: 'Scheme 114: in at the Aastha Hospital gate, through the blocks, past the water tank and the udyaans',
+    emoji: '🏘️', theme: 'day', style: 'colony',
+    breakers: [0.15, 0.4, 0.66, 0.9], potholes: [[0.22, 2], [0.3, -3], [0.5, 0], [0.74, 3], [0.82, -2]],
+    boosts: [[0.08, 0], [0.56, 2]], boxes: [0.05, 0.35, 0.7], cows: [[0.2, 3], [0.46, 13], [0.78, 25]], sleepers: [[0.6, 1.5]],
+    arches: [[0.03, 'gate114']],
+  }),
+  sansad: real('sansad', {
+    name: 'Sansad Marg, Delhi',
+    blurb: 'Round Parliament: Sansad Marg, Patel Chowk, Windsor Place, Raisina Road',
+    emoji: '🏛️', theme: 'delhi', style: 'delhi',
+    breakers: [0.3, 0.75], potholes: [[0.2, -3], [0.5, 2], [0.86, 0]],
+    boosts: [[0.12, 0], [0.45, -3], [0.7, 3]], boxes: [0.06, 0.4, 0.78], cows: [[0.35, 5], [0.62, 19]], sleepers: [[0.55, -2]],
+  }),
+  court: real('court', {
+    name: 'Supreme Court, Delhi',
+    blurb: 'India Gate to the Supreme Court along Tilak Marg. Order, order!',
+    emoji: '⚖️', theme: 'delhi', style: 'delhi',
+    breakers: [0.25, 0.7], potholes: [[0.18, 3], [0.48, -2], [0.82, 0]],
+    boosts: [[0.1, 0], [0.42, 3], [0.66, -3]], boxes: [0.06, 0.36, 0.74], cows: [[0.3, 9], [0.58, 21]], sleepers: [[0.9, 2]],
+  }),
   flyover: {
     name: 'Flyover Phataphat',
     blurb: 'A figure of eight over the new flyover, trucks honking all the way',
@@ -96,8 +126,37 @@ function spline(pts, segs = 32) {
 const wrapPi = a => Math.atan2(Math.sin(a), Math.cos(a));
 
 // Build the sampled track: arrays of centre points, tangents, left normals and heights.
+// Start on the longest straight (so the grid isn't round a corner).
+function rotateToStraight(X, Y, Z, N) {
+  const ang = i => Math.atan2(Z[(i + 1) % N] - Z[(i - 1 + N) % N], X[(i + 1) % N] - X[(i - 1 + N) % N]);
+  const bend = new Float32Array(N);
+  for (let i = 0; i < N; i++) bend[i] = Math.abs(wrapPi(ang((i + 2) % N) - ang((i - 2 + N) % N)));
+  let best = 0, bestLen = 0;
+  for (let i = 0; i < N; i++) {
+    let len = 0;
+    while (len < N && bend[(i + len) % N] < 0.05) len++;
+    if (len > bestLen) { bestLen = len; best = i; }
+  }
+  const k = (best + Math.floor(bestLen * 0.6)) % N;
+  for (const A of [X, Y, Z]) { const c = Array.from(A); for (let i = 0; i < N; i++) A[i] = c[(i + k) % N]; }
+}
+
+// The lap fraction nearest f where the road runs straight for a little while.
+function straightNear(T, f, loose = false) {
+  const { N, CURV } = T;
+  const i0 = Math.round(f * N), win = Math.round(N * 0.06);
+  let best = i0, bv = Infinity;
+  for (let j = -win; j <= win; j++) {
+    let c = 0;
+    for (let k = -6; k <= 6; k++) c += Math.abs(CURV[(((i0 + j + k) % N) + N) % N]);
+    const v = c + Math.abs(j) * (loose ? 0.004 : 0.0015);
+    if (v < bv) { bv = v; best = i0 + j; }
+  }
+  return ((((best % N) + N) % N) / N);
+}
+
 export function buildTrack(id) {
-  const def = TRACKS[id] || TRACKS.rajwada;
+  let def = TRACKS[id] || TRACKS.rajwada;
   let dense = spline(def.pts);
   if (def.startAt) { // rotate so s = 0 sits at the chosen start
     const k = Math.round(def.startAt * dense.length);
@@ -122,6 +181,7 @@ export function buildTrack(id) {
     Y[i] = a[1] + (b[1] - a[1]) * f;
     Z[i] = a[2] + (b[2] - a[2]) * f;
   }
+  if (def.autoStart) rotateToStraight(X, Y, Z, N);
   const TX = new Float32Array(N), TZ = new Float32Array(N), NX = new Float32Array(N), NZ = new Float32Array(N);
   const ANG = new Float32Array(N), CURV = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -164,6 +224,18 @@ export function buildTrack(id) {
     }
     T.lim[i] = lim;
   }
+  // On the real streets, nudge hazards and boxes onto the nearest straight bit.
+  const snap = (f, loose) => (def.real ? straightNear(T, f, loose) : f);
+  def = { ...def,
+    breakers: (def.breakers || []).map(f => snap(f)),
+    boosts: (def.boosts || []).map(([f, d]) => [snap(f), d]),
+    boxes: (def.boxes || []).map(f => snap(f)),
+    potholes: (def.potholes || []).map(([f, d]) => [snap(f, true), d]),
+    cows: (def.cows || []).map(([f, ph]) => [snap(f, true), ph]),
+    sleepers: (def.sleepers || []).map(([f, d]) => [snap(f, true), d]),
+    arches: (def.arches || []).map(([f, k]) => [snap(f), k]),
+  };
+  T.def = def;
   T.breakers = (def.breakers || []).map(f => f * L);
   T.potholes = (def.potholes || []).map(([f, d]) => ({ ...T.world(f, d), r: 1.4, s: f * L, d }));
   T.boosts = (def.boosts || []).map(([f, d]) => ({ ...T.world(f, d), s: f * L, d, len: 7, half: 2.2 }));

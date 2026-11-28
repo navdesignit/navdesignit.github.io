@@ -6,8 +6,9 @@ import { CHARACTERS as LUDO_CHARS, CHAR_IDS as LUDO_IDS, avatar as ludoAvatar, f
 
 export { areBesties };
 
-// Lisa, the gang's Agnica partner from Kazakhstan, races here too (the Ludo board
-// stays at five). Her face is drawn in the same style as the others.
+// Two more friends race here too (the Ludo board stays at five): Lisa, the gang's
+// Agnica partner from Kazakhstan, and Jihye from Korea. Their faces are drawn in the
+// same style as the others.
 const LISA = {
   name: 'Lisa',
   title: 'The Agnica Partner',
@@ -27,8 +28,25 @@ const LISA = {
     liu: { kill: ['Sorry Liu, davai davai! 😘'], die: ['Liu?! Dostoi! 😭'] },
   },
 };
-export const CHARACTERS = { ...LUDO_CHARS, lisa: LISA };
-export const CHAR_IDS = [...LUDO_IDS, 'lisa'];
+const JIHYE = {
+  name: 'Jihye',
+  title: 'The K-Drama Heroine',
+  emoji: '🫰',
+  weapon: '🫰',
+  accent: '#E8364F',
+  aliases: ['jihae', 'jihey', 'jiye', 'jihay', 'jhye', 'jihyee', 'jiheye'],
+  lines: {
+    kill: ['Annyeong! Bye bye 👋', 'Daebak 😎', 'Finger heart for you 🫰😘', 'Ppali-ppali, ghar jao 👋', 'Plot twist! 🎬'],
+    die: ['Aigoo! 😱', 'Omo omo omo 😭', 'Ye script mein nahi tha! 😤', 'Andwae! 😭'],
+    kaboom: ['Daebak KABOOM! 💥', 'K-drama finale! 💥🎬'],
+    home: ['Hwaiting! Ghar pahunch gayi 🫰'],
+    threat: ['{n}? Andwae 😏'],
+  },
+  to: {},
+};
+const EXTRA = { lisa: LISA, jihye: JIHYE };
+export const CHARACTERS = { ...LUDO_CHARS, ...EXTRA };
+export const CHAR_IDS = [...LUDO_IDS, ...Object.keys(EXTRA)];
 
 const DARK = '#1d1d1f';
 const eye = (x, y = 57, r = 4.6) => `<g class="f-eye"><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r + 1.2}" fill="#fff"/>` +
@@ -53,29 +71,53 @@ function lisaFace() {
     sun(21, 69) + sun(79, 69);
 }
 
-export function faceMarkup(id) { return id === 'lisa' ? lisaFace() : ludoFace(id); }
+// Jihye: long black hair with see-through bangs, a heart clip, sparkly eyes, a big smile.
+const heart = (x, y, r, fill) => `<path d="M${x} ${y + r} C${x - r * 1.7} ${y - r * 0.1} ${x - r * 0.9} ${y - r * 1.3} ${x} ${y - r * 0.35} C${x + r * 0.9} ${y - r * 1.3} ${x + r * 1.7} ${y - r * 0.1} ${x} ${y + r}Z" fill="${fill}"/>`;
+const kEye = (x, y = 57, r = 4.6) => `<g class="f-eye"><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r + 1.3}" fill="#fff"/>` +
+  `<ellipse cx="${x}" cy="${y + 0.6}" rx="${(r * 0.7).toFixed(2)}" ry="${(r * 0.9).toFixed(2)}" fill="#4a2a1a"/><ellipse cx="${x}" cy="${y + 1}" rx="${(r * 0.36).toFixed(2)}" ry="${(r * 0.5).toFixed(2)}" fill="${DARK}"/>` +
+  `<circle cx="${x + 1.5}" cy="${y - 1.7}" r="1.6" fill="#fff"/><circle cx="${x - 1.4}" cy="${y + 2.1}" r="0.8" fill="#fff"/></g>`;
+function jihyeFace() {
+  const skin = '#F7D7BF', hair = '#17120f';
+  return `<path d="M17 64 C12 32 30 17 50 17 C70 17 88 32 83 64 L86 97 C70 101 30 101 14 97 Z" fill="${hair}"/>` +
+    `<circle cx="23" cy="58" r="6" fill="${skin}"/><circle cx="77" cy="58" r="6" fill="${skin}"/><circle cx="50" cy="57" r="27" fill="${skin}"/>` +
+    `<path d="M23 54 C21 33 35 24 50 24 C65 24 79 33 77 54 C75 47 73 43 70 41 L68 48 L64 40 L60 47 L57 40 L53 47 L50 40 L46 47 L43 40 L39 47 L36 41 C30 43 26 48 23 54Z" fill="${hair}"/>` +
+    heart(69, 33, 5, '#ff4fa3') + '<circle cx="69" cy="32" r="1.2" fill="#fff" opacity=".8"/>' +
+    `<path d="M33 49.5 Q39 47.5 45 49.5" fill="none" stroke="#3a2a22" stroke-width="1.8" stroke-linecap="round"/><path d="M55 49.5 Q61 47.5 67 49.5" fill="none" stroke="#3a2a22" stroke-width="1.8" stroke-linecap="round"/>` +
+    kEye(40) + kEye(60) +
+    `<path d="M35 52.5 l-3.2 -1.8 M65 52.5 l3.2 -1.8" stroke="${DARK}" stroke-width="1.6" stroke-linecap="round"/>` +
+    '<ellipse cx="32" cy="66" rx="5.5" ry="3.6" fill="#ff6b81" opacity=".45"/><ellipse cx="68" cy="66" rx="5.5" ry="3.6" fill="#ff6b81" opacity=".45"/>' +
+    '<path d="M29 67 l2 -3 M32 67.5 l2 -3 M35 67 l2 -3 M65 67 l2 -3 M68 67.5 l2 -3 M71 67 l2 -3" stroke="#e0566c" stroke-width="1" stroke-linecap="round"/>' +
+    '<path d="M42 67 Q50 79 58 67 Q50 70.5 42 67Z" fill="#d94a5c" stroke="#a8283b" stroke-width="1.6" stroke-linejoin="round"/>' +
+    '<path d="M44.5 68.4 Q50 70.6 55.5 68.4 L55 70 Q50 71.6 45 70Z" fill="#fff"/>' +
+    heart(85, 22, 3.6, '#ff4fa3') + heart(14, 34, 2.6, '#ff8fbf');
+}
+
+const FACE = { lisa: lisaFace, jihye: jihyeFace };
+export function faceMarkup(id) { return FACE[id] ? FACE[id]() : ludoFace(id); }
 
 export function avatar(id, opts = {}) {
-  if (id !== 'lisa') return ludoAvatar(id, opts);
+  const c = EXTRA[id];
+  if (!c) return ludoAvatar(id, opts);
   const { bg, size, weapon = true } = opts;
   const dim = size ? ` width="${size}" height="${size}"` : '';
-  return `<svg class="avatar" viewBox="0 0 100 100"${dim} style="--bd:-${(Math.random() * 4).toFixed(2)}s" aria-label="Lisa" role="img">` +
-    `<defs><clipPath id="av-lisa"><circle cx="50" cy="50" r="50"/></clipPath></defs>` +
-    `<g clip-path="url(#av-lisa)"><rect width="100" height="100" fill="${bg || LISA.accent}"/>${lisaFace()}</g>` +
-    `${weapon ? `<text class="f-weapon" x="80" y="94" font-size="30" text-anchor="middle">${LISA.weapon}</text>` : ''}</svg>`;
+  return `<svg class="avatar" viewBox="0 0 100 100"${dim} style="--bd:-${(Math.random() * 4).toFixed(2)}s" aria-label="${c.name}" role="img">` +
+    `<defs><clipPath id="av-${id}"><circle cx="50" cy="50" r="50"/></clipPath></defs>` +
+    `<g clip-path="url(#av-${id})"><rect width="100" height="100" fill="${bg || c.accent}"/>${FACE[id]()}</g>` +
+    `${weapon ? `<text class="f-weapon" x="80" y="94" font-size="30" text-anchor="middle">${c.weapon}</text>` : ''}</svg>`;
 }
 
 export function pickLine(id, kind, targetId, rng = Math.random, vars = {}) {
-  if (id !== 'lisa') return ludoLine(id, kind, targetId === 'lisa' ? null : targetId, rng, vars);
-  const special = targetId && LISA.to[targetId] && LISA.to[targetId][kind];
-  const list = special && special.length ? special : LISA.lines[kind];
+  const c = EXTRA[id];
+  if (!c) return ludoLine(id, kind, EXTRA[targetId] ? null : targetId, rng, vars);
+  const special = targetId && c.to[targetId] && c.to[targetId][kind];
+  const list = special && special.length ? special : c.lines[kind];
   if (!list || !list.length) return null;
   return list[Math.floor(rng() * list.length) % list.length].replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
 }
 
 export function charForName(name) {
   const first = String(name || '').toLowerCase().replace(/[^a-z\s]/g, ' ').trim().split(/\s+/)[0] || '';
-  if (first === 'lisa' || LISA.aliases.includes(first)) return 'lisa';
+  for (const id in EXTRA) if (first === id || EXTRA[id].aliases.includes(first)) return id;
   return ludoName(name);
 }
 
@@ -164,6 +206,20 @@ export const RIDES = {
       pass: ['Davai, side please 😘', 'Partner, see you at the finish 👋', 'Rakhmet, bye bye! 👋'],
       win: ['Deal closed! 🤝🏆', 'Kazakhstan zindabad! 🇰🇿'],
       last: ['Ghoda thak gaya 😭', 'Bozhe moi… 😭'],
+    },
+  },
+  jihye: {
+    veh: 'rickshaw', ride: 'Ppali-Ppali Rickshaw', icon: '🚲',
+    blurb: 'A cycle-rickshaw with a secret battery, K-pop fairy lights, a speaker and a jar of kimchi on the seat. Ppali-ppali means hurry-hurry!',
+    stats: { speed: 0.98, accel: 1.05, turn: 1.05, weight: 0.9, offroad: 0.6, charge: 1, shield: 12, ppali: 1.25 },
+    bars: { speed: 3, accel: 4, turn: 4, weight: 2 },
+    perk: 'Ppali-ppali: every boost lasts longer',
+    lines: {
+      start: ['Annyeong Indore! 👋🇰🇷', 'Ppali-ppali! Chalo chalo 🚲', 'Kimchi bhi ready, poha bhi 🥢', 'Indore mein K-drama shooting shuru 🎬'],
+      boost: ['Ppali-ppali! 💨', 'Daebak! 🔥', 'Battery full! ⚡'],
+      pass: ['Annyeong, bye bye 👋', 'Side please, oppa 🫰', 'Plot twist! Main aage 🎬', 'Ppali-ppali, side side! 🚲'],
+      win: ['Daebak! Happy ending 🎬🏆', 'Saranghae Indore 🫰🏆', 'Korea zindabad! 🇰🇷'],
+      last: ['Aigoo… 😭', 'Ye toh sad K-drama ending hai 😭', 'Battery khatam 🪫😭'],
     },
   },
 };

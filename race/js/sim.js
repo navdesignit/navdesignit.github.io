@@ -437,7 +437,7 @@ const NO_INPUT = { steer: 0, drift: false, use: false };
 export function stepKart(k, inp, W, dt) {
   const T = W.track, st = k.stats, loc = W._loc;
   for (const c in k.cool) if (k.cool[c] > 0) k.cool[c] -= dt;
-  k.boostT = Math.max(0, k.boostT - dt);
+  k.boostT = Math.max(0, k.boostT - dt / (st.ppali || 1)); // Jihye's boosts run down slower
   if (k.boostT === 0) k.boostP = 1;
   k.spinT = Math.max(0, k.spinT - dt);
   k.shieldT = Math.max(0, k.shieldT - dt);

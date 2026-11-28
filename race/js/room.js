@@ -5,7 +5,7 @@
 import { CHAR_IDS, CHARACTERS } from './riders.js';
 import { TRACKS } from './track.js';
 
-export const MAX_PLAYERS = 6;
+export const MAX_PLAYERS = 7; // the whole gang
 export const COUNTDOWN_MS = 5200; // from tapping Start to the lights going green
 
 const cleanName = n => String(n || '').replace(/[<>]/g, '').trim().slice(0, 14);

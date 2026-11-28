@@ -95,7 +95,7 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
 .parade { display: flex; justify-content: center; gap: 2px; margin-top: 18px; }
 .parade .pr { display: flex; flex-direction: column; align-items: center; animation: bob 1.2s ease-in-out infinite alternate; }
 .parade .pr:nth-child(2n) { animation-delay: -0.6s; }
-.parade .avatar { width: min(54px, 14vw); height: min(54px, 14vw); border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); }
+.parade .avatar { width: min(52px, 12.4vw); height: min(52px, 12.4vw); border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); }
 .parade .pr i { font-style: normal; font-size: 26px; margin-top: -10px; }
 @keyframes bob { to { transform: translateY(-5px); } }
 .stack { display: flex; flex-direction: column; gap: 12px; padding-bottom: 6px; }
@@ -144,6 +144,9 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
 .trk b { font-family: 'Bungee', sans-serif; font-weight: 400; font-size: 0.8rem; line-height: 1.1; }
 .trk small { color: var(--muted); font-size: 0.68rem; line-height: 1.2; }
 .trk.on { border-color: var(--yellow); background: rgba(255, 201, 60, 0.16); }
+.trk .real { font-style: normal; font-size: 0.62rem; color: #7bdff2; margin-top: 2px; }
+.tracks .osm { grid-column: 1 / -1; font-size: 0.72rem; color: var(--muted); text-align: center; }
+.tracks .osm a { color: var(--muted); }
 .trk:disabled { opacity: 1; cursor: default; }
 .trk:disabled:not(.on) { opacity: 0.45; }
 .settings { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
@@ -251,7 +254,8 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
   .h-pos b { font-size: 44px; }
   .h-pos sup { font-size: 18px; }
   .h-lap { top: calc(var(--safe-t) + 56px); }
-  .h-board { top: calc(var(--safe-t) + 86px); flex-direction: column; }
+  /* wraps into a second column rather than run into the joystick */
+  .h-board { top: calc(var(--safe-t) + 86px); flex-direction: column; flex-wrap: wrap; align-content: flex-start; column-gap: 8px; max-height: calc(100% - 236px - var(--safe-t) - var(--safe-b)); }
   .hb .avatar { width: 26px; height: 26px; }
   .hb.me .avatar { width: 32px; height: 32px; }
   .h-map { width: 92px; height: 92px; }
@@ -309,3 +313,26 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .avatar .f-eye { transform-box: fill-box; transform-origin: center; animation: blinky 4s infinite; animation-delay: var(--bd, 0s); }
 @keyframes blinky { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+
+/* ---------- first-race coach, speed lines ---------- */
+.coach { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; }
+.hud.coaching .coach { opacity: 1; }
+.co { position: absolute; background: #fff; color: var(--ink); border-radius: 14px; padding: 7px 11px; font-size: 13px; line-height: 1.25; text-align: center; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); animation: nudge 0.8s ease-in-out infinite alternate; }
+.co::after { content: ''; position: absolute; left: 50%; bottom: -9px; margin-left: -9px; border: 9px solid transparent; border-bottom: 0; border-top-color: #fff; }
+.co-steer { left: calc(var(--safe-l) + 18px); bottom: calc(var(--safe-b) + 186px); }
+.co-drift { right: calc(var(--safe-r) + 8px); bottom: calc(var(--safe-b) + 146px); }
+.co-item { right: calc(var(--safe-r) + 112px); bottom: calc(var(--safe-b) + 192px); }
+@keyframes nudge { to { transform: translateY(-6px); } }
+.ctl.item.coach-pulse { animation: coachpulse 0.5s ease-in-out infinite alternate; box-shadow: 0 0 0 8px rgba(255, 79, 163, 0.7), 0 0 30px #ff4fa3; }
+@keyframes coachpulse { to { transform: scale(1.12); } }
+.hud::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.25s;
+  background: repeating-conic-gradient(from 0deg at 50% 45%, rgba(255, 255, 255, 0.22) 0deg 1.2deg, transparent 1.2deg 9deg);
+  -webkit-mask: radial-gradient(circle at 50% 45%, transparent 38%, #000 75%); mask: radial-gradient(circle at 50% 45%, transparent 38%, #000 75%); }
+.hud.boosting::before { opacity: 1; animation: whoosh 0.35s linear infinite; }
+@keyframes whoosh { to { transform: scale(1.06); } }
+.howto { margin-top: 12px; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .co-steer { bottom: calc(var(--safe-b) + 150px); }
+  .co-drift { bottom: calc(var(--safe-b) + 120px); }
+  .co-item { bottom: calc(var(--safe-b) + 160px); right: calc(var(--safe-r) + 100px); }
+}
