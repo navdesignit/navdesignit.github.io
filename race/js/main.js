@@ -2,6 +2,7 @@
 // physics in sim.js, the 3D world in render.js and scenery.js.
 
 import { Renderer } from './render.js';
+import { loadTrackData } from './scenery.js';
 import { Hud, itemIcon, ordinal } from './hud.js';
 import { Input } from './input.js';
 import { Race } from './race.js';
@@ -119,6 +120,7 @@ function renderParade() {
 
 function goHome() {
   leaveRoom();
+  A.stopMusic();
   setUrl(null);
   show('home');
 }
@@ -265,7 +267,7 @@ async function onState(st) {
     if (R) R.clearPodium();
     S.podiumFor = null;
     if (S.screen !== 'profile' || S.profileMode !== 'pick') {
-      if (meIn || S.mode === 'practice') { renderLobby(st); if (S.screen !== 'lobby') show('lobby'); }
+      if (meIn || S.mode === 'practice') { renderLobby(st); if (S.screen !== 'lobby') show('lobby'); A.playMusic('lobby', 3); }
     }
   } else if (st.phase === 'race') {
     const inRace = st.race.karts.some(k => k.id === S.me);
@@ -283,11 +285,16 @@ async function onState(st) {
 
 async function startRace(st) {
   await ensureRenderer();
+  if (TRACKS[st.race.track] && TRACKS[st.race.track].real) { loading('Building the streets…'); await loadTrackData(st.race.track); loading(null); }
   if (S.race) S.race.destroy();
   R.clearPodium();
   S.podiumFor = null;
   input.reset();
   input.enabled = false;
+  // first two races: show the on-screen coach (joystick, drift, items)
+  const races = store.get('pp_races', 0);
+  app.coach = races < 2 || params.has('coach');
+  store.set('pp_races', races + 1);
   S.race = new Race(app, st.race, { runner: isRunner(st) });
   S.race.onState(st);
   $('#race').classList.remove('racing', 'finished');
@@ -343,8 +350,8 @@ function renderLobby(st) {
   if (chg) chg.onclick = () => openProfile(online ? 'pick' : 'practice-pick');
   $('#tracks').innerHTML = TRACK_IDS.map(id => {
     const t = TRACKS[id];
-    return `<button class="trk ${st.settings.track === id ? 'on' : ''}" data-track="${id}" ${host ? '' : 'disabled'}><span class="e">${t.emoji}</span><b>${t.name}</b><small>${t.blurb}</small></button>`;
-  }).join('');
+    return `<button class="trk ${st.settings.track === id ? 'on' : ''}" data-track="${id}" ${host ? '' : 'disabled'}><span class="e">${t.emoji}</span><b>${t.name}</b><small>${t.blurb}</small>${t.real ? '<i class="real">📍 real streets</i>' : ''}</button>`;
+  }).join('') + '<p class="osm">Real streets: map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></p>';
   $('#settings').innerHTML = `
     <div class="set"><span>Laps</span><div class="seg">${[1, 2, 3, 5].map(n => `<button data-laps="${n}" class="${st.settings.laps === n ? 'on' : ''}" ${host ? '' : 'disabled'}>${n}</button>`).join('')}</div></div>
     ${online ? `<div class="set"><span>Fill with bots 🤖</span><div class="seg"><button data-bots="1" class="${st.settings.bots ? 'on' : ''}" ${host ? '' : 'disabled'}>On</button><button data-bots="0" class="${st.settings.bots ? '' : 'on'}" ${host ? '' : 'disabled'}>Off</button></div></div>` : ''}`;
@@ -365,6 +372,7 @@ function showPodium(st) {
     R.podium(res.map(r => r.id));
   }
   A.sfx('crowd');
+  A.playMusic('podium', st.race.id);
   renderResults(st);
   show('podium');
   keepAwake(false);
@@ -506,8 +514,11 @@ $('#btn-copy').onclick = copy;
 $('#btn-pause').onclick = () => { renderMenu(); $('#modal-menu').hidden = false; };
 function renderMenu() {
   $('#btn-sound').textContent = A.isMuted() ? '🔇 Sound: off' : '🔊 Sound: on';
+  $('#btn-music').textContent = A.isMusicOn() ? '🎵 Music: on' : '🎵 Music: off';
 }
 $('#btn-sound').onclick = () => { A.setMuted(!A.isMuted()); renderMenu(); };
+$('#btn-music').onclick = () => { A.setMusicOn(!A.isMusicOn()); renderMenu(); };
+$('#btn-lobby-rules').onclick = openRules;
 $('#btn-menu-rules').onclick = () => { $('#modal-menu').hidden = true; openRules(); };
 $('#btn-quit').onclick = () => { $('#modal-menu').hidden = true; goHome(); };
 $('#btn-rules').onclick = openRules;

@@ -14,6 +14,8 @@ function unit(name) {
       case 'box': g = new THREE.BoxGeometry(1, 1, 1); break;
       case 'cyl': g = new THREE.CylinderGeometry(1, 1, 1, 14, 1); break;
       case 'cyl6': g = new THREE.CylinderGeometry(1, 1, 1, 6, 1); break;
+      case 'cyl3': g = new THREE.CylinderGeometry(1, 1, 1, 3, 1); break;
+      case 'dome': g = new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2); break;
       case 'cyl8': g = new THREE.CylinderGeometry(1, 1, 1, 8, 1); break;
       case 'sph': g = new THREE.SphereGeometry(1, 14, 10); break;
       case 'sph6': g = new THREE.SphereGeometry(1, 8, 6); break;
@@ -65,6 +67,16 @@ export class Batch {
     return this.add(unit(name), _m, color);
   }
   box(pos, scale, color, rot) { return this.shape('box', pos, scale, color, rot); }
+  // one flat triangle (roofs), facing up
+  tri(a, b, c, color) {
+    _c.set(color);
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; [b, c] = [c, b]; }
+    const l = Math.hypot(nx, ny, nz) || 1;
+    for (const p of [a, b, c]) { this.p.push(p[0], p[1], p[2]); this.n.push(nx / l, ny / l, nz / l); this.c.push(_c.r, _c.g, _c.b); }
+    return this;
+  }
   // A cylinder between two points.
   rod(a, b, r, color, name = 'cyl8') {
     const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];

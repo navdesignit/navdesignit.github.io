@@ -50,7 +50,7 @@
         <button class="btn" type="submit">Join</button>
       </form>
       <div class="row center gap">
-        <button class="link" id="btn-rules">📜 How to play</button>
+        <button class="btn small" id="btn-rules">📜 How to play</button>
         <a class="link" href="../ludo/">💣 Alquida Landu (Ludo)</a>
       </div>
     </div>
@@ -87,6 +87,7 @@
       <h3 class="sec">Track</h3>
       <div class="tracks" id="tracks"></div>
       <div class="settings" id="settings"></div>
+      <button class="btn small howto" id="btn-lobby-rules">📜 How to play</button>
       <div class="soundboard" id="soundboard-lobby"></div>
     </div>
     <div class="foot">
@@ -117,6 +118,11 @@
       <button class="ctl drift" id="btn-drift" data-ctl="drift" data-lv="-1" aria-label="Drift">DRIFT<small>hold</small></button>
     </div>
     <div class="h-done" id="h-done">🏁 Finished! Waiting for the others…</div>
+    <div class="coach" aria-hidden="true">
+      <div class="co co-steer">🕹️ Thumb here<br>slide ◀ ▶ to steer</div>
+      <div class="co co-drift">Hold on bends 💨<br>let go = boost!</div>
+      <div class="co co-item">🎁 Mithai box?<br>tap here to throw</div>
+    </div>
   </section>
 
   <!-- PODIUM -->
@@ -130,6 +136,7 @@
     <div class="sheet">
       <h3>Paused (the race keeps going!)</h3>
       <button class="btn" id="btn-sound"></button>
+      <button class="btn" id="btn-music"></button>
       <button class="btn" id="btn-menu-rules">📜 How to play</button>
       <button class="btn danger" id="btn-quit">🚪 Leave race</button>
       <button class="btn primary" data-close>Back to racing</button>

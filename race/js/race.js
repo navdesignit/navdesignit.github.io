@@ -62,7 +62,7 @@ export class Race {
     this.wrongSaid = -10;
     this.lastLapShown = 1;
     app.hud.reset(info.laps);
-    app.hud.tick(say('start'));
+    app.hud.tick(say(this.T.def.theme === 'delhi' ? 'delhi' : 'start'));
     if (this.mine) app.hud.later(() => app.hud.bubble(this.char, rideLine(this.char, 'start')), 1200);
     this.stats = { frames: 0, slow: 0 };
   }
@@ -225,7 +225,7 @@ export class Race {
           case 'horn':
             if (v > 0.05) A.sfx('ponpon', Math.max(0.3, v));
             R.ring(ev.x, ev.y, ev.z, '#ffd23f', 12);
-            R.textPop(ev.x, ev.y + 3.2, ev.z, 'PON PON!', '#ffd23f', 2.4);
+            R.textPop(ev.x, ev.y + 3.2, ev.z, 'PON PON!', '#ffd23f', 1.6);
             if (v > 0.6) R.shake(0.35);
             break;
           case 'rocket':
@@ -292,7 +292,9 @@ export class Race {
     const hud = this.app.hud, R = this.app.R;
     switch (f.type) {
       case 'box': if (mine) A.sfx('roll'); break;
-      case 'gotitem': if (mine) { A.sfx('got'); hud.tick(`${(ITEM_INFO[f.a] || {}).icon} ${(ITEM_INFO[f.a] || {}).name}!`); } break;
+      case 'gotitem': if (mine) {
+        if (this.app.coach && !this.coachItem) { this.coachItem = true; const b = this.app.root.querySelector('#btn-item'); b.classList.add('coach-pulse'); hud.later(() => b.classList.remove('coach-pulse'), 4000); hud.big('👉 Tap the item!', 'good', 1400); }
+        A.sfx('got'); hud.tick(`${(ITEM_INFO[f.a] || {}).icon} ${(ITEM_INFO[f.a] || {}).name}!`); } break;
       case 'boxpop': {
         const b = this.T.boxes[f.a];
         if (b) {
@@ -319,7 +321,7 @@ export class Race {
       case 'bump': if (mine) A.sfx('bump'); break;
       case 'lap':
         if (mine) {
-          if (f.a === this.info.laps) { A.sfx('final'); hud.big(`AAKHRI LAP! 🏁<small>Final lap</small>`, 'lap', 1600); hud.tick(say('lastlap'), 1); }
+          if (f.a === this.info.laps) { A.sfx('final'); A.musicIntensity(1); hud.big(`AAKHRI LAP! 🏁<small>Final lap</small>`, 'lap', 1600); hud.tick(say('lastlap'), 1); }
           else { A.sfx('lap'); hud.big(`LAP ${f.a}/${this.info.laps}`, 'lap', 1200); }
         }
         break;
@@ -362,13 +364,19 @@ export class Race {
         this.beeps = n;
         hud.big(`<span class="num">${n}</span>`, 'count', 900);
         A.sfx('count', 3 - n);
-        if (n === 3) { this.app.input.enabled = true; this.app.R.prewarm(); }
+        if (n === 3) {
+          this.app.input.enabled = true;
+          this.app.R.prewarm();
+          A.playMusic(this.T.def.theme, [...this.info.track].reduce((a, ch) => a + ch.charCodeAt(0), this.info.id));
+          if (this.app.coach) this.app.root.classList.add('coaching');
+        }
       }
     } else if (this.beeps > 0) {
       this.beeps = 0;
       hud.big('PON PON! 📯<small>GO GO GO</small>', 'go', 1000);
       A.sfx('go');
       this.camMode = 'chase';
+      if (this.app.coach) hud.later(() => this.app.root.classList.remove('coaching'), 4000);
     }
   }
 
@@ -386,6 +394,8 @@ export class Race {
     hud.tick(say(place === 1 ? 'finishFirst' : place === order.length ? 'finishLast' : 'lead', { a: this.nameOf(this.me) }), 1);
     this.app.root.classList.add('finished');
     this.camMode = 'orbit';
+    this.app.R.splash(k.x, k.y + 1, k.z, ['#ff4fa3', '#ffd23f', '#33CA7F', '#4DA3FF', '#ff7b00', '#ffffff'], 120);
+    A.sfx('crowd');
   }
 
   order() {
@@ -452,9 +462,10 @@ export class Race {
         pose.x = k.x; pose.y = k.y; pose.z = k.z; pose.h = k.h; pose.steer = k.steer; pose.yaw = k.visYaw; pose.v = k.v; pose.f = k.f || 0; pose.gy = k.gy ?? k.y;
       }
       view.update(dt, pose, R, cam);
-      if (k === this.mine) this.camPose = { x: pose.x, y: pose.y, z: pose.z, mh: pose.h - k.drift * 0.2, v: k.v, boost: k.boostT > 0 || k.rocketT > 0 };
+      if (k === this.mine) this.camPose = { x: pose.x, y: pose.y, z: pose.z, mh: pose.h - k.drift * 0.2, v: k.v, boost: k.boostT > 0 || k.rocketT > 0, drift: k.drift };
     }
     R.syncObjs(W.objs, W.time, dt);
+    R.updateBirds(dt, W.karts);
     R.animateWorld(dt, W.time, W.boxT, rt);
     let target = this.camPose;
     if (!this.mine) {
@@ -482,6 +493,13 @@ export class Race {
         kmh: Math.round(k.v * 3.6), item: k.item, itemN: k.itemN, rolling: k.rollT > 0,
         wrong: k.wrongT > 1, level: k.level, drifting: !!k.drift,
       });
+      const fast = k.boostT > 0 || k.rocketT > 0;
+      if (fast !== this.fast) { this.fast = fast; this.app.root.classList.toggle('boosting', fast); }
+      // first race: say "hold DRIFT" on the first proper bend
+      if (this.app.coach && rt > 3 && !k.drift && !this.coachDrift && k.v > 18) {
+        let c = 0; for (let j = 6; j < 20; j++) c += this.T.CURV[(k.idx + j) % this.T.N];
+        if (Math.abs(c / 14) > 0.03) { this.coachDrift = true; hud.big('Hold DRIFT 💨<small>steer into the bend, let go for a boost</small>', 'boost', 1800); }
+      }
       if (k.wrongT > 1 && rt - this.wrongSaid > 5) { this.wrongSaid = rt; hud.tick(say('wrong'), 1); A.sfx('wrong'); if (Math.random() < 0.5) A.meme(A.memeIndex('Moorkh'), false); }
       // overtakes and trash talk
       if (rt > 3 && rt - this.posCheck > 0.5 && !k.done) {
@@ -527,6 +545,7 @@ export class Race {
 
   destroy() {
     if (this.engine) this.engine.stop();
+    this.app.root.classList.remove('boosting', 'coaching');
     this.app.R.clearKarts();
     this.app.R.clearObjs();
     this.app.input.enabled = false;

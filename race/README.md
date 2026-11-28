@@ -11,11 +11,22 @@ Kart racing through the streets of Indore with the Alquida gang. Make a room, se
   - 🍛 **Chechu**: *Poha Express*, an auto-rickshaw with a poha stall on top. Mithai boxes sometimes give him two items.
   - ⚖️ **Vanshika**: *Advocate Scooter*. Quickest off the line; her nimbu-mirchi lasts longer.
   - 🎨 **Liu**: *Masterpiece Moped*, splashed with paint. Best steering, and the dusty shoulder barely slows her.
-- **Five Indore tracks:** 🛕 *Rajwada Ring* (day, round the old palace), 🌙 *Sarafa Night Run* (fairy lights and jalebi stalls), 🌉 *Flyover Phataphat* (a figure of eight over a flyover at sunset), 🌭 *Chhappan Dukan Chase* (dusk on the food street: khopra patties, garadu, shikanji, egg benjo, through the 56 Dukan arch) and 🏙️ *Vijay Nagar · Scheme 114* (glass towers at night, the Scheme 114 arch, the square's fountain, a mall, a coaching class and Bombay Hospital on the ring road). Cows wander across the road on their own timetable, potholes jolt you, speed breakers throw you in the air, and orange chevrons are masala boost strips.
+- **Eight tracks, seven of them on real streets** (traced from OpenStreetMap, with the real buildings, side streets, gardens and landmarks):
+  - 🛕 *Rajwada*: round the palace by Rajwada Square, MG Road, Jawahar Marg and Prince Yashwant Road, with the Krishnapura chhatris.
+  - 🌙 *Sarafa Night Run*: the Sarafa lanes after midnight, fairy lights and jalebi stalls.
+  - 🌭 *Chhappan Dukan*: Janjeerwala Square, MG Marg past 56 Dukan (and its food plaza), Old A.B. Road, at dusk.
+  - 🏙️ *Vijay Nagar*: Vijay Nagar Square, A.B. Road, Bombay Hospital and the Ring Road, at night among glass towers.
+  - 🏘️ *Rajiv Awas Vihar*: Scheme 114. In at the Aastha Hospital gate, through the blocks with their X-shaped lanes and the A, B, C and D block gardens, round the giant water tower and the community hall.
+  - 🏛️ *Sansad Marg, Delhi*: round Parliament, old and new, by Patel Chowk and Windsor Place.
+  - ⚖️ *Supreme Court, Delhi*: India Gate to the Supreme Court along Tilak Marg.
+  - 🌉 *Flyover Phataphat*: a made-up figure of eight over a flyover at sunset.
+  Cows wander across the road on their own timetable, pigeons scatter as you pass, potholes jolt you, speed breakers throw you in the air, and orange chevrons are masala boost strips.
 - **Drifting:** hold DRIFT while turning. Sparks go white, yellow, orange, then pink; let go for a boost. Tap DRIFT just before the lights for a rocket start.
 - **Items from mithai boxes:** 🩴 Mummy ki Chappal (homes in on the kart ahead), ♨️ Pressure Cooker (drop it; third seeti = boom), 🍋 Nimbu-Mirchi (blocks one hit), ☕ Cutting Chai (boost), 📯 Pon Pon Horn (shockwave), 🌿 Paan ki Peek (slippery puddle), 🚀 Diwali Rocket (autopilot boost, the back of the pack gets these), 🐄 Gaay Mata (parks a cow behind you).
 - **Sounds:** engines, horns and tyre squeal are synthesised per ride (the Bullet thumps, the auto rattles, the moped goes nyeeee). The meme clips come from the Ludo packs, `ludo/sounds/fx.mp3` and `ludo/sounds/memes.mp3`.
 - A commentator, trash talk when you overtake or hit someone, a 3D podium, awards (Chappal Champion, Gaay Bhakt, Pothole Inspector…) and a meme soundboard that plays on everyone's phone.
+- **Music:** a synthesised soundtrack per track (dhol and tumbi by day, shehnai at night, a baraat brass band in Delhi) that speeds up on the last lap. Switch it off in the ⏸ menu.
+- **How to play** is on the home screen and in the lobby, and for your first two races an on-screen coach points at the joystick, DRIFT and the item button.
 
 ## Online play (Firebase)
 
@@ -25,12 +36,20 @@ During a race each phone sends its kart about 12 times a second (bots about 8) a
 
 **Cost:** nothing, on Firebase's free Spark plan, which has no card attached and can't charge you. If a limit were ever reached, the database would simply pause until the next month. A 3-lap race with two phones uses a few MB of the 10 GB a month. Check the plan in Firebase console → ⚙ Project settings → Usage and billing: it should say **Spark**.
 
+## Real streets (OpenStreetMap)
+
+The real-street tracks come from [OpenStreetMap](https://www.openstreetmap.org/copyright) (map data © OpenStreetMap contributors, ODbL 1.0). `tools/build-tracks.mjs` routes along the real roads between a few waypoints, closes the loop, scales it to race size, eases the corners until karts can take them, and keeps the real building outlines, side streets, gardens and named places along the way. It writes the centre lines to `js/tracks-osm.js` and the rest to `tracks/<id>.json`, which loads when you race there. To rebuild, download each area with the OpenStreetMap API (`https://api.openstreetmap.org/api/0.6/map?bbox=minLon,minLat,maxLon,maxLat`, one small area at a time) into a folder and run `node race/tools/build-tracks.mjs <folder>`.
+
+Google Maps' imagery and data can't be copied into a game, so the look (facades, the water tower, the IDA blocks) is modelled by hand from reference photos.
+
 ## Changing things
 
 | What | Where |
 |---|---|
 | Rides, handling, perks, race lines | `js/riders.js` (faces, names and trash talk come from `ludo/js/characters.js`) |
-| Tracks: shape, potholes, cows, boxes, boost strips | `TRACKS` in `js/track.js` |
+| Tracks: shape, potholes, cows, boxes, boost strips | `TRACKS` in `js/track.js`; real-street routes and landmark spots in `CONFIG` in `tools/build-tracks.mjs` |
+| Real buildings and their facades | `js/realcity.js` |
+| Music | `Music` and `STYLES` in `js/audio.js` |
 | Physics, items and their odds, bots | `js/sim.js` |
 | Commentary lines and item names | `js/lines.js` |
 | Scenery: shops and signboards, stalls, landmarks, arches, themes | `js/scenery.js` (signboard text in `SHOPS`, `BOARDS`, `FOOD56`, `MODERN`) |

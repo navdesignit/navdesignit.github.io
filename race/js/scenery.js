@@ -3,8 +3,21 @@
 // mithai boxes. Static things are merged into a few chunked meshes (so the phone can
 // skip what's behind the camera), and text lives in one atlas texture.
 
-import { THREE, Batch, MAT, canvas, texture, noiseFill, seeded, hashStr, FONT, FONT2, Particles, radialTexture } from './gfx.js';
+import { THREE, Batch, MAT, canvas, texture, noiseFill, seeded, hashStr, FONT, FONT2, Particles, radialTexture, textSprite } from './gfx.js';
 import { HALF_W, KERB, SHOULDER } from './track.js';
+import { buildRealBuildings } from './realcity.js';
+
+// Real-street tracks load their buildings, side streets and gardens (from OpenStreetMap)
+// just before the race; see tools/build-tracks.mjs.
+const DATA = {};
+export async function loadTrackData(id) {
+  if (DATA[id] !== undefined) return DATA[id];
+  try {
+    const r = await fetch(new URL(`../tracks/${id}.json`, import.meta.url));
+    DATA[id] = r.ok ? await r.json() : null;
+  } catch (e) { DATA[id] = null; }
+  return DATA[id];
+}
 
 const PI = Math.PI;
 const FP0 = HALF_W + SHOULDER - 0.3;  // footpath starts here (the kart's wall)
@@ -16,6 +29,8 @@ export const THEMES = {
   night: { skyTop: '#070822', skyBot: '#3a1f5e', fog: '#21173a', fogNear: 60, fogFar: 300, ground: '#463c4c', hemi: ['#9a92d8', '#2c2236', 1.0], sun: ['#a8b8ff', 0.55], sunDir: [0.3, 1, -0.4], night: true, lights: true },
   // golden hour going purple, with the stall lights already on
   dusk: { skyTop: '#2c2a72', skyBot: '#ff8a5c', fog: '#c27a74', fogNear: 85, fogFar: 360, ground: '#8a6a55', hemi: ['#ffd0b0', '#4a3550', 1.2], sun: ['#ff9a6a', 1.25], sunDir: [-0.7, 0.35, 0.4], night: false, lights: true },
+  // Lutyens' Delhi on a hazy afternoon
+  delhi: { skyTop: '#8fb0d6', skyBot: '#efe3cf', fog: '#d9ccb6', fogNear: 85, fogFar: 380, ground: '#7f9a4c', hemi: ['#fff6e6', '#8a7a5a', 1.35], sun: ['#fff0d0', 1.5], sunDir: [0.5, 1, 0.2], night: false },
   // the new city at night: glass towers, lit windows, no fairy lights
   city: { skyTop: '#060b26', skyBot: '#2a3274', fog: '#1d2250', fogNear: 70, fogFar: 340, ground: '#3c4054', hemi: ['#a9b8ff', '#2a2a3a', 1.1], sun: ['#b0c4ff', 0.65], sunDir: [0.3, 1, -0.4], night: true, lights: false },
 };
@@ -54,12 +69,23 @@ const MODERN = [
   ['A.B. ROAD ➜', '#2a9d3f', '#fff'], ['56 DUKAN', '#ff7b00', '#ffffff'],
 ];
 
-// One texture holds every signboard: 4 columns × 16 rows of 2:1 cells.
+const DELHI = [
+  ['SANSAD MARG', '#2a9d3f', '#fff'], ['SUPREME COURT ⚖️', '#ffffff', '#1d3557'], ['INDIA GATE', '#2a9d3f', '#fff'], ['Chole Bhature', '#ffb703', '#7a1f00'],
+  ['DILLI POLICE · AAPKE LIYE SADAIV', '#1d3557', '#ffffff'], ['AQI 999 😷 MASK PEHNO', '#6c757d', '#ffffff'], ['Rajma Chawal', '#9d0208', '#fff'], ['VIP MOVEMENT · DHEERE CHALO', '#c1121f', '#fff'],
+];
+const COLONY = [
+  ['RAJIV AWAS VIHAR · SWAGAT HAI', '#0b3d91', '#ffffff'], ['Mobile Zone 📱', '#212529', '#ffd60a'], ['Kirti Boutique', '#ff99c8', '#5a189a'], ['Jain Kirana Store', '#2a9d8f', '#fff'],
+  ['Doodh Dairy 🥛', '#1d70d6', '#fff'], ['Xerox · Lamination', '#ffffff', '#c1121f'], ['TOPPER CLASSES · MP BOARD', '#ffd60a', '#c1121f'], ['Balaji Provision Store', '#ff7b00', '#fff'],
+];
+
+// One texture holds every signboard: 4 columns × 24 rows of 2:1 cells.
 let atlas = null;
-const ALL_SIGNS = [...SHOPS, ...BOARDS, ...FOOD56, ...MODERN];
-const SIGN_ROWS = 16;
+const ALL_SIGNS = [...SHOPS, ...BOARDS, ...FOOD56, ...MODERN, ...DELHI, ...COLONY];
+const SIGN_ROWS = 24;
 const cellOf = text => ALL_SIGNS.findIndex(e => e[0] === text);
 const FOOD_CELLS = FOOD56.map(e => cellOf(e[0]));
+const DELHI_CELLS = ['Chole Bhature', 'Rajma Chawal', 'Cafe Coffee ☕', 'BANK · ATM'].map(t => ALL_SIGNS.findIndex(e => e[0] === t));
+const COLONY_CELLS = COLONY.slice(1).map(e => e[0]).map(t => ALL_SIGNS.findIndex(e => e[0] === t));
 const MODERN_SHOP_CELLS = ['Cafe Coffee ☕', 'Pizza 🍕', 'Gym 💪 Fitness', 'BANK · ATM', 'IIT-JEE COACHING · 100% RESULT', 'MEGA MALL · SALE 50%', 'IT PARK'].map(cellOf);
 function signAtlas() {
   if (atlas) return atlas;
@@ -504,6 +530,8 @@ export function buildWorld(T, scene) {
   const th = THEMES[def.theme] || THEMES.day;
   const night = th.night;
   const style = def.style || 'old';
+  const data = DATA[T.id];
+  const real = !!(def.real && data); // real streets: buildings, side roads and gardens from OpenStreetMap
   const rng = seeded(hashStr(T.id));
   const group = new THREE.Group();
   const anim = { strips: null, boxes: null, cows: [], kites: null, lights: null, t: 0 };
@@ -718,6 +746,152 @@ export function buildWorld(T, scene) {
     reserved.push({ side, s0: f * T.L - w / 2 - 3, s1: f * T.L + w / 2 + 3 });
   }
 
+  // ---- the real city: landmarks at their real spots, then real buildings round them
+  const discs = [];
+  for (const [f, kind, side] of def.spots || []) { const i = T.at(f * T.L); const [w, dep] = { hospital: [46, 22], mall: [50, 30], coaching: [16, 12] }[kind]; const p = at(i, side * (FP1 + 1.5 + dep / 2)); discs.push([p.x, p.z, Math.max(w, dep) * 0.55]); }
+  const occupied = new Set(), occKey = (x, z) => `${Math.floor(x / 6)},${Math.floor(z / 6)}`;
+  if (real) {
+    const R = { rajwada: 26, chhatri: 18, temple: 14, food56: 16, hospital: 26, fountain: 16, parliament: 40, oldparliament: 36, indiagate: 14, court: 34, watertank: 10, hall: 12, coaching: 6 };
+    const landmarks = new Batch(), lglow = new Batch(), lsigns = new Signs();
+    for (const [kind, mx, mz] of def.marks || []) {
+      const rad = R[kind] || 12;
+      let x = mx, z = mz;
+      // a landmark far off the route comes closer (same direction), so you see it while racing
+      {
+        let bi = 0, bdd = Infinity;
+        for (let i = 0; i < T.N; i += 2) { const d = Math.hypot(T.X[i] - x, T.Z[i] - z); if (d < bdd) { bdd = d; bi = i; } }
+        if (bdd > 90) { const f = 70 / bdd; x = T.X[bi] + (x - T.X[bi]) * f; z = T.Z[bi] + (z - T.Z[bi]) * f; }
+      }
+      // nudge it off the road if the real spot is too close (karts need their footpath)
+      for (let k = 0; k < 60 && roadDist(x, z) < FP1 + rad * 0.8; k++) {
+        let bi = 0, bdd = Infinity;
+        for (let i = 0; i < T.N; i += 2) { const d = Math.hypot(T.X[i] - x, T.Z[i] - z); if (d < bdd) { bdd = d; bi = i; } }
+        const dx = x - T.X[bi], dz = z - T.Z[bi], l = Math.hypot(dx, dz) || 1;
+        x += (dx / l) * 2; z += (dz / l) * 2;
+      }
+      let ci = 0, cd = Infinity;
+      for (let i = 0; i < T.N; i += 2) { const d = Math.hypot(T.X[i] - x, T.Z[i] - z); if (d < cd) { cd = d; ci = i; } }
+      const ang = Math.atan2(T.Z[ci] - z, T.X[ci] - x); // facing the road
+      const fb = landmarks.mark(), fg = lglow.mark();
+      switch (kind) {
+        case 'rajwada': rajwada(landmarks); break;
+        case 'chhatri': chhatri(landmarks); break;
+        case 'temple': temple(landmarks); break;
+        case 'food56': foodPlaza(landmarks, rng); break;
+        case 'hospital': hospital(landmarks, lglow, night); break;
+        case 'fountain': fountainSquare(landmarks); break;
+        case 'parliament': parliament(landmarks); break;
+        case 'oldparliament': oldParliament(landmarks); break;
+        case 'indiagate': indiaGate(landmarks); break;
+        case 'court': supremeCourt(landmarks); break;
+        case 'watertank': waterTower(landmarks); break;
+        case 'hall': communityHall(landmarks); break;
+        case 'coaching': {
+          landmarks.rod([0, 0, -4.6], [0, 9, -4.6], 0.15, '#555'); landmarks.rod([0, 0, 4.6], [0, 9, 4.6], 0.15, '#555');
+          const board = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), new THREE.MeshBasicMaterial({ map: toppersTexture(), side: THREE.DoubleSide }));
+          board.position.set(x, 8.5, z);
+          board.rotation.y = -ang + PI / 2;
+          group.add(board);
+          break;
+        }
+        default: break;
+      }
+      const big = ['parliament', 'oldparliament', 'indiagate', 'court'].includes(kind) ? 1.3 : 1;
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -ang), new THREE.Vector3(big, big, big));
+      landmarks.transform(fb, m);
+      lglow.transform(fg, m);
+      discs.push([x, z, rad]);
+      const sign = { hospital: 'BOMBAY HOSPITAL', parliament: 'SANSAD MARG', court: 'SUPREME COURT ⚖️', indiagate: 'INDIA GATE', food56: '56 DUKAN', fountain: 'VIJAY NAGAR', hall: 'RAJIV AWAS VIHAR · SWAGAT HAI' }[kind];
+      if (sign) {
+        const off = { hospital: 12, parliament: 36, court: 22, indiagate: 9, food56: 8, fountain: 3, hall: 7.4 }[kind];
+        const hy = { hospital: 17.5, parliament: 6, court: 6, indiagate: 3, food56: 9, fountain: 13, hall: 7 }[kind];
+        lsigns.add(x + Math.cos(ang) * off, hy, z + Math.sin(ang) * off, ang, kind === 'fountain' ? 12 : 10, cellOf(sign), kind === 'fountain' ? 6 : 5);
+      }
+    }
+    if (!landmarks.empty) group.add(landmarks.mesh());
+    if (!lglow.empty) group.add(lglow.mesh(MAT.vcBasic));
+    if (lsigns.p.length) group.add(lsigns.mesh());
+
+    // real buildings
+    const inDisc = (x, z) => discs.some(([dx, dz, r]) => Math.hypot(x - dx, z - dz) < r);
+    const nearIdx = (x, z) => { let bi = 0, bdd = Infinity; const gx = Math.floor(x / CELL), gz = Math.floor(z / CELL); for (let a = -4; a <= 4; a++) for (let c = -4; c <= 4; c++) { const list = grid.get(key(gx + a, gz + c)); if (list) for (const i of list) { const d = Math.hypot(x - T.X[i], z - T.Z[i]); if (d < bdd) { bdd = d; bi = i; } } } return [bi, bdd]; };
+    const signCells = style === 'modern' ? MODERN_SHOP_CELLS : style === 'delhi' ? DELHI_CELLS : style === 'colony' ? COLONY_CELLS : style === 'food' ? FOOD_CELLS.concat([0, 1, 5, 7, 22, 23]) : Array.from({ length: SHOPS.length }, (_, k) => k);
+    buildRealBuildings(group, data, {
+      style, night, chunks: CHUNKS, roofs: chunks, props: chunks, signs, signCells,
+      chunkOf: (x, z) => chunkOf(nearIdx(x, z)[0]),
+      roadNear: (x, z) => { const [i, d] = nearIdx(x, z); const dx = x - T.X[i], dz = z - T.Z[i], l = Math.hypot(dx, dz) || 1; return { d, nx: dx / l, nz: dz / l }; },
+      skip: (x, z) => inDisc(x, z),
+    });
+    for (const bld of data.buildings || []) { // mark the ground every real building covers
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (let k = 1; k < bld.length; k += 2) { x0 = Math.min(x0, bld[k]); x1 = Math.max(x1, bld[k]); z0 = Math.min(z0, bld[k + 1]); z1 = Math.max(z1, bld[k + 1]); }
+      for (let x = x0; x <= x1 + 5.9; x += 6) for (let z = z0; z <= z1 + 5.9; z += 6) occupied.add(occKey(Math.min(x, x1), Math.min(z, z1)));
+    }
+    for (const [x, z, r] of discs) for (let a = -r; a <= r; a += 5) for (let c = -r; c <= r; c += 5) occupied.add(occKey(x + a, z + c));
+
+    // the other real streets (side roads, the colony's X lanes): drawn, not raced on
+    const sp = [], si = [], suv = [];
+    for (const rd of data.roads || []) {
+      const w = rd[0] / 2;
+      for (let k = 1; k + 3 < rd.length; k += 2) {
+        const ax = rd[k], az = rd[k + 1], bx = rd[k + 2], bz = rd[k + 3];
+        const l = Math.hypot(bx - ax, bz - az);
+        if (l < 0.1) continue;
+        const nx = -(bz - az) / l * w, nz = (bx - ax) / l * w, ex = (bx - ax) / l * w * 0.5, ez = (bz - az) / l * w * 0.5;
+        const base = sp.length / 3;
+        sp.push(ax + nx - ex, 0.035, az + nz - ez, ax - nx - ex, 0.035, az - nz - ez, bx + nx + ex, 0.035, bz + nz + ez, bx - nx + ex, 0.035, bz - nz + ez);
+        suv.push(0, 0, 1, 0, 0, l / 6, 1, l / 6);
+        si.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+        for (let t = 0; t <= l; t += 5) occupied.delete(occKey(ax + (bx - ax) * t / l, az + (bz - az) * t / l));
+      }
+    }
+    if (sp.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(suv, 2));
+      g.setIndex(si);
+      g.computeVertexNormals();
+      const lane = roadTexture(night);
+      lane.repeat.set(0.5, 1);
+      group.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: lane, color: night ? '#9a9aa6' : '#d8d8de', side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
+    }
+
+    // gardens and udyaans: grass, a little white railing, trees, a swing and a bench
+    const pb = new Batch();
+    const grass = new THREE.MeshLambertMaterial({ map: groundTexture('#5f9a3a', night), polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const gp = [];
+    for (const pk of data.parks || []) {
+      const pts = [];
+      for (let k = 0; k < pk.length; k += 2) pts.push([pk[k], pk[k + 1]]);
+      let tris = [];
+      try { tris = THREE.ShapeUtils.triangulateShape(pts.map(p => new THREE.Vector2(p[0], p[1])), []); } catch (e) { tris = []; }
+      for (const [a, b2, c] of tris) for (const q of [a, b2, c]) gp.push(pts[q][0], 0.05, pts[q][1]);
+      for (let k = 0; k < pts.length; k++) {
+        const a = pts[k], c = pts[(k + 1) % pts.length];
+        pb.rod([a[0], 0.5, a[1]], [c[0], 0.5, c[1]], 0.05, '#f2f2f2');
+        pb.rod([a[0], 0, a[1]], [a[0], 0.7, a[1]], 0.07, '#f2f2f2');
+      }
+      const cx = pts.reduce((v, p) => v + p[0], 0) / pts.length, cz = pts.reduce((v, p) => v + p[1], 0) / pts.length;
+      for (let k = 0; k < Math.min(5, pts.length); k++) { const p = pts[k]; tree(pb, cx + (p[0] - cx) * 0.55, cz + (p[1] - cz) * 0.55, rng, 'neem'); }
+      // a swing and a bench in every garden
+      pb.rod([cx - 1.2, 0, cz], [cx - 1.2, 2.6, cz], 0.07, '#c1121f'); pb.rod([cx + 1.2, 0, cz], [cx + 1.2, 2.6, cz], 0.07, '#c1121f');
+      pb.rod([cx - 1.2, 2.6, cz], [cx + 1.2, 2.6, cz], 0.07, '#c1121f'); pb.box([cx, 0.6, cz], [0.8, 0.06, 0.4], '#ffd23f');
+      pb.box([cx, 0.45, cz + 2.4], [1.8, 0.1, 0.5], '#8b5a2b');
+    }
+    if (gp.length) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); const uv = []; for (let k = 0; k < gp.length; k += 3) uv.push(gp[k] / 12, gp[k + 2] / 12); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); group.add(new THREE.Mesh(g, grass)); }
+    if (!pb.empty) group.add(pb.mesh());
+
+    // name boards for the gardens, schools and hospitals near the route
+    const COL = { park: '#2a9d3f', school: '#1d70d6', hospital: '#c1121f', clinic: '#c1121f', supermarket: '#ff7b00' };
+    for (const [name, x, z, kind] of (data.names || []).slice(0, 12)) {
+      const board = textSprite(name, { color: '#fff', bg: COL[kind] || '#2a9d3f', stroke: null, size: 40, font: FONT2 + ' bold', height: 1.4 });
+      board.position.set(x, 4.2, z);
+      board.renderOrder = 3;
+      group.add(board);
+      const pole = new Batch(); pole.rod([x, 0, z], [x, 3.5, z], 0.08, '#666'); group.add(pole.mesh());
+    }
+  }
+
   for (const side of [1, -1]) {
     let s = rng() * 6;
     while (s < T.L - 4) {
@@ -728,15 +902,19 @@ export function buildWorld(T, scene) {
       const face = T.ANG[i] + (side > 0 ? -PI / 2 : PI / 2); // direction from the building to the road
       const r = rng();
       const stallP = style === 'food' ? 0.62 : style === 'modern' ? 0.05 : def.theme === 'night' ? 0.32 : 0.16;
+      if (style === 'delhi' && real) { // Lutyens' avenues: a tree every few metres
+        const p = at(i, side * (FP0 + 1.1));
+        if (clear(p.x, p.z, -1.6) && rng() < 0.7) tree(b, p.x, p.z, rng, 'neem');
+      }
       if (r < stallP) {
         const kind = stallKinds[Math.floor(rng() * stallKinds.length)];
-        const p = at(i, side * (FP1 + 1.4));
-        if (clear(p.x, p.z, 1.4)) {
+        const p = at(i, side * (real ? FP0 + 1.0 : FP1 + 1.4));
+        if (clear(p.x, p.z, real ? -1.5 : 1.4)) {
           const from = b.mark(), fromG = g.mark();
           if (kind === 'food56') foodStall(b, g, rng, th.lights); else STALLS[kind](b, rng);
           place(b, from, p.x, 0, p.z, face + PI);
           place(g, fromG, p.x, 0, p.z, face + PI);
-          const sp = at(i, side * (FP1 + 1.4 + 0.2));
+          const sp = at(i, side * (real ? FP0 + 1.2 : FP1 + 1.4 + 0.2));
           const cell = kind === 'food56' ? FOOD_CELLS[Math.floor(rng() * FOOD_CELLS.length)] : STALL_SIGNS[kind];
           signs[ch].add(sp.x, kind === 'chai' ? 3.2 : kind === 'food56' ? 3.55 : 2.3, sp.z, face + PI, kind === 'food56' ? 2.6 : 1.8, cell);
           for (let k = 0; k < 1 + Math.floor(rng() * 3); k++) {
@@ -748,12 +926,15 @@ export function buildWorld(T, scene) {
           continue;
         }
       }
-      if (r < 0.8) {
+      if (r < 0.8 && !(real && style === 'delhi')) {
         const modern = style === 'modern';
         const w = modern ? 10 + rng() * 8 : 6 + rng() * 6, dep = modern ? 10 + rng() * 6 : 7 + rng() * 5;
-        const h = modern ? 16 + rng() * 30 : style === 'food' ? 4 + Math.floor(rng() * 2) * 3 + rng() : 4 + Math.floor(rng() * 4) * 3 + rng();
+        const h = modern ? 16 + rng() * 30 : style === 'food' || style === 'colony' ? 6.8 + Math.floor(rng() * 2) * 3.2 : 6.8 + Math.floor(rng() * 3) * 3.2;
         const p = at(i, side * (FP1 + 0.5 + dep / 2));
-        if (clear(p.x, p.z, Math.max(w, dep) * 0.45)) {
+        // on real streets, only fill the gaps between the real buildings
+        let gap = true;
+        if (real) for (let a = -w / 2; a <= w / 2 && gap; a += 3) for (let c = -dep / 2; c <= dep / 2 && gap; c += 3) { const q = at(i, side * (FP1 + 0.5 + dep / 2 + c), a); if (occupied.has(occKey(q.x, q.z))) gap = false; }
+        if (gap && clear(p.x, p.z, Math.max(w, dep) * 0.45)) {
           const from = b.mark(), fromG = g.mark();
           if (modern) tower(b, g, rng, w, dep, h, night); else building(b, rng, w, dep, h, night);
           place(b, from, p.x, 0, p.z, face + PI);
@@ -781,7 +962,7 @@ export function buildWorld(T, scene) {
       }
       if (r < 0.95) {
         const p = at(i, side * (FP1 + 2.5));
-        if (clear(p.x, p.z, 2)) tree(b, p.x, p.z, rng);
+        if (clear(p.x, p.z, 2) && !occupied.has(occKey(p.x, p.z))) tree(b, p.x, p.z, rng);
       }
       s += 7 + rng() * 4;
     }
@@ -875,7 +1056,7 @@ export function buildWorld(T, scene) {
       const d = roadDist(x, z);
       if (d > bd) { bd = d; best = [x, z]; }
     }
-    if (best && bd > 32) {
+    if (best && bd > 32 && !real) {
       const b = new Batch();
       const [lx, lz] = best;
       // face the closest bit of road
@@ -1087,6 +1268,109 @@ function fountainSquare(b) {
   b.shape('cone', [0, 5.2, 0], [0.6, 5, 0.6], '#e8f6ff');
   for (const z of [-5.2, 5.2]) b.rod([2.2, 0, z], [2.2, 15, z], 0.3, '#0b3d91');
   for (let k = 0; k < 12; k++) { const a = (k / 12) * PI * 2; b.shape('sph6', [Math.cos(a) * 13, 0.9, Math.sin(a) * 13], [1, 0.9, 1], k % 2 ? '#ff4fa3' : '#ffd23f'); }
+}
+
+// ---------------------------------------------------------------- real-world landmarks
+
+// Krishnapura Chhatris near Rajwada: domed sandstone pavilions.
+function chhatri(b) {
+  const stone = '#d9a066', light = '#ecd3a8';
+  for (const [x, z, s] of [[0, 0, 1.2], [-11, 4, 0.9], [11, 4, 0.9]]) {
+    b.box([x, 1 * s, z], [8 * s, 2 * s, 8 * s], stone);
+    for (const [px, pz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) b.shape('cyl8', [x + px * s, 4.5 * s, z + pz * s], [0.45 * s, 5 * s, 0.45 * s], light);
+    b.box([x, 7.2 * s, z], [8.4 * s, 0.6 * s, 8.4 * s], stone);
+    b.shape('dome', [x, 7.5 * s, z], [3.6 * s, 4 * s, 3.6 * s], light);
+    b.shape('cone', [x, 12 * s, z], [0.4 * s, 1.4 * s, 0.4 * s], '#ffcd00');
+  }
+}
+
+// The giant overhead water tank in the middle of Rajiv Awas Vihar.
+function waterTower(b) {
+  const conc = '#cfcac0', dark = '#a8a296';
+  for (let k = 0; k < 8; k++) { const a = (k / 8) * PI * 2; b.rod([Math.cos(a) * 5, 0, Math.sin(a) * 5], [Math.cos(a) * 4, 22, Math.sin(a) * 4], 0.45, conc); }
+  for (let y = 6; y < 22; y += 5.5) b.shape('tor', [0, y, 0], [4.5, 4.5, 1.2], dark, [PI / 2, 0, 0]);
+  b.shape('cyl', [0, 11, 0], [1.6, 22, 1.6], dark);
+  b.shape('cone', [0, 23.2, 0], [9, 3, 9], conc, [PI, 0, 0]);
+  b.shape('cyl', [0, 27.5, 0], [9.5, 7, 9.5], '#e9e5dc');
+  b.shape('cyl', [0, 24.4, 0], [9.6, 0.5, 9.6], '#2f6fb0');
+  b.shape('cone', [0, 32.2, 0], [9.6, 2.6, 9.6], conc);
+  b.rod([0, 33.4, 0], [0, 36, 0], 0.1, '#555');
+}
+
+function communityHall(b) {
+  b.box([0, 3, 0], [14, 6, 22], '#f2e2c4');
+  b.box([7.1, 2.4, 0], [0.2, 4.4, 5], '#6b4226');
+  b.box([8, 6.2, 0], [2.6, 0.3, 8], '#2f6fb0');
+  for (const z of [-3.5, 3.5]) b.box([9, 3, z], [0.5, 6, 0.5], '#ffffff');
+}
+
+// India Gate: the arch, with its little dome on top.
+function indiaGate(b) {
+  const s = '#d8b48a', d = '#c49a6c';
+  b.box([0, 0.6, 0], [26, 1.2, 14], '#e6d6bd');
+  for (const x of [-8.5, 8.5]) b.box([x, 13, 0], [7, 24, 9], s);
+  b.box([0, 27, 0], [24, 6, 9], s);
+  b.box([0, 24.3, 0], [10, 0.8, 9.2], d);
+  b.box([0, 31, 0], [18, 2, 7], d);
+  b.box([0, 33.5, 0], [12, 3, 6], s);
+  b.shape('dome', [0, 35, 0], [3, 2.4, 3], s);
+  b.box([0, 0.9, 10], [3, 1.8, 3], '#4a3a2a');
+}
+
+// The Supreme Court: a dome over the centre with wings either side.
+function supremeCourt(b) {
+  const cream = '#f1e5cf', red = '#b5624a';
+  b.box([0, 9, 0], [22, 18, 24], cream);
+  b.box([0, 2, 0], [24, 4, 26], red);
+  b.shape('cyl', [0, 19.5, 0], [7, 3, 7], cream);
+  b.shape('dome', [0, 21, 0], [7.4, 8, 7.4], '#3a3a40');
+  b.shape('cone', [0, 29.6, 0], [0.5, 2, 0.5], '#d4af37');
+  for (const s of [-1, 1]) {
+    b.box([-6, 7, s * 26], [16, 14, 30], cream, [0, s * 0.3, 0]);
+    b.box([-6, 1.5, s * 26], [17, 3, 31], red, [0, s * 0.3, 0]);
+  }
+  for (let k = 0; k < 6; k++) b.shape('cyl8', [12, 8, -7.5 + k * 3], [0.6, 14, 0.6], '#ffffff');
+}
+
+// The new Parliament: a triangle of red and cream sandstone round a low dome.
+function parliament(b) {
+  b.shape('cyl3', [0, 8, 0], [44, 16, 44], '#d9a27a', [0, PI / 6, 0]);
+  b.shape('cyl3', [0, 16.4, 0], [42, 1, 42], '#f2e6d0', [0, PI / 6, 0]);
+  b.shape('dome', [0, 16.6, 0], [12, 6, 12], '#f2e6d0');
+  b.rod([0, 22, 0], [0, 28, 0], 0.15, '#666');
+  b.box([0, 26.8, 1.1], [0.05, 1.4, 2.1], '#ff7b00');
+  b.box([0, 26.1, 1.1], [0.05, 0.7, 2.1], '#ffffff');
+  b.box([0, 25.4, 1.1], [0.05, 0.7, 2.1], '#138808');
+}
+
+// The old Parliament (Samvidhan Sadan): a great round colonnade.
+function oldParliament(b) {
+  b.shape('cyl', [0, 6, 0], [34, 12, 34], '#e8c9a6');
+  b.shape('cyl', [0, 12.3, 0], [35, 0.8, 35], '#d9a27a');
+  for (let k = 0; k < 48; k++) { const a = (k / 48) * PI * 2; b.shape('cyl8', [Math.cos(a) * 35.2, 6, Math.sin(a) * 35.2], [0.7, 11, 0.7], '#f2e6d0'); }
+  b.shape('dome', [0, 12.6, 0], [10, 4, 10], '#c98f6a');
+}
+
+// A coaching class banner. Their toppers, apparently, are the gang.
+function toppersTexture() {
+  const c = canvas(512, 256), x = c.getContext('2d');
+  x.fillStyle = '#ffd60a'; x.fillRect(0, 0, 512, 256);
+  x.fillStyle = '#c1121f'; x.fillRect(0, 0, 512, 54);
+  x.fillStyle = '#fff'; x.font = `34px ${FONT}`; x.textAlign = 'center'; x.fillText('TOPPER CLASSES', 256, 40);
+  x.fillStyle = '#1b0f33'; x.font = `22px ${FONT}`; x.fillText('Hamare Toppers 2026 🏆', 256, 82);
+  const tex = texture(c);
+  const list = [['nav', '99.9%'], ['vanshika', '98%'], ['liu', '97%'], ['lisa', '96%'], ['chechu', '61%'], ['ajay', '35% (grace)']];
+  import('./riders.js').then(({ avatar }) => list.forEach(([id, pct], i) => {
+    const img = new Image();
+    img.onload = () => {
+      const cx = 46 + i * 84;
+      x.drawImage(img, cx - 36, 100, 72, 72);
+      x.fillStyle = '#c1121f'; x.font = `${pct.length > 5 ? 13 : 20}px ${FONT}`; x.fillText(pct, cx, 200);
+      tex.needsUpdate = true;
+    };
+    img.src = URL.createObjectURL(new Blob([avatar(id, { weapon: false }).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" ')], { type: 'image/svg+xml' }));
+  }));
+  return tex;
 }
 
 function truckYard(b, rng) {

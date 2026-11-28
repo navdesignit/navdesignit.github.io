@@ -16,6 +16,7 @@ export function setMuted(m) {
   muted = m;
   try { localStorage.setItem('pp_muted', m ? '1' : '0'); } catch (e) { /* ignore */ }
   if (out) out.gain.setTargetAtTime(m ? 0 : 1, ctx.currentTime, 0.05);
+  if (music) music.bus.gain.setTargetAtTime(!m && musicOn ? music.level : 0, ctx.currentTime, 0.05);
 }
 
 export function unlock() {
@@ -164,6 +165,117 @@ export function fx(name) {
   } catch (e) { /* ignore */ }
 }
 
+// ---------------------------------------------------------------- music
+// Background music, synthesised: a dhol, a bassline and a tune on a tumbi, shehnai, synth or a
+// baraat brass band depending on the track. Notes are scheduled a little ahead on the audio
+// clock so the beat never stutters even if a frame is late.
+let musicOn = true;
+try { musicOn = localStorage.getItem('pp_music') !== '0'; } catch (e) { /* ignore */ }
+export const isMusicOn = () => musicOn;
+export function setMusicOn(on) {
+  musicOn = on;
+  try { localStorage.setItem('pp_music', on ? '1' : '0'); } catch (e) { /* ignore */ }
+  if (music) music.bus.gain.setTargetAtTime(on ? music.level : 0, ctx.currentTime, 0.1);
+}
+
+const SCALES = { kafi: [0, 2, 3, 5, 7, 9, 10], bhairav: [0, 1, 4, 5, 7, 8, 11], major: [0, 2, 4, 5, 7, 9, 11] };
+const STYLES = {
+  day: { bpm: 112, scale: 'kafi', root: 57, lead: 'tumbi' },
+  sunset: { bpm: 110, scale: 'kafi', root: 55, lead: 'tumbi' },
+  dusk: { bpm: 104, scale: 'kafi', root: 60, lead: 'tumbi' },
+  night: { bpm: 96, scale: 'bhairav', root: 55, lead: 'shehnai' },
+  city: { bpm: 122, scale: 'kafi', root: 52, lead: 'synth', four: true },
+  delhi: { bpm: 108, scale: 'major', root: 58, lead: 'brass' },
+  podium: { bpm: 120, scale: 'major', root: 60, lead: 'brass' },
+  lobby: { bpm: 100, scale: 'kafi', root: 57, lead: 'tumbi', soft: true },
+};
+const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+let music = null;
+
+function seededRng(seed) { let s = seed >>> 0 || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+class Music {
+  constructor(style, seed) {
+    this.st = STYLES[style] || STYLES.day;
+    this.level = this.st.soft ? 0.16 : 0.24;
+    this.bus = ctx.createGain();
+    this.bus.gain.value = 0;
+    this.bus.gain.setTargetAtTime(musicOn && !muted ? this.level : 0, ctx.currentTime, 0.4);
+    this.bus.connect(out);
+    this.step = 0;
+    this.next = ctx.currentTime + 0.1;
+    this.tempo = 1;
+    this.intense = 0;
+    // a four-bar tune that wanders up and down the scale
+    const rng = seededRng(seed);
+    const sc = SCALES[this.st.scale];
+    let deg = 7;
+    this.tune = [];
+    for (let i = 0; i < 64; i++) {
+      const play = i % 4 === 0 || (i % 2 === 0 && rng() < 0.55) || rng() < 0.12;
+      if (play) deg = Math.max(3, Math.min(13, deg + Math.round((rng() - 0.5) * 4)));
+      this.tune.push(play ? this.st.root + 12 + Math.floor(deg / 7) * 12 + sc[deg % 7] - 12 : null);
+    }
+    this.timer = setInterval(() => this.pump(), 30);
+  }
+  pump() {
+    if (!ctx) return;
+    const spb = 60 / (this.st.bpm * this.tempo) / 4; // seconds per 16th note
+    while (this.next < ctx.currentTime + 0.15) { this.play(this.step, this.next, spb); this.step = (this.step + 1) % 64; this.next += spb; }
+  }
+  note(f, t, dur, type, vol, { to = null, filt = null, q = 1, vib = 0 } = {}) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+    let node = o;
+    if (filt) { const fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = filt; fl.Q.value = q; o.connect(fl); node = fl; }
+    if (vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 6; lg.gain.value = f * vib; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t + dur + 0.05); }
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    node.connect(g).connect(this.bus);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  hit(t, dur, vol, cutoff, type = 'lowpass') {
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = cutoff;
+    const g = ctx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.bus); src.start(t, Math.random()); src.stop(t + dur + 0.05);
+  }
+  play(i, t, spb) {
+    const s = i % 16, st = this.st;
+    // dhol: the big "dha" on the bass side, the slap on the treble side, chimta in between
+    if (st.four ? s % 4 === 0 : [0, 6, 10].includes(s)) this.note(st.four ? 60 : 85, t, 0.28, 'sine', 0.9, { to: 40 });
+    if ([4, 12].includes(s) || (this.intense && s === 14)) this.hit(t, 0.12, 0.55, 1800, 'bandpass');
+    if (s % 2 === 1) this.hit(t, 0.04, this.intense ? 0.22 : 0.14, 7000, 'highpass');
+    // bass
+    if (s === 0 || s === 8 || (s === 11 && i % 32 > 16)) this.note(hz(st.root - 24 + (s === 8 ? 7 : 0)), t, spb * 3, 'triangle', 0.32);
+    // the tune
+    const m = this.tune[i];
+    if (m) {
+      const f = hz(m);
+      switch (st.lead) {
+        case 'tumbi': this.note(f * 2, t, 0.16, 'square', 0.07, { to: f * 1.98, filt: 2400, q: 2 }); break;
+        case 'shehnai': this.note(f, t, spb * 2.2, 'sawtooth', 0.08, { filt: 1300, q: 3, vib: 0.012 }); break;
+        case 'synth': this.note(f, t, spb * 0.9, 'square', 0.05, { filt: 1800, q: 1 }); break;
+        case 'brass': for (const k of [0, 4, 7]) this.note(f * Math.pow(2, k / 12) * (1 + (k ? 0.003 : 0)), t, spb * 1.6, 'sawtooth', 0.035, { filt: 1500, q: 1 }); break;
+        default: break;
+      }
+    }
+  }
+  setIntensity(x) { this.intense = x; this.tempo = 1 + x * 0.06; }
+  duck(sec) { const t = ctx.currentTime; this.bus.gain.setTargetAtTime(musicOn && !muted ? this.level * 0.35 : 0, t, 0.05); this.bus.gain.setTargetAtTime(musicOn && !muted ? this.level : 0, t + sec, 0.3); }
+  stop() { clearInterval(this.timer); const t = ctx.currentTime; this.bus.gain.setTargetAtTime(0, t, 0.2); setTimeout(() => { try { this.bus.disconnect(); } catch (e) { /* ignore */ } }, 1500); }
+}
+
+export function playMusic(style, seed = 7) {
+  if (!ctx) return;
+  if (music && music.style === style) return;
+  stopMusic();
+  music = new Music(style, seed);
+  music.style = style;
+}
+export function stopMusic() { if (music) { music.stop(); music = null; } }
+export function musicIntensity(x) { if (music) music.setIntensity(x); }
+
 // A Modi meme clip. `force` plays it even if another voice played recently.
 export function meme(i, force = false) {
   if (muted || !ctx || !memeBuf || !MEMES[i]) return false;
@@ -177,6 +289,7 @@ export function meme(i, force = false) {
     voiceSrc.buffer = memeBuf;
     voiceSrc.connect(out);
     voiceSrc.start(0, from, to - from);
+    if (music) music.duck(to - from);
     return true;
   } catch (e) { return false; }
 }

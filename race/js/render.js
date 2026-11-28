@@ -90,6 +90,7 @@ export class Renderer {
     this.clearObjs();
     this.T = T;
     this.world = buildWorld(T, this.scene);
+    this.makeBirds(T);
     this.updateFov(this.camera.fov);
   }
 
@@ -174,10 +175,70 @@ export class Renderer {
     if (c.shake > 0.01) { sx = (Math.random() - 0.5) * c.shake; sy = (Math.random() - 0.5) * c.shake; c.shake *= Math.exp(-dt * 7); }
     this.camera.position.set(c.x + sx, c.y + sy, c.z);
     this.camera.lookAt(c.lx, c.ly, c.lz);
+    // lean the camera a touch into drifts
+    c.roll = (c.roll || 0) + (((pose.drift || 0) * 0.05) - (c.roll || 0)) * (1 - Math.exp(-dt * 4));
+    if (mode === 'chase') this.camera.rotateZ(c.roll);
     if (Math.abs(this.camera.fov - c.fov) > 0.05) this.updateFov(c.fov);
   }
 
   shake(a) { this.cam.shake = Math.max(this.cam.shake, a); }
+
+  // Pigeons on the footpaths that scatter when a kart comes past.
+  makeBirds(T) {
+    if (this.birds) { this.scene.remove(this.birds.mesh); this.birds = null; }
+    const b = new Batch();
+    b.box([0, 0, 0], [0.32, 0.14, 0.14], '#7d8597');
+    b.box([0.2, 0.06, 0], [0.12, 0.1, 0.1], '#5c6475');
+    for (const sd of [-1, 1]) b.box([0, 0.08, sd * 0.22], [0.22, 0.03, 0.36], '#9aa3b5', [sd * 0.5, 0, 0]);
+    const n = 72;
+    const mesh = new THREE.InstancedMesh(b.geometry(), MAT.vc, n);
+    mesh.frustumCulled = false;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const flocks = 9, per = n / flocks, B = [];
+    for (let f = 0; f < flocks; f++) {
+      const i = T.at(((f + 0.37) / flocks) * T.L), side = f % 2 ? 1 : -1;
+      for (let k = 0; k < per; k++) {
+        const d = side * (7 + 7 - 0.3 + 0.6 + Math.random() * 1.2), along = (Math.random() - 0.5) * 6;
+        const x = T.X[i] + T.NX[i] * d + T.TX[i] * along, z = T.Z[i] + T.NZ[i] * d + T.TZ[i] * along;
+        B.push({ hx: x, hz: z, hy: T.Y[i] + 0.4, x, y: T.Y[i] + 0.4, z, vx: 0, vy: 0, vz: 0, fly: 0, t: Math.random() * 10, yaw: Math.random() * 6 });
+      }
+    }
+    this.birds = { mesh, B };
+    this.scene.add(mesh);
+  }
+
+  updateBirds(dt, karts) {
+    const bd = this.birds;
+    if (!bd) return;
+    const d = this._dummy;
+    bd.B.forEach((p, i) => {
+      p.t += dt;
+      if (!p.fly) {
+        for (const k of karts) {
+          const dx = p.x - k.x, dz = p.z - k.z;
+          if (dx * dx + dz * dz < 150) {
+            const l = Math.hypot(dx, dz) || 1;
+            p.fly = 7 + Math.random() * 3; p.vx = (dx / l) * (4 + Math.random() * 4); p.vz = (dz / l) * (4 + Math.random() * 4); p.vy = 4 + Math.random() * 3;
+            p.yaw = Math.atan2(p.vz, p.vx);
+            break;
+          }
+        }
+      }
+      if (p.fly) {
+        p.fly -= dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        p.vy = Math.max(0.5, p.vy - dt);
+        if (p.fly <= 0) { p.fly = 0; p.x = p.hx; p.y = p.hy; p.z = p.hz; }
+      }
+      const flap = p.fly ? 0.35 + Math.abs(Math.sin(p.t * 22)) * 0.9 : 1;
+      d.position.set(p.x, p.y + (p.fly ? 0 : Math.abs(Math.sin(p.t * 3 + i)) * 0.05), p.z);
+      d.rotation.set(0, -p.yaw, p.fly ? 0 : Math.sin(p.t * 4 + i) * 0.3);
+      d.scale.set(1.4, 1.4 * flap, 1.4);
+      d.updateMatrix();
+      bd.mesh.setMatrixAt(i, d.matrix);
+    });
+    bd.mesh.instanceMatrix.needsUpdate = true;
+  }
 
   // Compile every effect's shader now (during the countdown), so the first explosion
   // or THWACK! doesn't stall a frame on a phone.
@@ -258,7 +319,7 @@ export class Renderer {
   }
 
   textPop(x, y, z, text, color = '#ffd23f', size = 2.2) {
-    if (this.camera.position.distanceTo(this._v.set(x, y, z)) < 11) return; // right in our face: the HUD says it instead
+    if (this.camera.position.distanceTo(this._v.set(x, y, z)) < 18) return; // right in our face: the HUD says it instead
     const s = textSprite(text, { color, stroke: '#1b0f33', size: 72, height: size });
     s.position.set(x, y, z);
     s.renderOrder = 15;

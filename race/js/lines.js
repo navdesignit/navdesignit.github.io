@@ -1,5 +1,6 @@
 // The commentator. {a} is whoever did it, {b} whoever it happened to.
 export const LINES = {
+  delhi: ['Dilli mein swagat hai! AQI 999, phir bhi race 😷', 'Tu jaanta hai mera baap kaun hai? 😎 Chal race kar', 'Sansad chal raha hai, race bhi 🏛️', 'Dilli ki sadak, VIP ki gaadi, hum sab side 😂'],
   start: ['Indore ki galiyon mein swagat hai! 🛺', 'Seat belt? Ye India hai bhai 😂', 'Gaadi bula rahi hai… 🏁', 'Poha kha liya? Chalo race karo 🍛'],
   chappal: ['Mummy ki chappal kabhi miss nahi hoti! 🩴', '{a} ne {b} ko chappal maari! THWACK 🩴', '{b} ko ghar ki yaad aa gayi 🩴', 'Chappal seedha {b} ke sar pe 🩴😵'],
   cooker: ['Teesri seeti… BOOM! 💥', 'Pressure cooker ne {b} ka poha bana diya 💥', '{a} ka cooker phata, {b} udd gaya 💥', 'Dal pak gayi, {b} bhi 💥'],
