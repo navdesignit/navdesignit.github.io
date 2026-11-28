@@ -1,5 +1,5 @@
 // The rides: Ajay's Bullet, Nav's Rocket Nano, Chechu's Poha Express auto, Vanshika's
-// Advocate scooter and Liu's Masterpiece moped. Low-poly, merged into a few meshes per
+// Advocate scooter, Liu's Masterpiece moped, Lisa's tonga and Jihye's cycle-rickshaw. Low-poly, merged into a few meshes per
 // kart, with the rider's Ludo face as a big bobblehead sticker so you can tell who's who.
 //
 // Models face +x with the ground at y = 0; +z is the rider's right.
@@ -226,6 +226,82 @@ const BUILD = {
       legs: [[1.75, 1.25, 0.18, 0], [1.75, 1.25, -0.18, PI], [0.75, 1.25, 0.18, PI * 0.5], [0.75, 1.25, -0.18, PI * 1.5]],
     };
   },
+  // Jihye's Ppali-Ppali Rickshaw: an Indore cycle-rickshaw with a secret battery,
+  // K-pop fairy lights, a lightstick, a speaker and a jar of kimchi on the seat.
+  rickshaw(b, g, f, acc) {
+    const blue = '#2b59c3', frame = '#2a2a30', pink = '#ff4fa3';
+    const bikeWheel = (bb, x, y, z, r) => {
+      bb.shape('cyl', [x, y, z], [r, 0.07, r], C.tyre, [PI / 2, 0, 0]);
+      bb.shape('cyl', [x, y, z], [r * 0.84, 0.075, r * 0.84], '#c9ced6', [PI / 2, 0, 0]);
+      bb.shape('cyl', [x, y, z], [r * 0.76, 0.08, r * 0.76], '#3a3f48', [PI / 2, 0, 0]);
+      for (let k = 0; k < 4; k++) { const a = (k / 4) * PI; bb.rod([x + Math.cos(a) * r * 0.78, y + Math.sin(a) * r * 0.78, z], [x - Math.cos(a) * r * 0.78, y - Math.sin(a) * r * 0.78, z], 0.015, C.chrome); }
+      bb.shape('cyl', [x, y, z], [0.06, 0.12, 0.06], C.chrome, [PI / 2, 0, 0]);
+    };
+    // the carriage: two big wheels, a blue bench with a crimson cushion, the hood folded back
+    for (const z of [-0.66, 0.66]) {
+      bikeWheel(b, -0.75, 0.42, z, 0.42);
+      b.box([-0.75, 0.9, z], [0.8, 0.05, 0.14], acc);
+    }
+    b.rod([-0.75, 0.42, -0.66], [-0.75, 0.42, 0.66], 0.03, frame);
+    b.box([-0.72, 0.7, 0], [1.05, 0.08, 1.2], '#7a4a24');
+    b.box([-0.85, 0.86, 0], [0.62, 0.24, 1.15], blue);
+    b.box([-0.85, 1.03, 0], [0.62, 0.12, 1.12], acc);
+    b.box([-1.15, 1.36, 0], [0.1, 0.66, 1.15], blue);
+    b.box([-1.1, 1.36, 0], [0.02, 0.4, 0.8], '#ffffff');
+    b.shape('cyl', [-1.3, 1.6, 0], [0.26, 1.22, 0.26], pink, [PI / 2, 0, 0]);
+    for (const z of [-0.36, 0, 0.36]) b.shape('cyl', [-1.3, 1.6, z], [0.27, 0.08, 0.27], '#ffffff', [PI / 2, 0, 0]);
+    b.box([-0.2, 0.56, 0], [0.34, 0.05, 0.9], '#333338');
+    // speaker and the kimchi jar (an onggi) riding in the passenger seat
+    b.box([-0.82, 1.28, -0.3], [0.34, 0.38, 0.32], '#1f1f24');
+    b.shape('cyl', [-1.0, 1.32, -0.3], [0.11, 0.02, 0.11], '#5a5f6a', [0, 0, PI / 2]);
+    b.shape('cyl', [-1.0, 1.17, -0.3], [0.06, 0.02, 0.06], '#5a5f6a', [0, 0, PI / 2]);
+    b.shape('sph', [-0.82, 1.32, 0.28], [0.22, 0.27, 0.22], '#7a4526');
+    b.shape('cyl', [-0.82, 1.57, 0.28], [0.15, 0.05, 0.15], '#5a321b');
+    b.box([-1.0, 1.32, 0.28], [0.06, 0.14, 0.14], '#e63946');
+    // the K-pop lightstick, and fairy lights round the bench and the hood
+    // (leaning out to the side, so it never hides her face from the camera behind)
+    b.rod([-1.12, 1.55, 0.55], [-1.12, 2.2, 1.0], 0.03, '#eeeeee');
+    g.shape('sph6', [-1.12, 2.36, 1.0], [0.12, 0.12, 0.1], pink, [0.6, 0, 0]);
+    g.shape('sph6', [-1.12, 2.28, 1.11], [0.12, 0.12, 0.1], pink, [0.6, 0, 0]);
+    g.shape('cone', [-1.12, 2.22, 1.0], [0.16, 0.16, 0.08], pink, [PI + 0.6, 0, 0]);
+    const fairy = [pink, '#7df9ff', '#ffe14d', '#b47cff'];
+    for (let k = 0; k < 9; k++) g.shape('sph6', [-1.18, 1.72, -0.56 + k * 0.14], [0.045, 0.045, 0.045], fairy[k % 4]);
+    for (let k = 0; k < 9; k++) { const a = (k / 8) * PI; g.shape('sph6', [-1.3 - Math.cos(a) * 0.3, 1.6 + Math.sin(a) * 0.3, 0.63], [0.045, 0.045, 0.045], fairy[(k + 1) % 4]); }
+    for (let k = 0; k < 9; k++) { const a = (k / 8) * PI; g.shape('sph6', [-1.3 - Math.cos(a) * 0.3, 1.6 + Math.sin(a) * 0.3, -0.63], [0.045, 0.045, 0.045], fairy[(k + 2) % 4]); }
+    g.box([-1.21, 0.8, 0.45], [0.04, 0.1, 0.14], C.red);
+    g.box([-1.21, 0.8, -0.45], [0.04, 0.1, 0.14], C.red);
+    // the bicycle half
+    b.rod([-0.25, 0.62, -0.32], [0.3, 0.72, 0], 0.035, frame);
+    b.rod([-0.25, 0.62, 0.32], [0.3, 0.72, 0], 0.035, frame);
+    b.rod([0.3, 0.72, 0], [0.45, 0.45, 0], 0.04, frame);
+    b.rod([0.45, 0.45, 0], [0.22, 1.18, 0], 0.04, acc);
+    b.rod([0.22, 1.1, 0], [0.85, 1.2, 0], 0.04, acc);
+    b.rod([0.45, 0.45, 0], [0.85, 1.05, 0], 0.045, acc);
+    b.shape('cyl', [0.45, 0.45, 0.04], [0.13, 0.03, 0.13], C.chrome, [PI / 2, 0, 0]);
+    b.box([0.2, 1.22, 0], [0.32, 0.07, 0.2], C.black);
+    b.box([-0.1, 0.62, 0.09], [0.75, 0.04, 0.03], '#555');
+    // front wheel, fork, handlebar with pink grips and a bell (pivot at 0.95)
+    bikeWheel(f, 0, 0.42, 0, 0.42);
+    f.rod([0, 0.42, 0.06], [-0.1, 1.22, 0.06], 0.03, C.chrome);
+    f.rod([0, 0.42, -0.06], [-0.1, 1.22, -0.06], 0.03, C.chrome);
+    f.rod([-0.1, 1.2, 0], [-0.12, 1.34, 0], 0.035, C.chrome);
+    f.rod([-0.12, 1.34, -0.36], [-0.12, 1.34, 0.36], 0.03, C.black);
+    for (const s of [-1, 1]) f.shape('cyl', [-0.12, 1.34, 0.33 * s], [0.045, 0.12, 0.045], pink, [PI / 2, 0, 0]);
+    f.shape('sph', [-0.12, 1.39, 0.2], [0.06, 0.04, 0.06], '#ffd23f');
+    f.shape('cyl', [0.05, 1.08, 0], [0.09, 0.08, 0.09], C.light, [0, 0, PI / 2]);
+    // Jihye pedalling: white oversized hoodie with crimson sleeves (legs move in KartView)
+    b.box([0.34, 1.58, 0], [0.38, 0.62, 0.46], '#f7f4f0', [0, 0, -0.38]);
+    b.box([0.2, 1.88, 0], [0.12, 0.2, 0.36], '#f7f4f0', [0, 0, -0.38]);
+    b.box([0.34, 1.33, 0], [0.4, 0.08, 0.47], acc, [0, 0, -0.38]);
+    for (const s of [-1, 1]) {
+      limb(b, [0.42, 1.8, 0.25 * s], [0.83, 1.36, 0.32 * s], 0.075, acc);
+      b.shape('sph6', [0.85, 1.35, 0.32 * s], [0.06, 0.06, 0.06], '#f7d7bf');
+    }
+    return {
+      pivot: 0.95, head: [0.42, 2.32, 0], size: 1.15, exhaust: [-1.35, 0.75, 0], rear: [-0.75, 0.66], bike: false, flag: [-1.18, 1.68, -0.56],
+      crank: { x: 0.45, y: 0.45, r: 0.17, hip: [0.26, 1.24], z: 0.14, leg: '#232327', shoe: '#ffffff' },
+    };
+  },
 };
 
 const faceCache = {};
@@ -286,6 +362,22 @@ export class KartView {
       }
       this.gait = 0;
     }
+    // pedalling legs (the cycle-rickshaw)
+    this.pedals = [];
+    if (L.crank) {
+      const unit = new THREE.BoxGeometry(1, 1, 1);
+      const legMat = new THREE.MeshLambertMaterial({ color: L.crank.leg });
+      const shoeMat = new THREE.MeshLambertMaterial({ color: L.crank.shoe });
+      for (const s of [1, -1]) {
+        const leg = new THREE.Mesh(unit, legMat), shoe = new THREE.Mesh(unit, shoeMat);
+        leg.scale.set(0.15, 1, 0.15);
+        shoe.scale.set(0.26, 0.1, 0.13);
+        this.body.add(leg, shoe);
+        this.pedals.push({ s, leg, shoe });
+      }
+      this.crankA = 0;
+      this.updatePedals();
+    }
     // big face sticker
     this.head = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffffff, alphaTest: 0.5, transparent: false }));
     this.head.position.set(...L.head);
@@ -322,6 +414,19 @@ export class KartView {
     this.rocketMesh = null;
     this.stars = null;
     this.dizzyT = 0;
+  }
+
+  updatePedals() {
+    const c = this.L.crank;
+    for (const { s, leg, shoe } of this.pedals) {
+      const a = this.crankA + (s > 0 ? 0 : PI);
+      const px = c.x + Math.cos(a) * c.r, py = c.y + Math.sin(a) * c.r, z = c.z * s;
+      const dx = px - c.hip[0], dy = py - c.hip[1];
+      leg.position.set((px + c.hip[0]) / 2, (py + c.hip[1]) / 2, z);
+      leg.rotation.z = Math.atan2(-dx, dy);
+      leg.scale.y = Math.hypot(dx, dy);
+      shoe.position.set(px + 0.06, py, z);
+    }
   }
 
   // The nimbu-mirchi totem (lemon, seven chillies and a bit of charcoal on a thread).
@@ -394,6 +499,10 @@ export class KartView {
       const amp = Math.min(1, v / 6) * 0.65;
       for (const m of this.legs) m.rotation.z = Math.sin(this.gait + m.userData.ph) * amp;
       this.front.position.y = Math.abs(Math.sin(this.gait)) * 0.08 * Math.min(1, v / 6);
+    }
+    if (this.pedals.length && v > 0.3) {
+      this.crankA -= dt * Math.min(14, 2 + v * 0.5);
+      this.updatePedals();
     }
     this.flag.rotation.y = Math.sin(this.t * 9) * 0.25 + 0.15;
     this.head.position.y = L.head[1] + Math.sin(this.t * 7.3) * 0.04 * Math.min(1, v / 4);

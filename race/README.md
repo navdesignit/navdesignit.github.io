@@ -4,13 +4,16 @@ Kart racing through the streets of Indore with the Alquida gang. Make a room, se
 
 **Play:** https://navdesignit.github.io/race/
 
-- **2 to 5 riders online**, with 🤖 bots filling the rest of the gang, or practise alone against the bots.
+- **2 to 7 riders online**, with 🤖 bots filling the rest of the gang, or practise alone against the bots.
 - **The gang from [Alquida Landu](../ludo/)**, faces, names and trash talk straight from `ludo/js/characters.js`, each on their own ride:
   - 😎 **Ajay**: *Boss ki Bullet*. Dug-dug-dug. Fastest on the straights, heaviest in a bump.
   - 🧠 **Nav**: *Rocket Nano*, a Nano with a Diwali rocket on the roof. Drift sparks charge faster.
   - 🍛 **Chechu**: *Poha Express*, an auto-rickshaw with a poha stall on top. Mithai boxes sometimes give him two items.
   - ⚖️ **Vanshika**: *Advocate Scooter*. Quickest off the line; her nimbu-mirchi lasts longer.
   - 🎨 **Liu**: *Masterpiece Moped*, splashed with paint. Best steering, and the dusty shoulder barely slows her.
+- **Two friends ride with the gang too** (they're not in the Ludo game, so their faces, rides and lines are in `js/riders.js`):
+  - 🐎 **Lisa**, the Agnica partner from Kazakhstan: *Steppe Express*, an Indore tonga behind a horse from the steppe. Gallops straight over potholes.
+  - 🚲 **Jihye**, from Korea: *Ppali-Ppali Rickshaw*, a cycle-rickshaw with a secret battery, K-pop fairy lights, a lightstick and a jar of kimchi on the seat. Every boost lasts longer (ppali-ppali means hurry-hurry).
 - **Eight tracks, seven of them on real streets** (traced from OpenStreetMap, with the real buildings, side streets, gardens and landmarks):
   - 🛕 *Rajwada*: round the palace by Rajwada Square, MG Road, Jawahar Marg and Prince Yashwant Road, with the Krishnapura chhatris.
   - 🌙 *Sarafa Night Run*: the Sarafa lanes after midnight, fairy lights and jalebi stalls.

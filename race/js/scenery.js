@@ -1359,12 +1359,12 @@ function toppersTexture() {
   x.fillStyle = '#fff'; x.font = `34px ${FONT}`; x.textAlign = 'center'; x.fillText('TOPPER CLASSES', 256, 40);
   x.fillStyle = '#1b0f33'; x.font = `22px ${FONT}`; x.fillText('Hamare Toppers 2026 🏆', 256, 82);
   const tex = texture(c);
-  const list = [['nav', '99.9%'], ['vanshika', '98%'], ['liu', '97%'], ['lisa', '96%'], ['chechu', '61%'], ['ajay', '35% (grace)']];
+  const list = [['nav', '99.9%'], ['jihye', '99%'], ['vanshika', '98%'], ['liu', '97%'], ['lisa', '96%'], ['chechu', '61%'], ['ajay', '35% (grace)']];
   import('./riders.js').then(({ avatar }) => list.forEach(([id, pct], i) => {
     const img = new Image();
     img.onload = () => {
-      const cx = 46 + i * 84;
-      x.drawImage(img, cx - 36, 100, 72, 72);
+      const cx = 40 + i * 72;
+      x.drawImage(img, cx - 31, 104, 62, 62);
       x.fillStyle = '#c1121f'; x.font = `${pct.length > 5 ? 13 : 20}px ${FONT}`; x.fillText(pct, cx, 200);
       tex.needsUpdate = true;
     };

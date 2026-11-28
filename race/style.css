@@ -95,7 +95,7 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
 .parade { display: flex; justify-content: center; gap: 2px; margin-top: 18px; }
 .parade .pr { display: flex; flex-direction: column; align-items: center; animation: bob 1.2s ease-in-out infinite alternate; }
 .parade .pr:nth-child(2n) { animation-delay: -0.6s; }
-.parade .avatar { width: min(54px, 14vw); height: min(54px, 14vw); border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); }
+.parade .avatar { width: min(52px, 12.4vw); height: min(52px, 12.4vw); border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); }
 .parade .pr i { font-style: normal; font-size: 26px; margin-top: -10px; }
 @keyframes bob { to { transform: translateY(-5px); } }
 .stack { display: flex; flex-direction: column; gap: 12px; padding-bottom: 6px; }
@@ -254,7 +254,8 @@ body[data-screen='race'] #gl, body[data-screen='podium'] #gl { opacity: 1; }
   .h-pos b { font-size: 44px; }
   .h-pos sup { font-size: 18px; }
   .h-lap { top: calc(var(--safe-t) + 56px); }
-  .h-board { top: calc(var(--safe-t) + 86px); flex-direction: column; }
+  /* wraps into a second column rather than run into the joystick */
+  .h-board { top: calc(var(--safe-t) + 86px); flex-direction: column; flex-wrap: wrap; align-content: flex-start; column-gap: 8px; max-height: calc(100% - 236px - var(--safe-t) - var(--safe-b)); }
   .hb .avatar { width: 26px; height: 26px; }
   .hb.me .avatar { width: 32px; height: 32px; }
   .h-map { width: 92px; height: 92px; }

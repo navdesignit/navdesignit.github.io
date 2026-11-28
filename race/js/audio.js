@@ -94,6 +94,14 @@ const HORNS = {
   },
 };
 
+HORNS.rickshaw = v => {
+  // a cycle bell, tring-tring
+  for (const at of [0, 0.3]) for (let i = 0; i < 7; i++) {
+    tone(2350, 0.09, { vol: 0.07 * v, at: at + i * 0.028 });
+    tone(3290, 0.07, { vol: 0.035 * v, at: at + i * 0.028 });
+  }
+};
+
 const SOUNDS = {
   horn(veh = 'nano', v = 1) { (HORNS[veh] || HORNS.nano)(v); },
   // the horn item: a truck horn chord, PON PON
@@ -302,6 +310,8 @@ const ENGINES = {
   auto: { type: 'square', f0: 70, f1: 160, sub: 'square', lp: [900, 1700], am: [16, 34], depth: 0.5, vol: 0.13 },
   scooter: { type: 'sawtooth', f0: 95, f1: 250, sub: 'triangle', lp: [1200, 2600], am: [28, 40], depth: 0.2, vol: 0.12 },
   moped: { type: 'square', f0: 120, f1: 300, sub: 'sawtooth', lp: [1500, 3200], am: [35, 50], depth: 0.25, vol: 0.09 },
+  // Jihye's rickshaw: the secret battery's electric whine, with the chain ticking along
+  rickshaw: { type: 'sine', f0: 150, f1: 560, sub: 'triangle', lp: [1800, 4200], am: [5, 18], depth: 0.18, vol: 0.12 },
 };
 
 // Lisa's horse has no engine: hooves clip-clop faster as it speeds up, with bells.
